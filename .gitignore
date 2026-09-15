@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+
+# Node / Expo (구현 단계 대비)
+node_modules/
+.expo/
+dist/
+*.log
+.env
+.env.*
