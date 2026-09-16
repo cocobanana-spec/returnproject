@@ -1,65 +1,97 @@
 # 뿌린대로거두리라 — 1단계 데이터 모델
 
-> 작성일 2026-09-14 · 작성 product-planner · 검토·보완 cto-orchestrator · **2026-09-15 클라우드 확정에 따라 CTO가 개정**
-> 기준 — Supabase Postgres + RLS. 앱은 supabase-js로 테이블·뷰·RPC를 직접 호출하며 별도 API 서버는 없다. 금액은 integer(원). 모든 테이블은 UUID PK, `user_id`(소유 축), `created_at`/`updated_at`을 가진다. 기능 맥락은 docs/02.
+> 작성일 2026-09-14 · 작성 product-planner · 검토·보완 cto-orchestrator · 2026-09-15 클라우드 개정 · **2026-09-16 공동 장부 확정에 따라 소유 축을 장부(`ledger_id`)로 재설계**
+> 기준 — Supabase Postgres + RLS(확정). 앱은 supabase-js로 테이블·뷰·RPC를 직접 호출하며 별도 API 서버는 없다. 금액은 integer(원). 기능 맥락은 docs/02.
 
 ## ✅ CTO 결정 사항
 
-### 2026-09-15 개정 (저장 방식 로컬 → 클라우드)
+### 2026-09-16 개정 (공동 장부 — 소유 축 `user_id` → `ledger_id`)
 
 | # | 항목 | 결정 | 근거 |
 |---|---|---|---|
-| 7 | 소유 축 | 세 테이블 모두 `user_id uuid NOT NULL REFERENCES auth.users ON DELETE CASCADE`, 기본값 `auth.uid()` | RLS의 기준 컬럼. 계정 삭제 시 데이터가 함께 지워진다(App Store 계정 삭제 요건) |
-| 8 | 접근 제어 | 테이블마다 RLS 정책 4개(SELECT/INSERT/UPDATE/DELETE) 모두 `user_id = auth.uid()`. INSERT는 WITH CHECK, UPDATE는 USING과 WITH CHECK 둘 다 | UPDATE 정책이 빠지면 오류 없이 0건 처리된다(CTO 메모리 RLS 전례). 쓰기 정책 4개를 빠짐없이 둔다 |
-| 9 | **소프트 삭제 제거** | `deleted_at`·tombstone·부분 인덱스·1회 업로드 방침을 전부 삭제. 물리 삭제 + FK `ON DELETE` 규칙 | 소프트 삭제는 "로컬 데이터를 나중에 서버로 올릴 때 삭제를 보존"하려는 장치였다. 서버가 처음부터 SoT이면 존재 이유가 없고, 모든 쿼리에 `deleted_at IS NULL`을 붙이는 비용만 남는다 |
-| 10 | 이름 정규화 | `people.name_normalized`를 Postgres **generated column**으로 계산 | 앱이 계산해 보내던 값을 DB가 계산한다. 클라이언트 구현이 어긋날 여지가 없다 |
-| 11 | 집계 | 사람별 수지는 `security_invoker` 뷰 1개, 통계는 RPC 함수 1개 | 앱에서 조인·GROUP BY를 조립하지 않는다. 뷰·함수는 호출자 권한으로 실행돼 RLS가 그대로 적용된다 |
-| 12 | 삭제·병합 | `delete_person`·`merge_people` RPC 함수(security invoker) 2개로 원자적 처리 | 사람을 참조하는 축이 세 곳이라 클라이언트에서 순차 호출하면 중간 실패 시 반쪽 상태가 남는다 |
-| 13 | 오프라인 | 읽기는 캐시 표시, 쓰기는 온라인 필수. 큐·동기화 없음 | 코디네이터 지시(단순함). 자세한 방침은 §7 |
-| 14 | 가져오기 삭제 | JSON 내보내기만 남기고 가져오기·병합 규칙을 삭제 | 기기 변경은 로그인으로 해결된다. 가져오기의 유일한 용도였던 "기기 이전"이 사라졌다 |
+| 15 | 소유 축 | 데이터(people·events·entries)는 **장부(`ledgers`)** 에 속하고, 사용자는 **구성원(`ledger_members`)** 으로 장부에 속한다 | 부부가 한 장부를 함께 쓰려면 "행의 주인"이 사람이 아니라 장부여야 한다. 사용자 확인 질문 11번 "예"의 직접 결과 |
+| 16 | 역할 | `owner` / `member` 두 개. 차이는 **owner만 초대 코드 발급과 구성원 제거가 가능**하다는 것뿐. 데이터 읽기·쓰기는 동일 | 부부 장부에서 데이터 권한 차이는 의미가 없다. 초대·제거만 한 사람이 통제하면 충분하다 |
+| 17 | 초대 방식 | **초대 코드**(8자, 24시간, 1회용). owner가 발급해 카톡 등으로 전달, 상대가 앱에 입력 | 딥링크는 유니버설 링크 설정과 링크 도메인이, 전화번호 매칭은 전화번호 수집과 인증이, 이메일 초대는 발송 인프라가 필요하다. 코드 입력은 서버 함수 하나와 입력창 하나로 끝난다 |
+| 18 | 장부 생성 | 첫 로그인 시 `auth.users` INSERT 트리거가 개인 장부("내 장부")와 owner 구성원을 자동 생성. 앱에 "장부 만들기" 기능은 두지 않는다 | 클라이언트 코드 없이 모든 사용자가 장부 1개를 보장받는다. 추가 장부가 필요하다는 근거가 없다 |
+| 19 | 여러 장부 | 한 사용자가 여러 장부의 구성원일 수 있다(합류 전 개인 장부에 기록이 있던 경우). 앱은 "현재 장부" 1개를 선택해 보여 주고 더보기 → 장부에서 전환한다 | 합류 시 기존 기록을 강제로 합치거나 버리게 하는 것보다 단순하다. 장부 합치기는 이후 후보 |
+| 20 | 빈 개인 장부 정리 | `join_ledger`가 합류 성공 시 호출자가 **유일한 구성원이고 데이터가 0건인** 장부를 삭제한다 | 배우자가 설치 → 자동 생성된 빈 장부 → 코드 입력 → 합류가 주 흐름이다. 빈 장부가 남으면 전환 목록에 쓸모없는 항목이 생긴다 |
+| 21 | 계정 삭제 | `prepare_account_deletion()`이 구성원인 장부마다 "혼자면 장부와 데이터 삭제, 아니면 구성원만 제거(owner였으면 가장 먼저 합류한 구성원에게 승계)"를 수행한 뒤 Edge Function이 사용자를 삭제 | 코디네이터 지시 그대로. 배우자가 남아 있는 장부의 데이터는 그대로 남는다 |
+| 22 | 입력자 기록 | `entries.created_by`(nullable, 기본값 `auth.uid()`)만 둔다. people·events에는 두지 않는다 | 공동 장부에서 "이 기록 누가 넣었지"는 실제로 묻게 되는 질문이다. 사람·행사는 공유 자산이라 입력자가 의미 없다 |
+| 23 | 구성원 표시 이름 | `ledger_members.display_name`을 합류 시점에 `auth.users` 메타데이터에서 복사 | `auth.users`는 클라이언트가 읽을 수 없다. 구성원 목록 표시를 위해 `profiles` 테이블을 만드는 것보다 컬럼 하나가 싸다 |
+| 24 | 구성원 변경은 RPC만 | `ledger_members`에 클라이언트 INSERT/UPDATE/DELETE 정책을 두지 않는다. 합류·탈퇴·제거는 SECURITY DEFINER 함수가 검사 후 수행 | "마지막 구성원은 나갈 수 없다", "owner 승계" 같은 규칙을 정책식으로 쓰면 읽기 어렵다. 함수 안의 IF문이 명확하다 |
+
+### 2026-09-15 결정 (유지)
+
+| # | 항목 | 결정 |
+|---|---|---|
+| 8 | 접근 제어 | 테이블마다 RLS 정책 4개(SELECT/INSERT/UPDATE/DELETE). 조건은 이제 `is_ledger_member(ledger_id)`. UPDATE는 USING과 WITH CHECK 둘 다 |
+| 9 | 물리 삭제 | 소프트 삭제 없음. FK `ON DELETE` 규칙 |
+| 10 | 이름 정규화 | `people.name_normalized` generated column |
+| 11 | 집계 | 뷰 `person_balances` + RPC `event_summary`·`stats_by_year` (security invoker) |
+| 12 | 삭제·병합 | RPC `delete_person`·`merge_people` (security invoker) |
+| 13 | 오프라인 | 읽기 캐시, 쓰기 온라인 필수, 큐 없음 (§7) |
+| 14 | 가져오기 없음 | JSON 내보내기만 |
 
 ### 2026-09-14 결정 (유지)
 
-| # | 항목 | 결정 | 근거 |
-|---|---|---|---|
-| 1 | 공동 부조 컬럼 | `entries.co_person_id` 단일 nullable FK | 조인 테이블은 원장 조회마다 EXISTS가 붙는다. 3명 이상 봉투는 드물다 |
-| 2 | 미확정 금액 | `entries.amount integer NULL` | NULL은 SUM에서 자동 제외돼 집계가 단순하다. 0원(부조 없음)과 의미가 분리된다 |
-| 5 | `entries.direction` 없음 | 방향은 `events.is_mine`에서 파생 | 100% 파생되는 값을 컬럼으로 두면 행사 토글·기록 이동 시 조용히 어긋난다 |
-| 6 | `events.host_person_id` | 남의 행사의 당사자 FK. 내 행사는 NULL | 미리 등록한 예정 행사(기록 0건)가 "기존 행사에 추가?" 판정에 잡혀야 한다 |
+| # | 항목 | 결정 |
+|---|---|---|
+| 1 | 공동 부조 | `entries.co_person_id` 단일 nullable FK. **장부 공유와는 다른 개념**이다(§4) |
+| 2 | 미확정 금액 | `entries.amount integer NULL` |
+| 5 | `entries.direction` 없음 | 방향은 `events.is_mine`에서 파생 |
+| 6 | `events.host_person_id` | 남의 행사의 당사자 FK |
 
-(3 tombstone 포함 내보내기, 4 앱 측 정규화 컬럼은 개정으로 폐기)
+**금액 단위 규칙(구현 필수 조건)** — 앱 내부·DB·JSON의 금액 표현은 언제나 **원 단위 정수** 하나뿐이다. "10만" 프리셋과 만원 단위 토글의 ×10,000 변환은 입력 컴포넌트 안에서만 수행한다.
 
-**금액 단위 규칙(구현 필수 조건)** — 앱 내부·DB·JSON의 금액 표현은 언제나 **원 단위 정수** 하나뿐이다. 금액 프리셋 "10만"과 키패드의 "만원 단위 토글"은 입력 컴포넌트 안에서만 ×10,000 변환을 수행하고, 도메인 함수·쿼리·RPC는 원 단위 값만 주고받는다.
+**장부 필터 규칙(구현 필수 조건)** — RLS는 "내가 구성원인 모든 장부"를 허용하므로, 앱의 모든 조회는 반드시 `ledger_id = 현재 장부`를 조건으로 붙여야 한다. 리포지토리 함수는 `ledgerId`를 필수 인자로 받고, 인자 없는 조회 함수를 만들지 않는다. 이 필터가 빠지면 두 장부의 데이터가 섞여 보인다.
 
 ## 1. 엔티티와 ERD
 
 | 엔티티 | 역할 | 비고 |
 |---|---|---|
-| `auth.users` | Supabase Auth 사용자. 앱 테이블이 아니다 | 모든 행의 소유자. 계정 삭제 시 CASCADE |
-| `people` | 나와 경조사를 주고받는 상대. 개인 또는 단체 | 원장의 축. 이름 UNIQUE 없음 |
-| `events` | 경조사 행사 1건. 남의 행사(`is_mine = false`, 당사자 `host_person_id`)와 내 행사(`is_mine = true`) | `is_mine`은 "나 또는 우리 가족이 주최한 행사". 2단계 청첩장은 `is_mine = true`에만 붙는다 |
-| `entries` | 기록 1건. 어떤 행사에서 어떤 사람과 얼마를 주고받았는가 | 방향은 `events.is_mine`에서 파생 |
-
-앱 테이블은 세 개로 끝난다. 앱 설정(앱 잠금 여부 등 기기 종속 값)은 AsyncStorage, 사용자 설정이 필요해지면 `profiles` 테이블을 그때 만든다. 관계 그룹·행사 종류·부조 형태는 코드 상수(CHECK 제약)이며 테이블로 만들지 않는다.
+| `auth.users` | Supabase Auth 사용자. 앱 테이블이 아니다 | 클라이언트가 읽을 수 없다 |
+| `ledgers` | 장부 1권. 데이터의 소유 단위 | 첫 로그인 시 자동 생성. 초대 코드를 가진다 |
+| `ledger_members` | 장부와 사용자의 소속 관계 + 역할 | PK (ledger_id, user_id). 표시 이름 보관 |
+| `people` | 장부 안에서 경조사를 주고받는 상대 | 원장의 축. 이름 UNIQUE 없음 |
+| `events` | 경조사 행사 1건 | `is_mine`은 "우리 장부(우리 집)가 주최한 행사" |
+| `entries` | 기록 1건 | 방향은 `events.is_mine`에서 파생. `created_by`로 입력자 보관 |
 
 ```mermaid
 erDiagram
-    auth_users ||--o{ people : "user_id"
-    auth_users ||--o{ events : "user_id"
-    auth_users ||--o{ entries : "user_id"
+    auth_users ||--o{ ledger_members : "user_id"
+    ledgers ||--o{ ledger_members : "ledger_id"
+    ledgers ||--o{ people : "ledger_id"
+    ledgers ||--o{ events : "ledger_id"
+    ledgers ||--o{ entries : "ledger_id"
     people ||--o{ entries : "person_id (대표자)"
     people ||--o{ entries : "co_person_id (공동 부조자, nullable)"
     people ||--o{ events : "host_person_id (남의 행사 당사자, nullable)"
     events ||--o{ entries : "event_id"
+    auth_users ||--o{ entries : "created_by (nullable)"
 
+    ledgers {
+        uuid id PK
+        text name
+        text invite_code "UNIQUE, NULL이면 없음"
+        timestamptz invite_code_expires_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    ledger_members {
+        uuid ledger_id PK_FK
+        uuid user_id PK_FK
+        text role "owner | member"
+        text display_name
+        timestamptz created_at
+    }
     people {
         uuid id PK
-        uuid user_id FK
+        uuid ledger_id FK
         text name
         text name_normalized "generated"
         text kind "person | group"
         text relation_group
-        text label "동명이인 구분 라벨"
+        text label
         text phone
         text memo
         timestamptz created_at
@@ -67,10 +99,10 @@ erDiagram
     }
     events {
         uuid id PK
-        uuid user_id FK
-        text type "wedding | first_birthday | funeral | senior_birthday | opening | other"
+        uuid ledger_id FK
+        text type
         boolean is_mine
-        uuid host_person_id FK "남의 행사 당사자, 내 행사는 NULL"
+        uuid host_person_id FK
         text title
         date date
         text date_precision "day | month | year"
@@ -83,15 +115,16 @@ erDiagram
     }
     entries {
         uuid id PK
-        uuid user_id FK
+        uuid ledger_id FK
         uuid event_id FK
         uuid person_id FK
         uuid co_person_id FK "nullable"
+        uuid created_by FK "nullable"
         integer amount "원, NULL = 미확정"
         text method "cash | transfer | wreath | gift | none"
-        boolean attended "NULL = 미기록"
+        boolean attended
         text side "NULL | a | b"
-        timestamptz returned_at "답례 완료 시각"
+        timestamptz returned_at
         text return_memo
         text memo
         timestamptz created_at
@@ -101,230 +134,224 @@ erDiagram
 
 ## 2. 테이블별 컬럼 명세
 
-공통 컬럼(세 테이블 모두)은 다음과 같다.
+### 2.1 `ledgers`
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| `id` | uuid | PK, DEFAULT `gen_random_uuid()` | 앱이 생성해 보내도 되고(낙관적 UI용) 비워 두면 DB가 만든다 |
-| `user_id` | uuid | NOT NULL, FK → auth.users ON DELETE CASCADE, DEFAULT `auth.uid()` | 소유자. 앱은 이 값을 보내지 않는다(기본값과 RLS가 채우고 검사한다) |
+| `id` | uuid | PK, DEFAULT `gen_random_uuid()` | |
+| `name` | text | NOT NULL, CHECK 길이 1~30, DEFAULT '내 장부' | 구성원 누구나 수정 가능(컬럼 단위 UPDATE 권한) |
+| `invite_code` | text | NULL, UNIQUE | 8자, 혼동 문자(0/O/1/I) 제외 대문자·숫자. NULL이면 진행 중인 초대 없음 |
+| `invite_code_expires_at` | timestamptz | NULL | 발급 후 24시간 |
+| `created_at`, `updated_at` | timestamptz | NOT NULL | |
+
+### 2.2 `ledger_members`
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| `ledger_id` | uuid | PK 일부, FK → ledgers ON DELETE CASCADE | |
+| `user_id` | uuid | PK 일부, FK → auth.users ON DELETE CASCADE | |
+| `role` | text | NOT NULL, CHECK IN ('owner','member') | 장부당 owner는 정확히 1명(함수가 유지) |
+| `display_name` | text | NOT NULL | 합류 시점에 `auth.users.raw_user_meta_data`의 name/full_name/nickname, 없으면 이메일 앞부분, 그것도 없으면 '구성원'. 이후 갱신하지 않는다 |
+| `created_at` | timestamptz | NOT NULL | 합류 시각. owner 승계 순서의 기준 |
+
+### 2.3 `people` · `events` · `entries` 공통
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| `id` | uuid | PK, DEFAULT `gen_random_uuid()` | |
+| `ledger_id` | uuid | NOT NULL, FK → ledgers ON DELETE CASCADE | **소유 축.** 앱이 현재 장부 id를 명시적으로 보낸다(기본값 없음). RLS가 구성원 여부를 검사 |
 | `created_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
-| `updated_at` | timestamptz | NOT NULL, DEFAULT `now()` | 트리거 `set_updated_at`로 모든 UPDATE에서 갱신 |
+| `updated_at` | timestamptz | NOT NULL, DEFAULT `now()` | 트리거로 갱신 |
 
-### 2.1 `people`
+`people`·`events`의 나머지 컬럼은 2026-09-15 개정과 같다(이름·정규화·종류·관계 그룹·라벨·전화·메모 / 종류·`is_mine`·`host_person_id`·제목·날짜·정밀도·장소·측 라벨·메모). CHECK 제약도 동일하다. §8 DDL이 정본이다.
 
-| 컬럼 | 타입 | 제약 | 설명 |
-|---|---|---|---|
-| `name` | text | NOT NULL, CHECK 길이 1~50 | 표시 이름. 앱이 앞뒤 공백 제거 후 저장 |
-| `name_normalized` | text | GENERATED ALWAYS AS (`lower(regexp_replace(normalize(name, NFC), '\s', '', 'g'))`) STORED | 검색·자동완성용. DB가 계산한다 |
-| `kind` | text | NOT NULL, CHECK IN ('person','group'), DEFAULT 'person' | 개인/단체. 단체는 전화 필드를 UI에서 숨긴다 |
-| `relation_group` | text | NOT NULL, CHECK IN ('family','relative','work','friend','acquaintance','other'), DEFAULT 'other' | 관계 그룹 6개 고정 |
-| `label` | text | NULL, CHECK 길이 ≤ 30 | 동명이인 구분 라벨. 예 "회사 동기" |
-| `phone` | text | NULL | 숫자·하이픈만. 형식 강제 없음 |
-| `memo` | text | NULL, CHECK 길이 ≤ 500 | |
-
-초안의 `contact_id`(기기 연락처 식별자)는 두지 않는다. 기기 종속 값을 서버에 두면 기기를 바꿀 때 의미가 없어진다. 연락처 피커는 이름·전화만 채운다.
-
-### 2.2 `events`
+### 2.4 `entries` 추가 컬럼
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| `type` | text | NOT NULL, CHECK IN ('wedding','first_birthday','funeral','senior_birthday','opening','other') | 결혼식·돌잔치·장례식·회갑/칠순·개업·기타 |
-| `is_mine` | boolean | NOT NULL, DEFAULT false | true면 내 행사(받은돈). **기록이 1건이라도 있으면 변경 불가**(트리거 `events_lock_is_mine`) |
-| `host_person_id` | uuid | NULL, FK → people ON DELETE SET NULL, CHECK (`is_mine` OR `host_person_id` IS NOT NULL) | 남의 행사의 당사자. 남의 행사는 필수, 내 행사는 NULL |
-| `title` | text | NOT NULL, CHECK 길이 1~80 | 자동 생성 규칙은 남의 행사 "{당사자 이름} {종류 한글} {연도}", 내 행사 "내 {종류 한글}". 수정 가능 |
-| `date` | date | NOT NULL | 정밀도가 month면 일을 01로, year면 월·일을 01-01로 채운다 |
-| `date_precision` | text | NOT NULL, CHECK IN ('day','month','year'), DEFAULT 'day' | 표시·필터 시 참조 |
-| `place` | text | NULL, CHECK 길이 ≤ 100 | |
-| `side_a_label` | text | NULL, CHECK 길이 ≤ 20 | 내 행사의 측 A(예 "신랑측"). CHECK (`is_mine` OR `side_a_label` IS NULL) |
-| `side_b_label` | text | NULL, CHECK 길이 ≤ 20 | CHECK (`side_b_label` IS NULL OR `side_a_label` IS NOT NULL) |
-| `memo` | text | NULL, CHECK 길이 ≤ 500 | |
-
-### 2.3 `entries`
-
-| 컬럼 | 타입 | 제약 | 설명 |
-|---|---|---|---|
-| `event_id` | uuid | NOT NULL, FK → events ON DELETE CASCADE | 행사 삭제 시 기록 동반 삭제(docs/02 §5) |
-| `person_id` | uuid | NOT NULL, FK → people ON DELETE CASCADE | 대표자(돈의 주인). 사람 삭제 시 기록 동반 삭제 |
-| `co_person_id` | uuid | NULL, FK → people ON DELETE SET NULL, CHECK (`co_person_id` <> `person_id`) | 공동 부조자. 그 사람이 삭제되면 비워진다 |
-| `amount` | integer | NULL, CHECK (`amount` >= 0) | 원 단위 정수. NULL = 미확정. 0 = 부조 없음 |
-| `method` | text | NOT NULL, CHECK IN ('cash','transfer','wreath','gift','none'), DEFAULT 'cash' | |
-| `attended` | boolean | NULL | 참석 여부. NULL = 미기록 |
-| `side` | text | NULL, CHECK IN ('a','b') | 내 행사의 측 |
-| `returned_at` | timestamptz | NULL | 답례 완료 시각. 내 행사 기록에서만 의미 있음 |
-| `return_memo` | text | NULL, CHECK 길이 ≤ 200 | |
-| `memo` | text | NULL, CHECK 길이 ≤ 500 | 대리 부조("김철수 편에 전달")는 여기 |
-
-기록에는 날짜도 방향도 없다. 날짜는 `events.date`, 방향은 `events.is_mine`이다. 기록과 행사·사람의 `user_id`가 같아야 한다는 것은 RLS가 보장한다(다른 사용자의 행사 id를 넣어도 FK 대상 행이 RLS에 가려져 INSERT가 실패한다).
+| `created_by` | uuid | NULL, FK → auth.users ON DELETE SET NULL, DEFAULT `auth.uid()` | 입력자. 앱은 이 값을 보내지도 수정하지도 않는다. 입력자가 탈퇴하면 NULL. 표시는 `ledger_members.display_name`과 조인(같은 장부 구성원일 때만 이름이 보이고, 나간 구성원은 "이전 구성원") |
 
 ## 3. 정체성 축 — UNIQUE 제약과 인덱스
 
 | 테이블 | 제약/인덱스 | 목적 |
 |---|---|---|
-| `people` | PK `id` | 사람의 정체성은 UUID뿐 |
-| `people` | **UNIQUE 없음 on `name`** (의도적) | 동명이인 허용. 구별은 `label`·`relation_group`·이력으로 사용자가 한다 |
-| `people` | INDEX `(user_id, name_normalized text_pattern_ops)` | 자동완성 prefix 검색 |
-| `events` | INDEX `(user_id, date DESC)` | 행사 목록·다가오는 행사·기간 통계 |
-| `events` | INDEX `(user_id, host_person_id)` | "기존 행사에 추가?" 판정, 사람의 행사 목록 |
-| `entries` | INDEX `(user_id, person_id)`, `(user_id, co_person_id)`, `(user_id, event_id)`, `(user_id, created_at DESC)` | 원장·행사 상세·최근 기록 |
+| `ledgers` | UNIQUE `invite_code` | 코드로 장부를 찾는다 |
+| `ledger_members` | PK `(ledger_id, user_id)` | 한 사용자는 한 장부에 한 번만 |
+| `ledger_members` | INDEX `(user_id)` | 내 장부 목록, `is_ledger_member` 검사 |
+| `people` | **UNIQUE 없음 on `name`** (의도적) | 동명이인 허용. 두 구성원이 같은 사람을 각자 등록한 중복도 같은 방식(경고 + 병합)으로 처리 |
+| `people` | INDEX `(ledger_id, name_normalized text_pattern_ops)` | 자동완성 |
+| `events` | INDEX `(ledger_id, date DESC)`, `(ledger_id, host_person_id)` | 목록·판정 |
+| `entries` | INDEX `(ledger_id, person_id)`, `(ledger_id, co_person_id)`, `(ledger_id, event_id)`, `(ledger_id, created_at DESC)` | 원장·행사·최근 기록 |
 
-모든 인덱스는 `user_id`를 선두 컬럼으로 둔다. RLS가 모든 쿼리에 `user_id = auth.uid()`를 붙이기 때문이다.
+모든 데이터 인덱스는 `ledger_id`를 선두 컬럼으로 둔다. 사람을 참조하는 축은 세 곳(`entries.person_id`, `entries.co_person_id`, `events.host_person_id`)이며 §6의 RPC가 함께 다룬다.
 
-사람을 참조하는 축은 세 곳(`entries.person_id`, `entries.co_person_id`, `events.host_person_id`)이다. 병합·삭제는 §6의 RPC 두 개가 세 곳을 함께 다룬다.
+## 4. 개념 구분 — "공동 부조"와 "공동 장부"
 
-## 4. 접근 제어(RLS)
+| | 공동 부조 (`entries.co_person_id`) | 공동 장부 (`ledger_members`) |
+|---|---|---|
+| 누구 이야기인가 | **상대방** 부부. "김철수·이영희"가 봉투 하나에 10만원 | **우리** 부부. 남편과 아내가 같은 장부를 함께 기록·조회 |
+| 데이터 위치 | 기록 1행의 컬럼 | 장부와 사용자의 소속 관계 |
+| 수지에 미치는 영향 | 김철수·이영희 두 사람의 원장에 전액 표시 | 없음. 누가 입력했든 "우리 집이 준/받은 돈" |
+| 서로 독립인가 | 그렇다. 공동 장부에서 공동 부조를 기록할 수 있고, 개인 장부에서도 기록할 수 있다 | |
 
-세 테이블 모두 `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` 후 다음 네 정책을 동일하게 둔다.
+공동 장부에서 `is_mine`은 "우리 집이 주최한 행사", 준돈은 "우리 집이 낸 돈"이다. 남편이 낸 돈과 아내가 낸 돈을 구분하는 축은 없다. 구분이 필요하면 `created_by`(입력자)와 메모로 남기되, 통계 축으로 쓰지 않는다.
 
-```sql
-CREATE POLICY people_select ON people FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY people_insert ON people FOR INSERT WITH CHECK (user_id = auth.uid());
-CREATE POLICY people_update ON people FOR UPDATE USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
-CREATE POLICY people_delete ON people FOR DELETE USING (user_id = auth.uid());
--- events, entries 동일
-```
+수지 계산 규칙은 2026-09-15와 같다. 사람 P의 준 합계는 `events.is_mine = false`인 기록 중 `person_id = P OR co_person_id = P`의 `SUM(amount)`, 받은 합계는 `is_mine = true`, 차액은 준 − 받은.
 
-- `anon` 역할에는 아무 권한도 주지 않는다. 1단계에는 공개 데이터가 없다.
-- 뷰(§5.1)는 `WITH (security_invoker = true)`, RPC 함수(§5.4, §6)는 `SECURITY INVOKER`(기본값)로 만들어 호출자의 RLS를 그대로 탄다. `SECURITY DEFINER`는 쓰지 않는다.
-- 계정 삭제는 Edge Function `delete-account` 1개가 service role로 `auth.admin.deleteUser`를 호출하고, 앱 데이터는 FK CASCADE로 함께 지워진다. 앱은 이 함수 외에 service role을 절대 쓰지 않는다.
+## 5. 접근 제어(RLS)
 
-## 5. 핵심 조회
-
-앱은 supabase-js로 아래를 호출한다. 조인·GROUP BY가 필요한 조회는 뷰와 RPC로 서버에 둔다.
-
-### 5.1 뷰 `person_balances` — 사람 목록·원장 상단 카드
+### 5.1 헬퍼 함수
 
 ```sql
-CREATE VIEW person_balances WITH (security_invoker = true) AS
-SELECT
-  p.id, p.user_id, p.name, p.label, p.relation_group, p.kind,
-  COALESCE(SUM(en.amount) FILTER (WHERE NOT e.is_mine), 0)  AS given_total,
-  COALESCE(SUM(en.amount) FILTER (WHERE e.is_mine), 0)      AS received_total,
-  COALESCE(SUM(en.amount) FILTER (WHERE NOT e.is_mine), 0)
-    - COALESCE(SUM(en.amount) FILTER (WHERE e.is_mine), 0)  AS balance,
-  COUNT(en.id) FILTER (WHERE NOT e.is_mine AND en.amount IS NULL) AS given_unconfirmed,
-  COUNT(en.id) FILTER (WHERE e.is_mine AND en.amount IS NULL)     AS received_unconfirmed,
-  COUNT(en.id)          AS entry_count,
-  MAX(en.created_at)    AS last_entry_at
-FROM people p
-LEFT JOIN entries en ON en.person_id = p.id OR en.co_person_id = p.id
-LEFT JOIN events  e  ON e.id = en.event_id
-GROUP BY p.id;
+-- 호출자가 장부 l의 구성원인가. ledger_members 정책 안에서 자기 자신을 참조하는 재귀를 피하기 위해 SECURITY DEFINER
+CREATE FUNCTION is_ledger_member(l uuid) RETURNS boolean
+LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM ledger_members WHERE ledger_id = l AND user_id = auth.uid())
+$$;
+
+CREATE FUNCTION is_ledger_owner(l uuid) RETURNS boolean
+LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM ledger_members WHERE ledger_id = l AND user_id = auth.uid() AND role = 'owner')
+$$;
 ```
 
-공동 부조는 `person_id OR co_person_id`로 두 사람 모두에 전액 잡힌다(docs/02 §5). `balance`가 양수면 "내가 더 줌".
+### 5.2 정책
 
-### 5.2 원장 목록(사람 상세)
+| 테이블 | SELECT | INSERT | UPDATE | DELETE |
+|---|---|---|---|---|
+| `ledgers` | `is_ledger_member(id)` | 없음(트리거가 생성) | `is_ledger_member(id)` — 단 `GRANT UPDATE (name)`으로 **이름 컬럼만** 허용. 초대 코드는 RPC만 | 없음(마지막 구성원 제거 시 함수가 삭제) |
+| `ledger_members` | `is_ledger_member(ledger_id)` | 없음 | 없음 | 없음 — 합류·탈퇴·제거·승계는 §6 RPC |
+| `people` · `events` · `entries` | `is_ledger_member(ledger_id)` | WITH CHECK `is_ledger_member(ledger_id)` | USING + WITH CHECK `is_ledger_member(ledger_id)` | `is_ledger_member(ledger_id)` |
 
-```
-entries?select=*,event:events(title,type,is_mine,date,date_precision),co_person:people!co_person_id(name)
-        &or=(person_id.eq.{id},co_person_id.eq.{id})
-        &order=event(date).desc,created_at.desc
-```
+- `anon` 역할에는 아무 권한도 주지 않는다.
+- 뷰·집계 RPC·`delete_person`·`merge_people`은 SECURITY INVOKER라 위 정책을 그대로 탄다. 구성원 관리 RPC(§6.2)만 SECURITY DEFINER이며 함수 안에서 owner·구성원 여부를 명시적으로 검사한다.
+- UPDATE 정책이 RLS에 걸리면 오류 없이 0건 처리된다. 병합 후 `entry_count` 검증(§6.1)을 유지한다.
 
-`co_person_id = {id}`인 행은 "공동" 배지. 방향은 `event.is_mine`.
+## 6. RPC
 
-### 5.3 행사별 합계(행사 상세 상단)
+### 6.1 데이터(SECURITY INVOKER, 2026-09-15와 동일하되 장부 축)
+
+- `event_summary(p_event_id uuid)` — 행사 상세 집계. 변경 없음.
+- `stats_by_year(p_ledger_id uuid, p_year int)` — 통계. `WHERE en.ledger_id = p_ledger_id` 추가.
+- `delete_person(p_id uuid)` — 삭제 전에 `ledger_id`를 읽어 두고, 삭제 후 그 장부의 "당사자 NULL이고 기록 0건인 남의 행사"를 지운다.
+- `merge_people(p_victim uuid, p_survivor uuid)` — 두 사람이 **같은 장부**인지 먼저 검사(`RAISE 'different_ledger'`). 나머지는 동일.
+
+### 6.2 장부·구성원(SECURITY DEFINER, 명시적 검사)
 
 ```sql
--- RPC: event_summary(p_event_id uuid)
-SELECT side, method,
-       COUNT(*) AS cnt, SUM(amount) AS total,
-       COUNT(*) FILTER (WHERE amount IS NULL)         AS unconfirmed,
-       COUNT(*) FILTER (WHERE returned_at IS NOT NULL) AS returned
-FROM entries
-WHERE event_id = p_event_id
-GROUP BY side, method;
-```
-
-앱은 결과를 메모리에서 전체·측별·형태별로 접는다.
-
-### 5.4 RPC `stats_by_year(p_year int)` — 통계 화면
-
-```sql
-SELECT extract(year FROM e.date)::int AS year,
-       e.is_mine, e.type, p.relation_group,
-       COUNT(*) AS cnt, SUM(en.amount) AS total
-FROM entries en
-JOIN events e ON e.id = en.event_id
-JOIN people p ON p.id = en.person_id
-WHERE p_year IS NULL OR extract(year FROM e.date) = p_year
-GROUP BY 1, 2, 3, 4;
-```
-
-관계 그룹은 대표자(`person_id`) 기준으로 한 번만 센다. 연도는 `date_precision`과 무관하게 `date`의 연도로 묶으므로 "연도만 아는 기록"도 포함된다. 사람별 상위 10은 `person_balances`를 `balance` 정렬로 두 번 조회한다.
-
-### 5.5 이름 자동완성
-
-```
-person_balances?select=id,name,label,relation_group,kind,last_entry_at
-               &name_normalized=like.{prefix}*
-               &order=last_entry_at.desc.nullslast,name_normalized&limit=8
-```
-
-`{prefix}`는 앱이 DB와 같은 규칙(NFC·공백 제거·소문자)으로 정규화한다. 뷰에 `name_normalized`를 포함시킨다. 입력이 비어 있을 때의 "최근 사람 5명"은 `entries`를 `created_at DESC`로 읽어 `person_id`를 DISTINCT로 5개 뽑는다. 초성 검색은 1단계 범위 밖이다.
-
-### 5.6 최근 기록(홈)
-
-```
-entries?select=id,amount,method,side,person:people!person_id(name),co_person:people!co_person_id(name),event:events(title,type,is_mine,date,date_precision)
-        &order=created_at.desc&limit=10
-```
-
-### 5.7 빠른 기록 저장 시 "기존 행사에 추가?" 판정
-
-```
-events?select=id,title,date
-      &is_mine=eq.false&host_person_id=eq.{person_id}&type=eq.{type}
-      &date=gte.{date-7d}&date=lte.{date+7d}
-      &order=date&limit=3
-```
-
-앱이 날짜 차이가 가장 작은 행을 고른다. `host_person_id`로 판정하므로 미리 등록한 예정 행사(기록 0건)도 잡힌다.
-
-## 6. 삭제·병합 RPC
-
-```sql
--- 사람 삭제. entries.person_id는 CASCADE, co_person_id·host_person_id는 SET NULL이 처리한다.
--- 그 사람이 당사자였고 기록이 없어진 남의 행사만 추가로 지운다.
-CREATE FUNCTION delete_person(p_id uuid) RETURNS void LANGUAGE plpgsql AS $$
+-- 첫 로그인: 개인 장부 + owner 구성원 자동 생성
+CREATE FUNCTION handle_new_user() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE l uuid;
 BEGIN
-  DELETE FROM people WHERE id = p_id;           -- RLS: 내 것만 지워진다
-  DELETE FROM events e
-   WHERE e.user_id = auth.uid() AND NOT e.is_mine AND e.host_person_id IS NULL
-     AND NOT EXISTS (SELECT 1 FROM entries en WHERE en.event_id = e.id);
+  INSERT INTO ledgers DEFAULT VALUES RETURNING id INTO l;
+  INSERT INTO ledger_members (ledger_id, user_id, role, display_name)
+  VALUES (l, NEW.id, 'owner', display_name_of(NEW));
+  RETURN NEW;
+END $$;
+CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- 초대 코드 발급(owner만). 이전 코드는 무효가 된다
+CREATE FUNCTION create_invite_code(p_ledger_id uuid) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE code text;
+BEGIN
+  IF NOT is_ledger_owner(p_ledger_id) THEN RAISE EXCEPTION 'not_owner'; END IF;
+  code := random_invite_code();   -- 8자, 0/O/1/I 제외, UNIQUE 충돌 시 재생성
+  UPDATE ledgers SET invite_code = code, invite_code_expires_at = now() + interval '24 hours'
+   WHERE id = p_ledger_id;
+  RETURN code;
 END $$;
 
--- 사람 병합. victim의 세 참조 축을 survivor로 옮기고 victim을 지운다.
-CREATE FUNCTION merge_people(p_victim uuid, p_survivor uuid) RETURNS void LANGUAGE plpgsql AS $$
+-- 코드로 합류. 1회용. 합류 후 호출자의 빈 개인 장부를 정리
+CREATE FUNCTION join_ledger(p_code text) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE l uuid;
 BEGIN
-  IF EXISTS (SELECT 1 FROM entries
-              WHERE (person_id = p_victim AND co_person_id = p_survivor)
-                 OR (person_id = p_survivor AND co_person_id = p_victim)) THEN
-    RAISE EXCEPTION 'merge_would_self_reference';   -- 부부를 하나로 합치려는 경우
+  SELECT id INTO l FROM ledgers
+   WHERE invite_code = upper(trim(p_code)) AND invite_code_expires_at > now();
+  IF l IS NULL THEN RAISE EXCEPTION 'invalid_or_expired_code'; END IF;
+  INSERT INTO ledger_members (ledger_id, user_id, role, display_name)
+  VALUES (l, auth.uid(), 'member', display_name_of_current_user())
+  ON CONFLICT DO NOTHING;                       -- 이미 구성원이면 그대로
+  UPDATE ledgers SET invite_code = NULL, invite_code_expires_at = NULL WHERE id = l;
+  -- 호출자가 유일한 구성원이고 데이터가 0건인 장부(자동 생성된 빈 개인 장부) 삭제
+  DELETE FROM ledgers x
+   WHERE x.id <> l
+     AND (SELECT count(*) FROM ledger_members m WHERE m.ledger_id = x.id) = 1
+     AND EXISTS (SELECT 1 FROM ledger_members m WHERE m.ledger_id = x.id AND m.user_id = auth.uid())
+     AND NOT EXISTS (SELECT 1 FROM people  WHERE ledger_id = x.id)
+     AND NOT EXISTS (SELECT 1 FROM events  WHERE ledger_id = x.id)
+     AND NOT EXISTS (SELECT 1 FROM entries WHERE ledger_id = x.id);
+  RETURN l;
+END $$;
+
+-- 구성원 제거(owner가 남을 제거) 또는 탈퇴(자기 자신). 마지막 구성원은 나갈 수 없다
+CREATE FUNCTION remove_member(p_ledger_id uuid, p_user_id uuid) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF p_user_id = auth.uid() THEN
+    IF (SELECT count(*) FROM ledger_members WHERE ledger_id = p_ledger_id) = 1 THEN
+      RAISE EXCEPTION 'sole_member_cannot_leave';   -- 계정 삭제 경로를 안내
+    END IF;
+  ELSIF NOT is_ledger_owner(p_ledger_id) THEN
+    RAISE EXCEPTION 'not_owner';
   END IF;
-  UPDATE entries SET person_id    = p_survivor WHERE person_id    = p_victim;
-  UPDATE entries SET co_person_id = p_survivor WHERE co_person_id = p_victim;
-  UPDATE events  SET host_person_id = p_survivor WHERE host_person_id = p_victim;
-  DELETE FROM people WHERE id = p_victim;
+  DELETE FROM ledger_members WHERE ledger_id = p_ledger_id AND user_id = p_user_id;
+  PERFORM ensure_owner(p_ledger_id);   -- owner가 나갔으면 가장 먼저 합류한 구성원을 owner로
+END $$;
+
+-- 계정 삭제 준비. Edge Function delete-account가 사용자 JWT로 먼저 호출한 뒤 service role로 사용자를 삭제
+CREATE FUNCTION prepare_account_deletion() RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE m record;
+BEGIN
+  FOR m IN SELECT ledger_id FROM ledger_members WHERE user_id = auth.uid() LOOP
+    IF (SELECT count(*) FROM ledger_members WHERE ledger_id = m.ledger_id) = 1 THEN
+      DELETE FROM ledgers WHERE id = m.ledger_id;           -- 데이터 CASCADE
+    ELSE
+      DELETE FROM ledger_members WHERE ledger_id = m.ledger_id AND user_id = auth.uid();
+      PERFORM ensure_owner(m.ledger_id);
+    END IF;
+  END LOOP;
 END $$;
 ```
 
-두 함수 모두 `SECURITY INVOKER`라 RLS가 적용된다. **UPDATE 문이 RLS에 걸려 0건이 되어도 오류가 나지 않으므로**, 병합 후 앱은 `survivor`의 `person_balances.entry_count`가 두 사람 합과 같은지 확인한다(docs/02 §7 검증 기준).
+`ensure_owner(l)`는 장부에 owner가 없으면 `created_at`이 가장 빠른 구성원을 owner로 올린다. `display_name_of(...)`는 메타데이터에서 표시 이름을 고르는 작은 함수다. `random_invite_code()`는 `gen_random_bytes`로 8자를 만든다. 세 함수의 본문은 마이그레이션에 함께 둔다.
 
 ## 7. 오프라인 시 동작 방침
 
-- **읽기** — TanStack Query 캐시를 AsyncStorage에 영속화(`persistQueryClient`)한다. 앱을 오프라인에서 열어도 마지막으로 본 홈·사람·행사 화면이 표시되고 상단에 "오프라인 · 마지막 갱신 {시각}" 배너가 뜬다.
-- **쓰기** — 온라인 필수. 저장 실패 시 입력 시트를 닫지 않고 폼 값을 그대로 유지한 채 "저장하지 못했습니다 · 다시 시도" 버튼을 보여 준다. 사용자가 시트를 닫으면 입력은 버려진다.
-- **하지 않는 것** — 오프라인 쓰기 큐, 로컬 DB, 충돌 해결, 실시간 구독. 같은 계정을 두 기기에서 동시에 쓰면 마지막 쓰기가 이긴다(행 단위 덮어쓰기).
-- 💡 이 방침의 대가는 "식장 가는 지하철에서 기록"이 네트워크 상태에 좌우된다는 점이다. 필요가 증명되면 "미전송 기록 1건 로컬 보관 후 재시도"를 후속 릴리스 후보로 둔다(docs/01 3단계 후보).
+2026-09-15와 같다. 읽기는 TanStack Query 캐시(AsyncStorage 영속)로 마지막 화면을 표시하고 오프라인 배너를 띄운다. 쓰기는 온라인 필수이며 실패 시 폼을 유지하고 "다시 시도"를 보여 준다. 큐·동기화·충돌 해결·실시간 구독은 없다. 두 구성원(또는 두 기기)이 같은 행을 동시에 고치면 마지막 쓰기가 이긴다. 다른 구성원의 변경은 화면이 포그라운드로 돌아올 때 다시 조회해 반영한다.
+
+캐시는 장부별로 키를 나눈다(`[domain, action, { ledgerId, ... }]`). 장부를 전환하면 다른 캐시를 본다.
 
 ## 8. SQL 마이그레이션 초안
 
 ```sql
--- supabase/migrations/0001_init.sql — 1단계 스키마(people · events · entries)
+-- supabase/migrations/0001_init.sql — 1단계 스키마(ledgers · ledger_members · people · events · entries)
+CREATE TABLE ledgers (
+  id                       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name                     text NOT NULL DEFAULT '내 장부' CHECK (char_length(name) BETWEEN 1 AND 30),
+  invite_code              text UNIQUE,
+  invite_code_expires_at   timestamptz,
+  created_at               timestamptz NOT NULL DEFAULT now(),
+  updated_at               timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE ledger_members (
+  ledger_id     uuid NOT NULL REFERENCES ledgers(id) ON DELETE CASCADE,
+  user_id       uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  role          text NOT NULL CHECK (role IN ('owner','member')),
+  display_name  text NOT NULL,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (ledger_id, user_id)
+);
+CREATE INDEX ledger_members_user_idx ON ledger_members (user_id);
+
 CREATE TABLE people (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id          uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  ledger_id        uuid NOT NULL REFERENCES ledgers(id) ON DELETE CASCADE,
   name             text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 50),
   name_normalized  text GENERATED ALWAYS AS (lower(regexp_replace(normalize(name, NFC), '\s', '', 'g'))) STORED,
   kind             text NOT NULL DEFAULT 'person' CHECK (kind IN ('person','group')),
@@ -339,7 +366,7 @@ CREATE TABLE people (
 
 CREATE TABLE events (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id          uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  ledger_id        uuid NOT NULL REFERENCES ledgers(id) ON DELETE CASCADE,
   type             text NOT NULL CHECK (type IN ('wedding','first_birthday','funeral','senior_birthday','opening','other')),
   is_mine          boolean NOT NULL DEFAULT false,
   host_person_id   uuid REFERENCES people(id) ON DELETE SET NULL,
@@ -359,10 +386,11 @@ CREATE TABLE events (
 
 CREATE TABLE entries (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id          uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  ledger_id        uuid NOT NULL REFERENCES ledgers(id) ON DELETE CASCADE,
   event_id         uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   person_id        uuid NOT NULL REFERENCES people(id) ON DELETE CASCADE,
   co_person_id     uuid REFERENCES people(id) ON DELETE SET NULL,
+  created_by       uuid DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE SET NULL,
   amount           integer CHECK (amount >= 0),
   method           text NOT NULL DEFAULT 'cash' CHECK (method IN ('cash','transfer','wreath','gift','none')),
   attended         boolean,
@@ -375,61 +403,55 @@ CREATE TABLE entries (
   CHECK (co_person_id IS NULL OR co_person_id <> person_id)
 );
 
-CREATE INDEX people_name_idx        ON people  (user_id, name_normalized text_pattern_ops);
-CREATE INDEX events_date_idx        ON events  (user_id, date DESC);
-CREATE INDEX events_host_idx        ON events  (user_id, host_person_id);
-CREATE INDEX entries_person_idx     ON entries (user_id, person_id);
-CREATE INDEX entries_co_person_idx  ON entries (user_id, co_person_id);
-CREATE INDEX entries_event_idx      ON entries (user_id, event_id);
-CREATE INDEX entries_created_idx    ON entries (user_id, created_at DESC);
+CREATE INDEX people_name_idx        ON people  (ledger_id, name_normalized text_pattern_ops);
+CREATE INDEX events_date_idx        ON events  (ledger_id, date DESC);
+CREATE INDEX events_host_idx        ON events  (ledger_id, host_person_id);
+CREATE INDEX entries_person_idx     ON entries (ledger_id, person_id);
+CREATE INDEX entries_co_person_idx  ON entries (ledger_id, co_person_id);
+CREATE INDEX entries_event_idx      ON entries (ledger_id, event_id);
+CREATE INDEX entries_created_idx    ON entries (ledger_id, created_at DESC);
 
--- updated_at 트리거, events_lock_is_mine 트리거, RLS 정책(§4), 뷰(§5.1), RPC(§5.3, §5.4, §6)는 같은 파일에 이어서 둔다.
+-- 이어서: updated_at 트리거, events_lock_is_mine 트리거(기록 있으면 is_mine 변경 거부),
+-- 행사·기록·사람의 ledger_id 일치 트리거(entries.event_id/person_id가 같은 장부인지 검사),
+-- 헬퍼 함수(§5.1), RLS 정책(§5.2), GRANT UPDATE (name) ON ledgers, 뷰(§9.1), RPC(§6), auth.users 트리거
 ```
 
-타입은 `supabase gen types typescript`로 생성해 앱의 `src/db/database.types.ts`에 둔다. 손으로 쓴 타입은 두지 않는다.
+`entries.event_id`·`person_id`가 다른 장부의 행을 가리키는 것은 RLS만으로도 막히지만(다른 장부 행은 보이지 않아 FK 검사가 실패), 한 사용자가 두 장부의 구성원이면 RLS가 둘 다 허용하므로 **같은 장부인지 검사하는 트리거**를 둔다.
 
-## 9. 2단계 확장 영향 검토
+타입은 `supabase gen types typescript`로 생성한다.
 
-### 9.1 추가되는 테이블(2단계, 같은 Supabase 프로젝트)
+## 9. 뷰와 핵심 조회
 
-| 테이블 | 핵심 컬럼 | 1단계 테이블과의 관계 |
-|---|---|---|
-| `invitations` | `id`, `user_id`, `event_id` → events(is_mine), `slug` UNIQUE(공개 URL), `template`, `content` jsonb, `published_at`, `expires_at` | 이벤트 1 : 청첩장 0..1. 공개 페이지는 `anon` 역할에 `published_at IS NOT NULL` 조건의 SELECT 정책만 연다. 1단계에서 처음으로 `anon` 정책이 생기는 지점 |
-| `rsvps` | `id`, `invitation_id`, `guest_name`, `guest_phone`, `side` ('a'/'b'), `attending`, `headcount`, `message`, `linked_person_id` → people(nullable) | 하객 회신(`anon` INSERT 허용). 주인이 사람으로 승격하면 `linked_person_id`가 채워진다. `side` 값 체계가 1단계와 같다 |
-| `bank_accounts` | `id`, `user_id`, `event_id`, `side`, `bank_name`, `account_number`, `holder_name`, `sort_order` | 축의금 계좌 안내. 측별 여러 계좌 |
+### 9.1 뷰 `person_balances`
 
-### 9.2 1단계 테이블 변경
+2026-09-15와 같되 `p.ledger_id`를 포함한다. 앱은 항상 `ledger_id=eq.{current}`를 붙인다.
 
-없다. `user_id`·RLS·UUID·`is_mine`·`side`가 모두 1단계부터 있으므로 2단계는 테이블 3개를 더하는 일로 끝난다. 초안에 있던 "로컬 → 서버 1회 업로드 마이그레이션"은 서버가 처음부터 SoT가 되면서 통째로 사라졌다. 이것이 클라우드 선택의 가장 큰 이득이다.
+### 9.2 조회 목록
 
-### 9.3 이후 후보 "가족 공동 장부"에 대한 경고
+| 조회 | 방식 |
+|---|---|
+| 내 장부 목록 | `ledger_members?select=role,ledger:ledgers(id,name)&user_id=eq.{me}` |
+| 장부 구성원 | `ledger_members?select=user_id,role,display_name,created_at&ledger_id=eq.{l}` |
+| 사람 목록·원장 카드 | `person_balances?ledger_id=eq.{l}&...` |
+| 원장 목록 | `entries?ledger_id=eq.{l}&or=(person_id.eq.{p},co_person_id.eq.{p})&select=*,event:events(...),co_person:people!co_person_id(name)` |
+| 기록 상세의 입력자 | `entries?select=*,creator:ledger_members!inner(display_name)` 대신 앱이 구성원 목록을 캐시해 두고 `created_by`로 찾는다(조인 키가 (ledger_id,user_id) 복합이라 PostgREST 조인이 번거롭다). 구성원 목록에 없으면 "이전 구성원" |
+| 최근 기록·자동완성·행사 판정 | 2026-09-15와 같되 `ledger_id=eq.{l}` 추가 |
+| 통계 | `rpc/stats_by_year {p_ledger_id, p_year}` |
 
-부부가 한 원장을 함께 쓰려면 소유 축이 `user_id`(사람)에서 `ledger_id`(장부) + 구성원 테이블로 넓어진다. 이때 **세 테이블의 RLS 정책 12개와 RPC 3개를 전부 다시 써야 하고**, 정책이 하나라도 빠지면 오류 없이 0건 처리된다(CTO 메모리 전례). 1단계에 `ledger_id`를 미리 넣는 것은 추측성 설계라 하지 않는다. 대신 사용자 확인 질문(docs/02 §8 11번)으로 "공동 관리가 1단계 필수인가"를 묻고, 필수라면 착수 전에 소유 축을 `ledger_id`로 바꾼다. 착수 후에 바꾸는 것보다 착수 전에 바꾸는 것이 압도적으로 싸다.
+## 10. 2단계 확장 영향 검토
 
-## 10. JSON 내보내기 포맷 초안 (P1, 내보내기 전용)
+- `invitations`·`rsvps`·`bank_accounts`는 `ledger_id`를 소유 축으로 갖는다(청첩장도 부부 공동 자산). 공개 페이지는 `anon`에 `published_at IS NOT NULL` 조건 SELECT만 연다.
+- 1단계 테이블 변경은 없다. 소유 축을 처음부터 장부로 두었기 때문에 "가족 공동 장부" 항목은 이후 후보에서 빠진다.
+- 이후 후보 — 장부 합치기(개인 장부의 사람·행사·기록을 공동 장부로 이동, 사람 중복 정리 포함). 구성원 3명 이상(부모·자녀)은 현재 설계로 이미 가능하다.
 
-```json
-{
-  "format": "ppurin-export",
-  "version": 1,
-  "exported_at": "2026-09-15T03:21:07.123Z",
-  "app_version": "1.0.0",
-  "counts": { "people": 120, "events": 45, "entries": 380 },
-  "data": {
-    "people":  [ { "id": "…", "name": "김철수", "kind": "person", "relation_group": "work", "label": "회사 동기", "phone": null, "memo": null, "created_at": "…", "updated_at": "…" } ],
-    "events":  [ { "id": "…", "type": "wedding", "is_mine": false, "host_person_id": "…", "title": "김철수 결혼식 2025", "date": "2025-05-18", "date_precision": "day", "place": null, "side_a_label": null, "side_b_label": null, "memo": null, "created_at": "…", "updated_at": "…" } ],
-    "entries": [ { "id": "…", "event_id": "…", "person_id": "…", "co_person_id": null, "amount": 100000, "method": "cash", "attended": true, "side": null, "returned_at": null, "return_memo": null, "memo": null, "created_at": "…", "updated_at": "…" } ]
-  }
-}
-```
+## 11. JSON 내보내기 포맷 초안 (P1, 내보내기 전용)
 
-- 용도는 사용자가 자기 데이터를 파일로 보관하는 것(개인정보 이동권)이다. 가져오기는 없다.
-- `user_id`와 `name_normalized`는 내보내지 않는다. 컬럼명은 snake_case, 금액은 JSON number(정수).
+2026-09-15와 같되, 최상위에 `ledger: { id, name }`을 두고 `entries`에 `created_by_name`(표시 이름, id는 내보내지 않음)을 넣는다. `user_id`·`ledger_id`·`name_normalized`는 내보내지 않는다. 내보내기는 현재 장부 1권 단위다.
 
 ## 📋 CTO 보고 요약
 
-- 테이블은 `people`·`events`·`entries` 셋뿐이며 모두 `user_id` 소유 축과 RLS 정책 4개를 가진다. 열거값은 CHECK 제약, 이름 정규화는 generated column이다.
-- 클라우드 확정으로 소프트 삭제·tombstone·1회 업로드·JSON 가져오기가 전부 사라져 초안보다 단순해졌다. 삭제는 물리 삭제 + FK 규칙, 사람 삭제·병합은 RPC 2개로 원자 처리한다.
-- 관례 처리는 유지 — 공동 부조 `co_person_id`, 단체 `people.kind`, 미확정 `amount NULL`, 날짜 불명 `date_precision`, 양가 `side_a/b_label` + `entries.side`. 방향은 `events.is_mine`에서 파생, 남의 행사 당사자는 `host_person_id`.
-- 집계는 뷰 `person_balances`와 RPC `event_summary`·`stats_by_year`로 서버에 둔다. 오프라인은 읽기 캐시만, 쓰기는 온라인 필수.
-- 2단계는 같은 프로젝트에 `invitations`·`rsvps`·`bank_accounts`를 더하면 끝난다. 가족 공동 장부는 소유 축이 바뀌는 큰 변경이라 1단계 필수 여부를 사용자에게 묻는다.
+- 소유 축을 사용자에서 **장부**로 바꿨다. `ledgers`·`ledger_members` 두 테이블을 더하고 people·events·entries는 `ledger_id`를 가진다. RLS는 `is_ledger_member(ledger_id)` 하나로 통일했다.
+- 역할은 owner/member, 차이는 초대 코드 발급과 구성원 제거뿐. 초대는 8자·24시간·1회용 코드. 첫 로그인 시 트리거가 개인 장부를 만들고, 합류 시 빈 개인 장부는 자동 정리된다.
+- 구성원 변경(합류·탈퇴·제거·승계·계정 삭제 준비)은 SECURITY DEFINER RPC 5개가 규칙을 검사하며 수행한다. 마지막 구성원은 나갈 수 없고, owner가 나가면 가장 먼저 합류한 구성원이 승계한다. 계정 삭제는 "혼자면 장부 삭제, 아니면 구성원만 제거"다.
+- "공동 부조"(상대방 부부, `co_person_id`)와 "공동 장부"(우리 부부, `ledger_members`)는 서로 독립인 개념으로 문서화했다. 입력자는 `entries.created_by`로만 남긴다.
+- 앱의 모든 조회는 `ledger_id = 현재 장부` 필터가 필수다(구현 필수 조건). 같은 장부 검사 트리거로 두 장부 구성원의 교차 참조를 막는다.
