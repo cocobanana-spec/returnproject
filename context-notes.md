@@ -140,3 +140,38 @@ checklist 3단계를 구현했다. 산출물은 `supabase/migrations/0001_init.s
 - **Edge Function 런타임.** Deno와 Supabase 런타임이 없어 코드만 작성했다. 타입 체크도 못 했다.
 - **타입 생성.** `supabase gen types typescript --db-url`은 CLI 2.90.0에서도 postgres-meta 컨테이너를 띄운다. Docker 없이는 경로가 없다. 손으로 쓰지 않고 미실시로 둔다.
 - **Supabase CLI 버전** — 설치본 2.90.0, 최신 2.117.0. 업데이트 권고가 뜬다.
+
+## 8. 실제 Supabase 연결과 원격 검증 (2026-09-20)
+
+사용자가 프로젝트 URL과 anon 키를 줬다. 프로젝트 `ekcjfqqiopajlcbqgvfo` (returnproject, 서울 리전, 2026-09-19 생성).
+
+### 8.1 적용과 확인 방법
+- `supabase link` 후 `supabase db push`로 0001·0002를 적용했다. DB 비밀번호는 필요 없었다. CLI가 키체인의 액세스 토큰으로 임시 로그인 역할을 만든다(`Initialising login role...`).
+- 타입 생성은 `--project-id`를 쓰면 Docker 없이 된다. `--db-url`만 컨테이너를 띄운다. 7.5의 "경로가 없다"는 원격 연결 후 해소됐다.
+- Edge Function 배포도 Docker 없이 됐다(`WARNING: Docker is not running`만 뜨고 업로드 성공).
+- 검증은 `supabase/tests/remote_smoke.py`로 스크립트화했다. 진짜 계정을 만들어 REST·RPC·Edge Function을 호출하고 끝나면 전부 지운다. 27건 전부 통과, 잔여 장부 0권.
+- 테스트 계정은 메일/비밀번호로 만들었다. 관리자 API에 `email_confirm: true`를 주면 확인 메일이 나가지 않는다. `example.com`은 Supabase가 거부하므로 쓸 수 없다.
+- service role 키는 저장소에 두지 않는다. `supabase projects api-keys --project-ref <ref>`로 그때그때 받고, 스크립트는 환경변수로만 읽는다.
+
+### 8.2 원격에서만 확인할 수 있던 것
+- `auth.users`에 트리거를 만들 권한이 **있었다**. 3b에서 가장 큰 위험으로 잡았던 항목이 해소됐다.
+- pgcrypto도 정상이다. `create_invite_code`가 실제로 8자 코드를 발급한다.
+- `name_normalized`는 호스티드 로케일에서도 `' 김 철수 '` → `'김철수'`로 같다.
+- anon은 테이블 5개 전부 `permission denied`다.
+
+### 8.3 원격 검증에서 발견한 결함 — 고아 장부 (마이그레이션 0002)
+정상 경로인 Edge Function은 `prepare_account_deletion`으로 장부를 먼저 정리한다. 그러나 **대시보드·관리자 API로 `auth.users`에서 계정을 바로 지우면** `ledger_members`만 CASCADE로 사라지고 장부와 사람·행사·기록은 그대로 남는다. 구성원이 없으니 RLS상 누구에게도 보이지 않고 앱으로 지울 수도 없다. 검증 중 실제로 고아 장부 2건(사람 2명 포함)이 쌓인 것을 보고 발견했다.
+
+개인정보가 주인 없이 영구히 남는 경로라 그냥 둘 수 없다. `ledger_members` AFTER DELETE 트리거로 (1) 구성원이 하나도 안 남으면 장부를 지우고, (2) 구성원은 남았는데 owner만 사라졌으면 `ensure_owner`로 승계시킨다. (2)도 같은 경로의 결함이었다. `remove_member`와 `prepare_account_deletion`은 `ensure_owner`를 직접 부르지만 CASCADE는 아무것도 부르지 않아 owner 없는 장부가 되고, 그러면 초대 코드 발급과 구성원 제거가 영영 불가능해진다. 로컬 검증 T14.9가 이걸 잡았다.
+
+재귀는 일어나지 않는다. 장부를 지우면 `ledger_members`가 CASCADE로 지워지며 트리거가 다시 돌지만, 그때 장부 행은 같은 트랜잭션의 앞선 명령이 이미 지운 뒤라 안쪽 DELETE가 0건으로 끝난다.
+
+**교훈** — 정리 로직을 애플리케이션 경로(Edge Function·RPC)에만 두면 그 경로를 타지 않는 삭제에서 데이터가 고아가 된다. 소유 관계의 정리는 DB 트리거에 두어야 경로와 무관하게 성립한다.
+
+### 8.4 검증 과정에서 내가 틀렸던 것
+첫 원격 검증에서 2건이 실패했는데 구현이 아니라 검증 쿼리의 오류였다. `ledger_members`를 `user_id` 필터 없이 조회해 "내 장부 목록"으로 쓰면, 공유 장부에서는 다른 구성원의 행까지 돌아온다(SELECT 정책이 `is_ledger_member(ledger_id)`이므로 정상). docs/03 §9.2가 이미 `user_id=eq.{me}`를 쓰라고 적어 둔 대로다. 앱 리포지토리도 같은 실수를 할 수 있으니 주의한다.
+
+### 8.5 남은 미검증
+- 소셜 로그인 3종(Apple·Google·Kakao)으로 같은 트리거 경로 확인. 프로바이더 활성화 후.
+- 원격 `max_rows` 기본값 1000. 수년치 기록 조회가 조용히 잘리므로 앱에서 페이지네이션이 필수다.
+- `graphql_public` 노출 범위.

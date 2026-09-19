@@ -38,18 +38,22 @@
 - [x] 데이터 RPC — `delete_person` · `merge_people`(같은 장부 검사) · `event_summary` · `stats_by_year(p_ledger_id, p_year)`
 - [x] 뷰 `person_balances` (security_invoker, `ledger_id` 포함)
 - [x] Edge Function `delete-account` — 코드 작성 완료. **런타임 미검증**(Deno·Supabase 런타임 없음)
-- [ ] `supabase gen types typescript` → `src/db/database.types.ts` — **미실시.** CLI 2.90.0은 `--db-url`을 줘도 postgres-meta 컨테이너를 띄워 Docker가 필수다. 실제 프로젝트 연결 후 또는 컨테이너 런타임 설치 후 수행
-- [x] RLS 검증 스크립트 `supabase/tests/` — 계정 A·B(같은 장부)·C(다른 장부)·D(두 장부) 네 세션으로 154건. `./supabase/tests/run.sh`로 재실행, 실패 시 종료 코드 ≠ 0
+- [x] `supabase gen types typescript --project-id ekcjfqqiopajlcbqgvfo` → `src/db/database.types.ts` (원격 프로젝트 연결 후 수행, Docker 불필요)
+- [x] RLS 검증 스크립트 `supabase/tests/` — 계정 A·B(같은 장부)·C(다른 장부)·D(두 장부) 네 세션으로 163건. `./supabase/tests/run.sh`로 재실행, 실패 시 종료 코드 ≠ 0
+- [x] `supabase/migrations/0002_orphan_ledger_cleanup.sql` — 앱 밖에서 계정이 삭제될 때 고아 장부를 지우고 owner를 승계한다 (원격 검증 중 발견)
 
-## 3b. 실제 Supabase에서 재검증 (로컬 스텁으로는 확인 불가)
-- [ ] `supabase db push` 성공 — 특히 `auth.users`에 `on_auth_user_created` 트리거를 만들 권한이 있는지
-- [ ] 소셜 로그인 1회 → `ledger_members` 1행 자동 생성 확인 (Apple·Google·Kakao 각각)
-- [ ] `select extnamespace::regnamespace from pg_extension where extname='pgcrypto'`가 `extensions`인지 확인 (아니면 `create_invite_code`가 런타임에 실패)
-- [ ] anon 권한 0건 재확인 (`has_table_privilege` 전수), `graphql_public` 노출 범위 점검
-- [ ] Edge Function `delete-account` 배포 후 실제 계정 삭제 1회 — 혼자 장부/공유 장부 두 경우
-- [ ] `supabase gen types typescript --project-id <ref>` → `src/db/database.types.ts`
-- [ ] `config.toml`의 `[api] max_rows = 1000` 값 확정 (수년치 기록 조회가 조용히 잘린다)
-- [ ] `name_normalized` 값 눈으로 1건 확인 (로컬과 호스티드의 로케일 차이)
+## 3b. 실제 Supabase에서 재검증 — 2026-09-20 완료, 원격 스모크 27건 통과
+> 프로젝트 `ekcjfqqiopajlcbqgvfo` (returnproject, 서울 리전). 재실행은 `python3 supabase/tests/remote_smoke.py` (환경변수 3개 필요, 파일 상단 참고).
+- [x] `supabase db push` 성공 — `auth.users`의 `on_auth_user_created` 트리거도 권한 오류 없이 생성됐다
+- [x] 가입 1회 → `ledger_members` 1행·역할 owner·표시 이름 자동 생성 확인 (메일/비밀번호 계정으로 확인. 트리거 경로는 소셜 로그인과 같다)
+- [ ] 소셜 로그인 3종으로 같은 확인 (Apple·Google·Kakao 프로바이더 활성화 후)
+- [x] pgcrypto 경로 확인 — `create_invite_code`가 8자 코드를 실제로 발급하며 혼동 문자 0/O/1/I가 없다
+- [x] anon 권한 0건 재확인 — 테이블 5개 전부 `permission denied`
+- [x] Edge Function `delete-account` 배포 후 실제 계정 삭제 — 혼자 장부(장부·데이터 함께 삭제)와 공유 장부(구성원만 제거, 데이터 보존·owner 승계) 두 경우 모두 확인
+- [x] `supabase gen types typescript --project-id <ref>` → `src/db/database.types.ts` (502줄, RPC 8개 포함)
+- [x] `name_normalized` 값 확인 — `' 김 철수 '` → `'김철수'` (호스티드 로케일에서도 동일)
+- [ ] `[api] max_rows` 기본값 1000 확정 — 원격은 대시보드 설정이다. 수년치 기록 조회가 조용히 잘리므로 앱에서 페이지네이션 필수
+- [ ] `graphql_public` 노출 범위 점검 (미확인)
 
 ## 4. 앱 토대 (Expo)
 - [ ] `ANDROID_HOME` 환경변수 설정, `npx expo` 실행 확인
