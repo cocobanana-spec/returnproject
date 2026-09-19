@@ -20,6 +20,13 @@
 | 23 | 구성원 표시 이름 | `ledger_members.display_name`을 합류 시점에 `auth.users` 메타데이터에서 복사 | `auth.users`는 클라이언트가 읽을 수 없다. 구성원 목록 표시를 위해 `profiles` 테이블을 만드는 것보다 컬럼 하나가 싸다 |
 | 24 | 구성원 변경은 RPC만 | `ledger_members`에 클라이언트 INSERT/UPDATE/DELETE 정책을 두지 않는다. 합류·탈퇴·제거는 SECURITY DEFINER 함수가 검사 후 수행 | "마지막 구성원은 나갈 수 없다", "owner 승계" 같은 규칙을 정책식으로 쓰면 읽기 어렵다. 함수 안의 IF문이 명확하다 |
 
+### 2026-09-19 개정 (구현·검증 중 발견해 고친 것)
+
+| # | 항목 | 결정 | 근거 |
+|---|---|---|---|
+| 25 | **남의 행사의 당사자 필수는 CHECK가 아니라 INSERT 트리거** | CHECK는 `not is_mine or host_person_id is null`(내 행사는 당사자 없음)만 남기고, "남의 행사는 당사자 필수"는 `events_validate` 트리거가 INSERT일 때만 본다 | 처음에는 양방향을 CHECK 하나로 묶었는데, 사람을 지울 때 FK의 `ON DELETE SET NULL`이 남의 행사의 당사자를 NULL로 만들면서 그 CHECK에 걸려 **삭제 자체가 실패했다**(검증 T11.5에서 실제로 터졌다). docs/02 §5의 "다른 기록이 남아 있으면 당사자만 비운다"가 CHECK와 모순이었다. 결과적으로 "만들 때는 필수, 당사자가 삭제된 뒤에는 비어 있을 수 있음"이 된다 |
+| 26 | 앱은 사람·행사·기록을 **순차로** INSERT한다 | 하나의 데이터 수정 CTE(`with ... insert ... insert`)로 묶지 않는다 | CTE의 각 문장은 같은 스냅샷을 보므로 뒤 문장이 앞 CTE가 넣은 행을 보지 못한다. FK와 같은 장부 검사 트리거가 전부 실패한다(검증 T10.1에서 확인). 빠른 기록(docs/02 §3.2)이 사람·행사·기록을 한 번에 만드는 흐름이라 구현 시 주의가 필요하다 |
+
 ### 2026-09-15 결정 (유지)
 
 | # | 항목 | 결정 |
@@ -163,7 +170,7 @@ erDiagram
 | `created_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
 | `updated_at` | timestamptz | NOT NULL, DEFAULT `now()` | 트리거로 갱신 |
 
-`people`·`events`의 나머지 컬럼은 2026-09-15 개정과 같다(이름·정규화·종류·관계 그룹·라벨·전화·메모 / 종류·`is_mine`·`host_person_id`·제목·날짜·정밀도·장소·측 라벨·메모). CHECK 제약도 동일하다. §8 DDL이 정본이다.
+`people`·`events`의 나머지 컬럼은 2026-09-15 개정과 같다(이름·정규화·종류·관계 그룹·라벨·전화·메모 / 종류·`is_mine`·`host_person_id`·제목·날짜·정밀도·장소·측 라벨·메모). `events.host_person_id`만 CTO 결정 25로 제약이 바뀌었다 — 내 행사는 항상 NULL(CHECK), 남의 행사는 만들 때만 필수(트리거). 정본은 `supabase/migrations/0001_init.sql`이다.
 
 ### 2.4 `entries` 추가 컬럼
 
@@ -326,7 +333,10 @@ END $$;
 
 캐시는 장부별로 키를 나눈다(`[domain, action, { ledgerId, ... }]`). 장부를 전환하면 다른 캐시를 본다.
 
-## 8. SQL 마이그레이션 초안
+## 8. SQL 마이그레이션
+
+> **정본은 이제 `supabase/migrations/0001_init.sql`이다**(2026-09-19 구현 완료, 로컬 Postgres 17에서 129건 검증 통과).
+> 아래는 테이블 정의 요약이며, 트리거·RLS 정책·뷰·RPC·권한의 실제 내용은 마이그레이션 파일을 본다.
 
 ```sql
 -- supabase/migrations/0001_init.sql — 1단계 스키마(ledgers · ledger_members · people · events · entries)
@@ -379,9 +389,10 @@ CREATE TABLE events (
   memo             text CHECK (char_length(memo) <= 500),
   created_at       timestamptz NOT NULL DEFAULT now(),
   updated_at       timestamptz NOT NULL DEFAULT now(),
-  CHECK (is_mine OR host_person_id IS NOT NULL),
+  CHECK (NOT is_mine OR host_person_id IS NULL),   -- 내 행사는 당사자 없음
   CHECK (is_mine OR side_a_label IS NULL),
   CHECK (side_b_label IS NULL OR side_a_label IS NOT NULL)
+  -- "남의 행사는 당사자 필수"는 events_validate 트리거가 INSERT에서만 본다(CTO 결정 25)
 );
 
 CREATE TABLE entries (
