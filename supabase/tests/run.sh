@@ -61,8 +61,11 @@ run() {
 echo "== 1/3 auth 스텁"
 run "$HERE/00_auth_stub.sql"
 
-echo "== 2/3 마이그레이션 0001_init.sql (수정 없이 그대로)"
-run "$ROOT/supabase/migrations/0001_init.sql"
+echo "== 2/3 마이그레이션 전부 적용 (수정 없이 그대로, 파일명 순서)"
+for m in "$ROOT"/supabase/migrations/*.sql; do
+  echo "   - $(basename "$m")"
+  run "$m"
+done
 
 echo "== 3/3 RLS 교차 검증"
 if run "$HERE/01_rls_test.sql"; then

@@ -1021,6 +1021,70 @@ select tst.expect_admin('T13.14 새 장부는 비어 있다',
        where m.user_id = 'cccccccc-0000-4000-8000-000000000099' $q$, '0');
 
 -- ============================================================================
+-- T14. 고아 장부 정리 — 앱 밖에서 계정이 지워져도 데이터가 주인 없이 남지 않는다
+-- 정상 경로(Edge Function)는 prepare_account_deletion을 먼저 부르지만,
+-- 대시보드·관리자 API는 auth.users를 바로 지운다. 그때 ledger_members만 CASCADE로 사라진다.
+-- ============================================================================
+insert into auth.users (id, email, raw_user_meta_data)
+values ('eeeeeeee-0000-4000-8000-000000000001', 'solo@example.com', '{"name":"혼자쓰는사람"}');
+
+insert into tst.fix(k, v)
+select 'LE', ledger_id from public.ledger_members
+ where user_id = 'eeeeeeee-0000-4000-8000-000000000001';
+
+select tst.expect_ok('T14.1 E가 자기 장부에 사람을 만든다',
+  'eeeeeeee-0000-4000-8000-000000000001',
+  $q$ insert into public.people (ledger_id, name)
+      values ((select v from tst.fix where k='LE'), '고아가될사람') $q$);
+
+-- 대시보드에서 계정을 바로 지우는 경로
+delete from auth.users where id = 'eeeeeeee-0000-4000-8000-000000000001';
+
+select tst.expect_admin('T14.2 구성원이 사라진 장부는 함께 삭제된다',
+  $q$ select count(*)::text from public.ledgers
+       where id = (select v from tst.fix where k='LE') $q$, '0');
+
+select tst.expect_admin('T14.3 그 장부의 사람도 남지 않는다',
+  $q$ select count(*)::text from public.people where name = '고아가될사람' $q$, '0');
+
+-- 반대로 구성원이 남아 있는 장부는 지워지면 안 된다.
+insert into auth.users (id, email, raw_user_meta_data)
+values ('eeeeeeee-0000-4000-8000-000000000002', 'pair1@example.com', '{"name":"부부1"}'),
+       ('eeeeeeee-0000-4000-8000-000000000003', 'pair2@example.com', '{"name":"부부2"}');
+
+insert into tst.fix(k, v)
+select 'LF', ledger_id from public.ledger_members
+ where user_id = 'eeeeeeee-0000-4000-8000-000000000002';
+
+select tst.expect_ok('T14.4 부부1이 초대 코드를 발급한다',
+  'eeeeeeee-0000-4000-8000-000000000002',
+  $q$ select public.create_invite_code((select v from tst.fix where k='LF')) $q$);
+
+select tst.capture_code((select v from tst.fix where k='LF'));
+
+select tst.expect_ok('T14.5 부부2가 합류한다',
+  'eeeeeeee-0000-4000-8000-000000000003',
+  $q$ select public.join_ledger((select v from tst.val where k='code')) $q$);
+
+select tst.expect_ok('T14.6 공유 장부에 사람을 만든다',
+  'eeeeeeee-0000-4000-8000-000000000002',
+  $q$ insert into public.people (ledger_id, name)
+      values ((select v from tst.fix where k='LF'), '남아야하는사람') $q$);
+
+delete from auth.users where id = 'eeeeeeee-0000-4000-8000-000000000002';
+
+select tst.expect_admin('T14.7 구성원이 남은 장부는 삭제되지 않는다',
+  $q$ select count(*)::text from public.ledgers
+       where id = (select v from tst.fix where k='LF') $q$, '1');
+
+select tst.expect_admin('T14.8 남은 구성원에게 데이터가 보존된다',
+  $q$ select count(*)::text from public.people where name = '남아야하는사람' $q$, '1');
+
+select tst.expect_admin('T14.9 남은 구성원이 owner를 승계한다',
+  $q$ select role from public.ledger_members
+       where ledger_id = (select v from tst.fix where k='LF') $q$, 'owner');
+
+-- ============================================================================
 -- 결과 요약
 -- ============================================================================
 \echo ''
