@@ -28,18 +28,28 @@
 - [ ] Kakao — (검증) Kakao 로그인 → OpenID Connect 활성화 후 네이티브 SDK ID 토큰으로 `signInWithIdToken({ provider: 'kakao' })`가 되는지 로컬 Supabase에서 1회 시도. 안 되면 브라우저 OAuth 경로 확정
 - [ ] Supabase Auth — Apple·Google·Kakao 프로바이더 활성화
 
-## 3. 백엔드 토대 (Supabase)
-- [ ] Supabase CLI 설치, `supabase init`, 로컬 `supabase start` 동작 확인
-- [ ] `supabase/migrations/0001_init.sql` — ledgers · ledger_members · people · events · entries (docs/03 §8) + `updated_at` 트리거 + `events_lock_is_mine` 트리거 + 같은 장부 검사 트리거
-- [ ] 헬퍼 `is_ledger_member` · `is_ledger_owner` (SECURITY DEFINER, docs/03 §5.1)
-- [ ] RLS 활성화 + 데이터 테이블 3개 × 정책 4개, `ledgers` SELECT/UPDATE(`GRANT UPDATE (name)`), `ledger_members` SELECT만 (docs/03 §5.2). `anon` 권한 없음 확인
-- [ ] `auth.users` 트리거 `handle_new_user` (개인 장부 + owner 구성원 + display_name) — 로컬에서 회원가입으로 검증
-- [ ] 장부 RPC — `create_invite_code` · `join_ledger`(빈 개인 장부 정리 포함) · `remove_member`(마지막 구성원 차단, owner 승계) · `prepare_account_deletion` · `ensure_owner` · `random_invite_code` (docs/03 §6.2)
-- [ ] 데이터 RPC — `delete_person` · `merge_people`(같은 장부 검사) · `event_summary` · `stats_by_year(p_ledger_id, p_year)`
-- [ ] 뷰 `person_balances` (security_invoker, `ledger_id` 포함)
-- [ ] Edge Function `delete-account` — 사용자 JWT로 `prepare_account_deletion` 호출 후 service role로 `auth.admin.deleteUser`
-- [ ] `supabase gen types typescript` → `src/db/database.types.ts`
-- [ ] RLS 검증 스크립트 — 계정 A·B(같은 장부)·C(다른 장부) 세 세션으로 교차 조회·수정·삭제·INSERT, 교차 장부 참조, 초대·합류·탈퇴·승계·계정 삭제 규칙이 docs/02 §7대로 동작하는지
+## 3. 백엔드 토대 (Supabase) — 2026-09-19 구현 완료, 로컬 검증 154건 통과
+- [x] `supabase init` (config.toml 생성). 로컬 `supabase start`는 **Docker 없어 불가** — 대신 로컬 Postgres 17 + auth 스텁으로 검증(context-notes §7)
+- [x] `supabase/migrations/0001_init.sql` — ledgers · ledger_members · people · events · entries + `updated_at`·`events_lock_is_mine`·`events_validate`·`entries_same_ledger`·`forbid_ledger_change` 트리거
+- [x] 헬퍼 `is_ledger_member` · `is_ledger_owner` (SECURITY DEFINER, search_path 고정)
+- [x] RLS 활성화 + 데이터 테이블 3개 × 정책 4개, `ledgers` SELECT/UPDATE(`GRANT UPDATE (name)`), `ledger_members` SELECT만. `anon` 권한 0건 확인
+- [x] `auth.users` 트리거 `handle_new_user` (개인 장부 + owner 구성원 + display_name) — 로컬 가입으로 검증
+- [x] 장부 RPC — `create_invite_code` · `join_ledger`(빈 개인 장부 정리) · `remove_member`(마지막 구성원 차단, owner 승계) · `prepare_account_deletion` · `ensure_owner` · `random_invite_code` · `display_name_of(_user)`
+- [x] 데이터 RPC — `delete_person` · `merge_people`(같은 장부 검사) · `event_summary` · `stats_by_year(p_ledger_id, p_year)`
+- [x] 뷰 `person_balances` (security_invoker, `ledger_id` 포함)
+- [x] Edge Function `delete-account` — 코드 작성 완료. **런타임 미검증**(Deno·Supabase 런타임 없음)
+- [ ] `supabase gen types typescript` → `src/db/database.types.ts` — **미실시.** CLI 2.90.0은 `--db-url`을 줘도 postgres-meta 컨테이너를 띄워 Docker가 필수다. 실제 프로젝트 연결 후 또는 컨테이너 런타임 설치 후 수행
+- [x] RLS 검증 스크립트 `supabase/tests/` — 계정 A·B(같은 장부)·C(다른 장부)·D(두 장부) 네 세션으로 154건. `./supabase/tests/run.sh`로 재실행, 실패 시 종료 코드 ≠ 0
+
+## 3b. 실제 Supabase에서 재검증 (로컬 스텁으로는 확인 불가)
+- [ ] `supabase db push` 성공 — 특히 `auth.users`에 `on_auth_user_created` 트리거를 만들 권한이 있는지
+- [ ] 소셜 로그인 1회 → `ledger_members` 1행 자동 생성 확인 (Apple·Google·Kakao 각각)
+- [ ] `select extnamespace::regnamespace from pg_extension where extname='pgcrypto'`가 `extensions`인지 확인 (아니면 `create_invite_code`가 런타임에 실패)
+- [ ] anon 권한 0건 재확인 (`has_table_privilege` 전수), `graphql_public` 노출 범위 점검
+- [ ] Edge Function `delete-account` 배포 후 실제 계정 삭제 1회 — 혼자 장부/공유 장부 두 경우
+- [ ] `supabase gen types typescript --project-id <ref>` → `src/db/database.types.ts`
+- [ ] `config.toml`의 `[api] max_rows = 1000` 값 확정 (수년치 기록 조회가 조용히 잘린다)
+- [ ] `name_normalized` 값 눈으로 1건 확인 (로컬과 호스티드의 로케일 차이)
 
 ## 4. 앱 토대 (Expo)
 - [ ] `ANDROID_HOME` 환경변수 설정, `npx expo` 실행 확인

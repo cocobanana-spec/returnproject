@@ -107,3 +107,36 @@
 - 09-14 — 비대화형이라 `plan-before-research`를 "계획 먼저, 가정 표시하며 진행, 질문은 말미"로 변형 적용. product-planner는 general-purpose에 역할 파일을 읽혀 동기 호출. CTO 검토에서 잡힌 결함은 둘 다 정체성 축 유형.
 - 09-15 — 로컬→클라우드는 소프트 삭제·업로드·가져오기가 사라지는 "단순해지는" 변경이었다.
 - 09-16 — 소유 축 확장은 예고한 대로 RLS 정책과 RPC를 전부 다시 쓰는 일이었다. 착수 전에 확인 질문으로 막아 둔 것이 맞았다. 외부 서비스 사실(Kakao)은 공식 문서를 직접 조회하고, 확인 안 된 부분은 "검증 필요 + 확인 방법"으로 남겼다.
+
+## 7. 백엔드 토대 구현 (2026-09-19)
+
+checklist 3단계를 구현했다. 산출물은 `supabase/migrations/0001_init.sql`(정본), `supabase/functions/delete-account/index.ts`, `supabase/tests/`(스텁·검증·러너).
+
+### 7.1 검증 경로를 왜 이렇게 골랐나
+- 이 머신에 **컨테이너 런타임이 전혀 없다**(docker·colima·podman·lima 모두 없음). 그래서 `supabase start`·`supabase db lint`·`gen types --local` 등 Docker 의존 명령을 쓸 수 없다. Supabase 클라우드 프로젝트도 아직 없다(checklist 2단계 미완).
+- 택한 경로는 **`brew install postgresql@17`(17.11) + auth 스텁**이다. 로컬에 진짜 Postgres를 띄우고, 마이그레이션이 의존하는 Supabase 제공물만 스텁으로 만든 뒤(`auth` 스키마, `auth.users`, `auth.uid()`, 역할 anon/authenticated/service_role, `extensions` 스키마의 pgcrypto, public 스키마 기본 권한) **`0001_init.sql`을 수정 없이 그대로** 적용했다. DDL·생성 컬럼·트리거·plpgsql·RLS·컬럼 권한이 전부 실제로 실행된다.
+- 대안이던 colima+docker 설치는 수 GB 다운로드라 느리고, 얻는 것은 "Supabase 이미지와 동일한 환경" 하나뿐이다. 그 차이에서 오는 위험은 checklist 3b로 명시해 관리한다.
+- 스텁은 **`supabase/tests/`에 둔다. 마이그레이션 디렉터리에 절대 넣지 않는다.** 프로덕션에 섞이면 `auth` 스키마를 덮어쓴다.
+
+### 7.2 검증 결과
+- `./supabase/tests/run.sh` — **154건 전부 통과**, 실패 시 종료 코드 ≠ 0. 계정 A·B(같은 장부), C(다른 장부), D(두 장부 구성원) 네 세션으로 돌린다.
+- 하네스의 핵심은 `expect_rows`다. **RLS에 걸린 UPDATE·DELETE는 오류 없이 0건 처리**되므로(CTO 메모리 전례), 모든 쓰기 검사는 영향 행 수를 직접 확인한다. 조회 검사는 관리자 자격(`expect_admin`)과 사용자 자격(`expect_scalar`)을 구분한다.
+
+### 7.3 구현하며 고친 기획 결함
+1. **남의 행사의 당사자 필수를 CHECK로 묶으면 사람 삭제가 불가능하다**(docs/03 CTO 결정 25로 기록). FK의 `ON DELETE SET NULL`이 당사자를 비우는 순간 CHECK에 걸려 삭제 자체가 실패했다(T11.5에서 실제로 터짐). docs/02 §5의 "당사자만 비운다"와 모순이었다. CHECK는 "내 행사는 당사자 없음"만 남기고, "남의 행사는 당사자 필수"는 `events_validate` 트리거가 INSERT일 때만 본다.
+2. **데이터 수정 CTE는 서로의 결과를 보지 못한다**(결정 26). 사람·행사·기록을 `with ... insert ... insert` 하나로 묶으면 뒤 문장이 앞 CTE의 행을 못 봐 FK와 같은 장부 트리거가 전부 실패한다. 앱의 빠른 기록은 순차 INSERT(왕복 3회)여야 한다. docs/02 §3.2에 구현 주의로 적었다.
+3. **`ledger_id`를 UPDATE로 바꿔 공유 장부의 행을 개인 장부로 빼낼 수 있었다**(QA가 잡음). RLS의 USING(옛 장부)과 WITH CHECK(새 장부)가 두 장부 모두의 구성원에게는 둘 다 참이라 정책으로는 막히지 않는다. `forbid_ledger_change` 트리거를 people·events·entries에 달았다. 기밀성 유출은 아니지만(두 장부 모두의 구성원이어야 함) 배우자가 보던 데이터가 조용히 사라지는 경로였다.
+4. **`delete_person`이 무관한 예정 행사까지 지웠다**(QA가 잡음). 장부 전체의 "당사자 NULL + 기록 0건" 행사를 쓸어 담았다. "지운 사람이 당사자이던" 행사로 한정했다.
+5. 검증 스크립트의 **가짜 통과 1건**(QA가 잡음). "소멸한 코드 재사용 불가" 검사가 실제로는 없는 코드를 넣고 있어, `join_ledger`의 코드 소멸 로직이 사라져도 통과했다. 실제로 소비된 코드를 넣도록 고쳤다.
+
+### 7.4 의식적으로 하지 않은 것 (QA 지적 중)
+- **`entries.created_by` 위조 방지.** 같은 장부 구성원끼리는 서로의 입력자 값을 바꿀 수 있다. 막으려면 INSERT/UPDATE 권한을 컬럼 단위로 열거해야 해서 컬럼이 늘 때마다 유지비가 든다. 읽기 권한은 어차피 동등하므로 **입력자는 표시용이며 감사 근거가 아니다**로 문서화하고 넘어간다.
+- **초대 코드 동시 사용 잠금(`for update`)과 시도 횟수 제한.** 카톡으로 1명에게 보내는 40비트 코드라 현실성이 낮다.
+- **Edge Function의 부분 실패 보상.** `prepare_account_deletion` 성공 후 `deleteUser`가 실패하면 데이터는 사라졌는데 계정이 남는다. RPC가 멱등이라 재호출로 복구되며, "데이터가 주인 없이 남는" 위험한 방향은 아니다.
+- 앱이 다룰 몫 — 이름 trim(공백만인 이름이 CHECK를 통과한다), 측 라벨 없는 행사에 `side` 넣지 않기, `host_person_id`를 UPDATE 페이로드에 넣지 않기.
+
+### 7.5 검증하지 못한 것
+- **실제 Supabase 전부.** `db push` 권한, `auth.users` 트리거 생성 가능 여부, 호스티드의 기본 권한·pgcrypto 설치 스키마·로케일. checklist 3b로 목록화했다.
+- **Edge Function 런타임.** Deno와 Supabase 런타임이 없어 코드만 작성했다. 타입 체크도 못 했다.
+- **타입 생성.** `supabase gen types typescript --db-url`은 CLI 2.90.0에서도 postgres-meta 컨테이너를 띄운다. Docker 없이는 경로가 없다. 손으로 쓰지 않고 미실시로 둔다.
+- **Supabase CLI 버전** — 설치본 2.90.0, 최신 2.117.0. 업데이트 권고가 뜬다.
