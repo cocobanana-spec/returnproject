@@ -81,9 +81,9 @@
 - [ ] 로그아웃 후 다른 계정 로그인 — 이전 계정 데이터가 한 프레임도 비치지 않는지
 - [ ] 다크 모드 전환 시 StatusBar와 토큰이 함께 바뀌는지
 
-## 4c. 서버 쪽 후속 (다음 마이그레이션 후보)
-- [ ] `delete_person`·`merge_people`·`event_summary`에 `p_ledger_id`를 받아 서버에서도 장부를 검사한다. 지금은 앱 리포지토리가 호출 전에 막고 있어 방어가 앱에만 있다
-- [ ] `entries.amount` 상한 CHECK — 앱은 10억으로 막지만 DB에는 상한이 없다
+## 4c. 서버 쪽 후속 — 2026-09-21 완료 (마이그레이션 0003)
+- [x] `delete_person`·`merge_people`·`event_summary`가 `p_ledger_id`를 받아 서버에서 장부를 검사한다. 기본값을 주지 않아 호출부가 빼먹을 수 없다. 로컬 T15, 원격 스모크 §9로 검증
+- [x] `entries.amount` 상한 CHECK (10억) — 앱 상한과 같은 값을 DB에도 둔다
 
 ## 5. P0 화면 (docs/02 §4)
 - [ ] S00 로그인 (Apple·Google·Kakao 버튼, 처리방침 링크, 네트워크 없음 안내)

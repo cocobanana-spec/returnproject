@@ -238,10 +238,12 @@ $$;
 
 ### 6.1 데이터(SECURITY INVOKER, 2026-09-15와 동일하되 장부 축)
 
-- `event_summary(p_event_id uuid)` — 행사 상세 집계. 변경 없음.
-- `stats_by_year(p_ledger_id uuid, p_year int)` — 통계. `WHERE en.ledger_id = p_ledger_id` 추가.
-- `delete_person(p_id uuid)` — 삭제 전에 `ledger_id`를 읽어 두고, 삭제 후 그 장부의 "당사자 NULL이고 기록 0건인 남의 행사"를 지운다.
-- `merge_people(p_victim uuid, p_survivor uuid)` — 두 사람이 **같은 장부**인지 먼저 검사(`RAISE 'different_ledger'`). 나머지는 동일.
+> 2026-09-21 개정(마이그레이션 0003) — 아래 네 함수는 모두 **첫 인자로 `p_ledger_id`를 받아 서버에서 장부를 검사한다.** SECURITY INVOKER라 RLS만 타는데, RLS는 "내가 구성원인 모든 장부"를 허용하므로 두 장부의 구성원이 현재 장부 밖의 행을 건드릴 수 있었다. 인자에 기본값은 주지 않는다. 기본값이 있으면 호출부가 빼먹어도 통과한다.
+
+- `event_summary(p_ledger_id uuid, p_event_id uuid)` — 행사 상세 집계. 읽기라 예외 대신 장부 조건을 걸어 다른 장부면 빈 결과다.
+- `stats_by_year(p_ledger_id uuid, p_year int)` — 통계. `WHERE en.ledger_id = p_ledger_id`.
+- `delete_person(p_ledger_id uuid, p_id uuid)` — 소속이 다르면 `wrong_ledger`. 삭제 후 "그 사람이 당사자이던" 행사 중 당사자 NULL이고 기록 0건인 것을 지운다.
+- `merge_people(p_ledger_id uuid, p_victim uuid, p_survivor uuid)` — 두 사람이 서로 다른 장부면 `different_ledger`, 호출자가 넘긴 장부와 다르면 `wrong_ledger`.
 
 ### 6.2 장부·구성원(SECURITY DEFINER, 명시적 검사)
 
