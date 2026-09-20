@@ -55,17 +55,35 @@
 - [ ] `[api] max_rows` 기본값 1000 확정 — 원격은 대시보드 설정이다. 수년치 기록 조회가 조용히 잘리므로 앱에서 페이지네이션 필수
 - [ ] `graphql_public` 노출 범위 점검 (미확인)
 
-## 4. 앱 토대 (Expo)
-- [ ] `ANDROID_HOME` 환경변수 설정, `npx expo` 실행 확인
-- [ ] Expo 앱 스캐폴드 (TypeScript, Expo Router, npm), dev client 빌드 (`expo run:ios` / `run:android`)
-- [ ] supabase-js 클라이언트 + 세션 저장 (AsyncStorage), 인증 그룹 라우팅 `(auth)` / `(app)`
-- [ ] Apple 로그인 (`expo-apple-authentication` → `signInWithIdToken`), Google 로그인 (`@react-native-google-signin`), Kakao 로그인 (2단계 검증 결과에 따라 네이티브 SDK 또는 `signInWithOAuth` + `expo-web-browser` + 딥링크)
-- [ ] 현재 장부 컨텍스트 — 로그인 후 `ledger_members` 조회, AsyncStorage에 저장된 id가 유효하면 유지, 아니면 owner 장부 우선 선택. 장부 0권이면 S17로
-- [ ] TanStack Query + `persistQueryClient`(AsyncStorage), 키 규칙 `[domain, action, { ledgerId, ... }]`, 오프라인 배너
-- [ ] `src/domain/` 순수 함수 — 이름 정규화(DB와 동일 규칙), 금액 파싱(만원 토글 → 원), 자동 제목, 통계 결과 접기, 초대 코드 입력 정규화
-- [ ] `node --test`로 도메인 단위 테스트 (Node 26 타입 스트리핑, `.ts` 확장자 import)
-- [ ] 리포지토리 계층 — 모든 함수가 `ledgerId` 필수 인자. people / events / entries CRUD + 뷰·RPC 호출 + 장부·구성원 함수
-- [ ] 디자인 토큰 파일 1개 (색·간격·글꼴 크기), 라이트/다크
+## 4. 앱 토대 (Expo) — 2026-09-21 자바스크립트 계층 완료
+검증 — `npx tsc --noEmit` 0건 · `npm test` 39건 · `npx expo export` 번들 3.2MB 생성 · `npm run integration` 78건(실제 프로젝트).
+- [x] Expo 앱 스캐폴드 (SDK 57.0.24, TypeScript, Expo Router, npm)
+- [x] supabase-js 클라이언트 + 세션 저장(AsyncStorage), 인증 그룹 라우팅 `(auth)` / `(app)`
+- [x] 현재 장부 컨텍스트 — 저장값이 유효하면 유지, 아니면 owner 장부 우선, 0권이면 초대 코드 입력 화면
+- [x] TanStack Query + `persistQueryClient`(AsyncStorage), 키 규칙 `[domain, action, { ledgerId, ... }]`, 오프라인 배너
+- [x] `src/domain/` 순수 함수 — 이름 정규화·금액 파싱·자동 제목·통계 접기·초대 코드 입력 정규화
+- [x] `node --test` 도메인 단위 테스트 39건
+- [x] 리포지토리 계층 — 모든 함수가 `ledgerId` 필수 인자. 테이블·뷰 조회는 `.eq('ledger_id')`, RPC는 호출 전 소속 확인. 목록은 전부 페이지네이션
+- [x] 디자인 토큰 1개(색·간격·반경·글꼴), 라이트/다크
+- [x] 앱↔DB 이름 정규화 대조 11종(NBSP·전각 공백 포함) 실제 DB에서 일치 확인
+- [ ] 소셜 로그인 3종 — 코드만 작성, **실제 로그인 0회**. 콘솔 등록(2단계)과 네이티브 빌드가 선행돼야 한다
+- [ ] `ANDROID_HOME` 환경변수 설정 — Java 런타임이 없어 보류
+- [ ] dev client 빌드 (`expo run:ios` / `run:android`) — **불가.** Xcode 라이선스 미동의(`sudo xcodebuild -license accept` 필요), Java 런타임 없음
+
+## 4b. 네이티브 빌드가 가능해지면 확인할 것
+- [ ] Hermes에서 `String.prototype.normalize('NFC')` 동작 — 안 되면 이름 정규화 전체가 죽는다
+- [ ] Hermes에서 `Number.prototype.toLocaleString('ko-KR')`이 천 단위 콤마를 내는지 — 안 되면 금액 표시가 전부 깨진다
+- [ ] 소셜 로그인 3종 실동작 + Supabase Redirect URL 허용 목록에 `ppurin://auth/callback` 등록
+- [ ] AsyncStorage 세션 영속 — 앱 강제 종료 후 재실행 시 로그인 화면이 안 뜨는지
+- [ ] `persistQueryClient` 복원 — 비행기 모드 재실행 시 마지막 화면이 보이는지
+- [ ] 오프라인 배너 — `isInternetReachable`이 실제로 false로 떨어지는지
+- [ ] 장부 전환 중 삭제·병합 — 다른 장부 데이터가 건드려지지 않는지 실기기 재확인
+- [ ] 로그아웃 후 다른 계정 로그인 — 이전 계정 데이터가 한 프레임도 비치지 않는지
+- [ ] 다크 모드 전환 시 StatusBar와 토큰이 함께 바뀌는지
+
+## 4c. 서버 쪽 후속 (다음 마이그레이션 후보)
+- [ ] `delete_person`·`merge_people`·`event_summary`에 `p_ledger_id`를 받아 서버에서도 장부를 검사한다. 지금은 앱 리포지토리가 호출 전에 막고 있어 방어가 앱에만 있다
+- [ ] `entries.amount` 상한 CHECK — 앱은 10억으로 막지만 DB에는 상한이 없다
 
 ## 5. P0 화면 (docs/02 §4)
 - [ ] S00 로그인 (Apple·Google·Kakao 버튼, 처리방침 링크, 네트워크 없음 안내)

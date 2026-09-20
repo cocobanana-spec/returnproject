@@ -175,3 +175,40 @@ checklist 3단계를 구현했다. 산출물은 `supabase/migrations/0001_init.s
 - 소셜 로그인 3종(Apple·Google·Kakao)으로 같은 트리거 경로 확인. 프로바이더 활성화 후.
 - 원격 `max_rows` 기본값 1000. 수년치 기록 조회가 조용히 잘리므로 앱에서 페이지네이션이 필수다.
 - `graphql_public` 노출 범위.
+
+## 9. 앱 토대 구현 (2026-09-21)
+
+checklist 4단계의 자바스크립트 계층을 끝까지 쌓았다. 네이티브 빌드가 불가능한 상태라 화면 동작은 확인하지 못했고, 대신 타입·단위 테스트·번들 export·실제 프로젝트 통합 검증 네 가지로 받쳤다.
+
+### 9.1 환경 제약과 그에 맞춘 검증 수단
+- **네이티브 빌드 불가.** Xcode 27.0이 설치돼 있으나 라이선스 미동의라 CocoaPods가 막히고(`sudo xcodebuild -license accept` 필요), Android는 SDK만 있고 Java 런타임이 없다. `expo run:ios`·`run:android` 둘 다 못 돌린다.
+- 그래서 검증은 네 가지로 했다. `npx tsc --noEmit`(0건), `npm test`(39건), `npx expo export --platform ios`(번들 3.2MB 생성 — 네이티브 없이 JS 번들 오류를 잡는 수단), `npm run integration`(실제 프로젝트 상대 78건).
+- 스택은 Expo SDK **57.0.24** / React 19.2.3 / RN 0.86.3 / TypeScript 6.0.3. FluencC와 같은 SDK 계열이다.
+
+### 9.2 설치·설정에서 걸린 것
+- `react-dom@19.3.0`이 expo-router 경유로 끌려와 `react@19.2.3`과 peer 충돌을 냈다. `package.json`의 `overrides`로 `react-dom`을 19.2.3에 고정해 풀었다. `--legacy-peer-deps`로 덮지 않았다.
+- `babel.config.js`를 직접 두면 `babel-preset-expo`가 루트에 있어야 한다. 템플릿은 babel 설정을 아예 만들지 않는데, 우리는 명시적으로 두고 preset을 설치했다.
+- tsconfig에 `types: ['node','react']`를 명시해야 `node:test`와 `process`가 잡혔다. `expo/tsconfig.base`에는 `types` 필드가 없다.
+- 상대 import 확장자 — 도메인·lib·리포지토리는 `.ts`를 명시한다. Node 26의 타입 스트리핑이 확장자를 요구하기 때문이며(scentilique 전례), Metro도 명시 확장자를 그대로 해석한다. `.tsx`(화면·Provider)는 Node가 부를 일이 없어 확장자를 붙이지 않았다.
+
+### 9.3 설계 결정
+- **Supabase 클라이언트를 플랫폼 중립 모듈로 분리했다.** `src/lib/supabaseClient.ts`가 `createDb`/`setDb`/`db()`를 갖고, `src/lib/supabase.ts`(RN 전용)가 AsyncStorage를 꽂는다. 리포지토리는 `db()`만 쓴다. 이유는 두 가지다. (1) Node에서 리포지토리를 그대로 불러 통합 검증을 돌릴 수 있다. (2) 2단계 웹이 붙을 때 같은 리포지토리를 재사용할 수 있다.
+- **소셜 로그인 3종을 브라우저 OAuth(PKCE) 하나로 구현했다.** 기획(docs/04 §3)은 Apple을 `expo-apple-authentication` + `signInWithIdToken`, Google을 `@react-native-google-signin`으로 적었다. 바꾼 이유 — 네이티브 모듈은 빌드가 돼야 검증이 되는데 지금은 빌드가 불가능하고, 클라이언트 ID도 없어 설정 자체를 못 한다. 브라우저 흐름은 세 프로바이더에 똑같이 적용되고 앱에 ID를 넣을 필요가 없다. 바꿀 자리는 `src/auth/providers.ts` 한 파일이며, **iOS 심사 전에는 Apple을 네이티브 흐름으로 되돌리는 편이 좋다**(checklist 4b).
+- **번들 ID는 `com.cocobanana.ppurin`, 표시명은 `뿌린대로거두리라`로 임시 확정했다.** 사용자가 아직 정하지 않았고 콘솔 등록 전이라 지금이 바꾸기 가장 싼 시점이다. 바꾸려면 `app.json`의 `ios.bundleIdentifier`·`android.package` 두 줄이다.
+
+### 9.4 QA가 잡은 것과 수정
+- **P0 — RPC 3종이 `ledgerId`를 받고도 쓰지 않았다.** `delete_person`·`merge_people`·`event_summary`는 SECURITY INVOKER라 RLS만 탄다. RLS는 "내가 구성원인 모든 장부"를 허용하므로, 두 장부 구성원이 다른 장부의 사람을 실제로 지울 수 있었다(QA가 원격에서 재현). 리포지토리에서 호출 전에 `.eq('ledger_id')`가 걸린 조회로 소속을 확인하도록 고쳤다. **근본 수정은 서버 함수가 `p_ledger_id`를 받는 것이고 checklist 4c에 남겼다.** 방어가 아직 앱에만 있다.
+- **통합 검증이 이 위험을 못 잡고 있었다.** 계정이 전부 장부 1권짜리라 리포지토리에서 장부 필터를 통째로 빼도 통과했다. 두 장부에 동시에 속한 계정(dave)을 만들어 조회 분리와 파괴적 RPC 차단을 검사하도록 했다. 이 시나리오가 P0를 잡는 유일한 검사다.
+- 로그아웃이 영속 캐시를 안 비웠다(PRD §3.12 위반). `queryClient.clear()` + AsyncStorage 키 2개 제거로 고쳤고, `LedgerProvider`도 `userId`가 null이 되면 선택을 비운다.
+- `listEvents`에 정렬 타이브레이커가 없어 같은 날 행사가 페이지 사이에서 겹치거나 빠질 수 있었다. `.order('id')`를 붙였다.
+- 단위 테스트에 구조적으로 실패할 수 없는 동어반복 단언이 있었다(측 합계를 같은 루프의 값으로 검증). 손으로 계산한 기대값 비교로 바꿨다.
+- 그 밖에 — `pageRange`가 서버 상한 1000을 넘지 않게 클램프, 검색어에 `%`·`_` 와일드카드가 섞이지 않게 정규화, 동적 import 제거, 존재하지 않는 파일을 가리키던 주석 수정.
+
+### 9.5 확인된 사실
+- **이름 정규화가 DB 생성 컬럼과 일치한다.** JS `\s`와 Postgres `[[:space:]]`가 갈릴 수 있는 NBSP(U+00A0)·전각 공백(U+3000)을 포함한 11종을 실제 프로젝트에 넣어 `name_normalized`와 대조했고 불일치 0건이다. 이 대조는 `supabase/tests/app_integration.mjs`가 매번 다시 한다.
+- anon 키는 `.env.local`(gitignore)에만 있고 추적 파일에는 JWT 문자열이 없다. service role 키는 앱 코드에 없고 통합 검증이 환경변수로만 읽는다.
+- 번들에는 anon 키와 프로젝트 URL이 인라인된다(설계상 정상). service role은 없다.
+
+### 9.6 미검증
+- 화면 동작 전부. 소셜 로그인 실동작, AsyncStorage 세션 영속, 쿼리 캐시 복원, 오프라인 배너, 다크 모드.
+- **Hermes 런타임 의존 두 가지가 가장 위험하다.** `String.prototype.normalize`와 `Number.prototype.toLocaleString('ko-KR')`. Node에서는 되지만 Hermes는 ICU 구성에 따라 없거나 로케일을 무시할 수 있고, 각각 이름 정규화 전체와 금액 표시 전체가 걸려 있다. checklist 4b의 1·2번이다.
