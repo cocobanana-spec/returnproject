@@ -68,11 +68,13 @@
 - [x] 앱↔DB 이름 정규화 대조 11종(NBSP·전각 공백 포함) 실제 DB에서 일치 확인
 - [ ] 소셜 로그인 3종 — 코드만 작성, **실제 로그인 0회**. 콘솔 등록(2단계)과 네이티브 빌드가 선행돼야 한다
 - [ ] `ANDROID_HOME` 환경변수 설정 — Java 런타임이 없어 보류
-- [ ] dev client 빌드 (`expo run:ios` / `run:android`) — **불가.** Xcode 라이선스 미동의(`sudo xcodebuild -license accept` 필요), Java 런타임 없음
+- [x] iOS 시뮬레이터 실행 확인 (2026-09-21) — Xcode 라이선스 동의 완료. 의존성이 모두 Expo Go 범위라 `npx expo start --ios`로 iPhone 17 Pro에서 실행되며 로그인 화면이 뜬다
+- [ ] dev client 빌드 (`expo run:ios`) — 소셜 로그인 네이티브 모듈을 넣을 때 필요. 지금은 Expo Go로 충분하다
+- [ ] Android 실행 — Java 런타임 없음(`brew install --cask temurin`), `ANDROID_HOME` 미설정
 
-## 4b. 네이티브 빌드가 가능해지면 확인할 것
-- [ ] Hermes에서 `String.prototype.normalize('NFC')` 동작 — 안 되면 이름 정규화 전체가 죽는다
-- [ ] Hermes에서 `Number.prototype.toLocaleString('ko-KR')`이 천 단위 콤마를 내는지 — 안 되면 금액 표시가 전부 깨진다
+## 4b. 실기기·시뮬레이터에서 확인할 것 — 런타임 위험 2건 해소 (2026-09-21)
+- [x] Hermes에서 `String.prototype.normalize('NFC')` 동작 — **된다.** `Intl`도 있다. NFD로 분해한 '감'(3코드유닛)이 NFC로 정확히 합쳐지고, `' 김 철수 '` → `'김철수'`가 Node와 같다. `/\s/`가 NBSP·전각 공백에도 매치된다
+- [x] Hermes에서 `Number.prototype.toLocaleString('ko-KR')` — **된다.** `1234567` → `1,234,567`, `50000` → `50,000`
 - [ ] 소셜 로그인 3종 실동작 + Supabase Redirect URL 허용 목록에 `ppurin://auth/callback` 등록
 - [ ] AsyncStorage 세션 영속 — 앱 강제 종료 후 재실행 시 로그인 화면이 안 뜨는지
 - [ ] `persistQueryClient` 복원 — 비행기 모드 재실행 시 마지막 화면이 보이는지
