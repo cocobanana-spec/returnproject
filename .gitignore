@@ -1,10 +1,19 @@
 # macOS
 .DS_Store
 
-# Node / Expo (구현 단계 대비)
+# Node / Expo
 node_modules/
 .expo/
 dist/
+web-build/
 *.log
+expo-env.d.ts
+
+# 환경 값 — anon 키는 설계상 공개 값이지만 저장소에는 두지 않는다
 .env
 .env.*
+!.env.example
+
+# 네이티브 산출물 (prebuild 시 생성)
+/ios
+/android
