@@ -177,6 +177,29 @@ try:
     st, code3 = req("POST", "/rest/v1/rpc/create_invite_code", te, {"p_ledger_id": ld})
     check("승계된 owner가 초대 코드를 낼 수 있다", st == 200 and isinstance(code3, str), f"{st} {code3}")
 
+    print("== 9. 데이터 RPC의 장부 가드 (마이그레이션 0003)")
+    # 두 장부에 동시에 속한 사용자가 현재 장부 밖의 행을 건드리지 못해야 한다.
+    # RLS는 두 장부를 모두 허용하므로 정책이 아니라 함수 안의 검사가 막는다.
+    ef = f"smoke-f-{tag}@ppurin-test.kr"
+    uf = make_user(ef)
+    created.append(uf)
+    tf = sign_in(ef)
+    lf = my_ledger(tf, uf)
+    st, own = req("POST", "/rest/v1/people", tf, {"ledger_id": lf, "name": "내장부사람"},
+                  {"Prefer": "return=representation"})
+    check("자기 장부에 사람을 만든다", st in (200, 201) and own, f"{st} {own}")
+    st, code4 = req("POST", "/rest/v1/rpc/create_invite_code", te, {"p_ledger_id": ld})
+    req("POST", "/rest/v1/rpc/join_ledger", tf, {"p_code": code4})
+    st, rows = req("GET", f"/rest/v1/ledger_members?select=ledger_id&user_id=eq.{uf}", tf)
+    check("두 장부의 구성원이 된다", st == 200 and len(rows) == 2, f"{st} {rows}")
+    st, body = req("POST", "/rest/v1/rpc/delete_person", tf,
+                   {"p_ledger_id": ld, "p_id": own[0]["id"]})
+    check("현재 장부 밖의 사람은 지워지지 않는다", st >= 400 and "wrong_ledger" in str(body), f"{st} {body}")
+    st, rows = req("GET", f"/rest/v1/people?select=id&id=eq.{own[0]['id']}", tf)
+    check("그 사람은 그대로 남는다", st == 200 and len(rows) == 1, f"{st} {rows}")
+    st, rows = req("POST", "/rest/v1/rpc/event_summary", tf, {"p_ledger_id": ld, "p_event_id": own[0]["id"]})
+    check("현재 장부 밖의 집계는 빈 결과다", st == 200 and rows == [], f"{st} {rows}")
+
 finally:
     print("== 정리")
     for user_id in created:

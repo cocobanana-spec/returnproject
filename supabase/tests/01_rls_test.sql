@@ -422,11 +422,11 @@ select tst.expect_scalar('T4.14 C가 남의 장부 통계 RPC를 불러도 0건'
 
 select tst.expect_scalar('T4.15 C가 남의 행사 집계 RPC를 불러도 0건',
   (select v from tst.fix where k='C'),
-  $q$ select count(*)::text from public.event_summary('22222222-0000-4000-8000-000000000001') $q$, '0');
+  $q$ select count(*)::text from public.event_summary((select v from tst.fix where k='L3'), '22222222-0000-4000-8000-000000000001') $q$, '0');
 
 select tst.expect_error('T4.16 C는 남의 사람을 삭제 RPC로도 못 지운다',
   (select v from tst.fix where k='C'),
-  $q$ select public.delete_person('11111111-0000-4000-8000-000000000001') $q$,
+  $q$ select public.delete_person((select v from tst.fix where k='L3'), '11111111-0000-4000-8000-000000000001') $q$,
   'person_not_found');
 
 -- ============================================================================
@@ -610,7 +610,7 @@ select tst.expect_error('T8.9 다른 장부의 사람을 행사 당사자로 둘
 
 select tst.expect_error('T8.10 다른 장부의 사람끼리는 병합할 수 없다',
   (select v from tst.fix where k='D'),
-  $q$ select public.merge_people('44444444-0000-4000-8000-000000000001',
+  $q$ select public.merge_people((select v from tst.fix where k='L4'), '44444444-0000-4000-8000-000000000001',
                                  '11111111-0000-4000-8000-000000000001') $q$,
   'different_ledger');
 
@@ -683,12 +683,12 @@ select tst.expect_scalar('T9.8 B도 같은 수지를 본다',
 
 select tst.expect_scalar('T9.9 내 행사 합계는 기록 단위로 50000(공동 중복 없음)',
   (select v from tst.fix where k='A'),
-  $q$ select coalesce(sum(total), 0)::text from public.event_summary('22222222-0000-4000-8000-000000000002') $q$,
+  $q$ select coalesce(sum(total), 0)::text from public.event_summary((select v from tst.fix where k='L1'), '22222222-0000-4000-8000-000000000002') $q$,
   '50000');
 
 select tst.expect_scalar('T9.10 내 행사 미확정 1건',
   (select v from tst.fix where k='A'),
-  $q$ select coalesce(sum(unconfirmed), 0)::text from public.event_summary('22222222-0000-4000-8000-000000000002') $q$,
+  $q$ select coalesce(sum(unconfirmed), 0)::text from public.event_summary((select v from tst.fix where k='L1'), '22222222-0000-4000-8000-000000000002') $q$,
   '1');
 
 select tst.expect_scalar('T9.11 2025년 준돈 합계 100000',
@@ -727,22 +727,22 @@ select tst.expect_rows('T9.16 미확정 기록을 신부측으로 표시한다',
 select tst.expect_scalar('T9.17 측별로 행이 나뉘어 집계된다',
   (select v from tst.fix where k='A'),
   $q$ select count(distinct side)::text
-        from public.event_summary('22222222-0000-4000-8000-000000000002') $q$, '2');
+        from public.event_summary((select v from tst.fix where k='L1'), '22222222-0000-4000-8000-000000000002') $q$, '2');
 
 select tst.expect_scalar('T9.18 신랑측 합계 50000',
   (select v from tst.fix where k='A'),
   $q$ select coalesce(sum(total), 0)::text
-        from public.event_summary('22222222-0000-4000-8000-000000000002') where side = 'a' $q$, '50000');
+        from public.event_summary((select v from tst.fix where k='L1'), '22222222-0000-4000-8000-000000000002') where side = 'a' $q$, '50000');
 
 select tst.expect_scalar('T9.19 측별 합이 전체와 같다',
   (select v from tst.fix where k='A'),
   $q$ select coalesce(sum(total), 0)::text
-        from public.event_summary('22222222-0000-4000-8000-000000000002') $q$, '50000');
+        from public.event_summary((select v from tst.fix where k='L1'), '22222222-0000-4000-8000-000000000002') $q$, '50000');
 
 select tst.expect_scalar('T9.20 답례 완료 1건이 집계된다',
   (select v from tst.fix where k='A'),
   $q$ select coalesce(sum(returned), 0)::text
-        from public.event_summary('22222222-0000-4000-8000-000000000002') $q$, '1');
+        from public.event_summary((select v from tst.fix where k='L1'), '22222222-0000-4000-8000-000000000002') $q$, '1');
 
 -- 날짜 정밀도가 "년"인 기록도 연도별 통계에 포함된다(docs/02 §5 과거 기록 일괄 입력).
 select tst.expect_ok('T9.21 연도만 아는 과거 행사를 만든다',
@@ -801,19 +801,19 @@ select tst.expect_ok('T10.1c P3에게 준 기록을 만든다',
 
 select tst.expect_error('T10.2 자기 자신과는 병합할 수 없다',
   (select v from tst.fix where k='A'),
-  $q$ select public.merge_people('11111111-0000-4000-8000-000000000003',
+  $q$ select public.merge_people((select v from tst.fix where k='L1'), '11111111-0000-4000-8000-000000000003',
                                  '11111111-0000-4000-8000-000000000003') $q$,
   'merge_same_person');
 
 select tst.expect_error('T10.3 공동 부조로 묶인 두 사람은 병합할 수 없다',
   (select v from tst.fix where k='A'),
-  $q$ select public.merge_people('11111111-0000-4000-8000-000000000002',
+  $q$ select public.merge_people((select v from tst.fix where k='L1'), '11111111-0000-4000-8000-000000000002',
                                  '11111111-0000-4000-8000-000000000001') $q$,
   'merge_would_self_reference');
 
 select tst.expect_ok('T10.4 P3를 P1으로 병합한다',
   (select v from tst.fix where k='A'),
-  $q$ select public.merge_people('11111111-0000-4000-8000-000000000003',
+  $q$ select public.merge_people((select v from tst.fix where k='L1'), '11111111-0000-4000-8000-000000000003',
                                  '11111111-0000-4000-8000-000000000001') $q$);
 
 select tst.expect_scalar('T10.5 병합된 사람은 사라진다',
@@ -866,7 +866,7 @@ select tst.expect_rows('T11.2c 그 행사의 당사자를 비운다',
 
 select tst.expect_ok('T11.3 P5를 삭제한다',
   (select v from tst.fix where k='A'),
-  $q$ select public.delete_person('11111111-0000-4000-8000-000000000005') $q$);
+  $q$ select public.delete_person((select v from tst.fix where k='L1'), '11111111-0000-4000-8000-000000000005') $q$);
 
 select tst.expect_scalar('T11.4 공동 부조자 자리만 비워지고 기록은 남는다',
   (select v from tst.fix where k='A'),
@@ -875,7 +875,7 @@ select tst.expect_scalar('T11.4 공동 부조자 자리만 비워지고 기록�
 
 select tst.expect_ok('T11.5 P1을 삭제한다(기록 3건과 고아 행사가 따라간다)',
   (select v from tst.fix where k='A'),
-  $q$ select public.delete_person('11111111-0000-4000-8000-000000000001') $q$);
+  $q$ select public.delete_person((select v from tst.fix where k='L1'), '11111111-0000-4000-8000-000000000001') $q$);
 
 select tst.expect_scalar('T11.6 그 사람의 기록이 사라진다',
   (select v from tst.fix where k='A'),
@@ -1083,6 +1083,105 @@ select tst.expect_admin('T14.8 남은 구성원에게 데이터가 보존된다'
 select tst.expect_admin('T14.9 남은 구성원이 owner를 승계한다',
   $q$ select role from public.ledger_members
        where ledger_id = (select v from tst.fix where k='LF') $q$, 'owner');
+
+-- ============================================================================
+-- T15. 데이터 RPC의 장부 가드 — 두 장부 구성원이 현재 장부 밖을 건드리지 못한다
+-- RLS는 "내가 구성원인 모든 장부"를 허용하므로 정책만으로는 막히지 않는다(0003).
+-- ============================================================================
+insert into auth.users (id, email, raw_user_meta_data)
+values ('eeeeeeee-0000-4000-8000-000000000004', 'twoledger@example.com', '{"name":"두장부"}');
+
+insert into tst.fix(k, v)
+select 'LG', ledger_id from public.ledger_members
+ where user_id = 'eeeeeeee-0000-4000-8000-000000000004';
+
+select tst.expect_ok('T15.1 G가 자기 장부에 사람·행사·기록을 만든다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ insert into public.people (id, ledger_id, name)
+      values ('77777777-0000-4000-8000-000000000001',
+              (select v from tst.fix where k='LG'), '내장부사람') $q$);
+
+select tst.expect_ok('T15.2 G가 자기 장부에 행사를 만든다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ insert into public.events (id, ledger_id, type, is_mine, host_person_id, title, date)
+      values ('88888888-0000-4000-8000-000000000001',
+              (select v from tst.fix where k='LG'), 'wedding', false,
+              '77777777-0000-4000-8000-000000000001', '내장부사람 결혼식', '2026-05-05') $q$);
+
+select tst.expect_ok('T15.3 G가 기록을 만든다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ insert into public.entries (ledger_id, event_id, person_id, amount)
+      values ((select v from tst.fix where k='LG'),
+              '88888888-0000-4000-8000-000000000001',
+              '77777777-0000-4000-8000-000000000001', 50000) $q$);
+
+-- G가 LF에도 합류해 두 장부의 구성원이 된다. 데이터가 있으므로 개인 장부는 정리되지 않는다.
+select tst.expect_ok('T15.4 LF의 owner가 초대 코드를 발급한다',
+  'eeeeeeee-0000-4000-8000-000000000003',
+  $q$ select public.create_invite_code((select v from tst.fix where k='LF')) $q$);
+
+select tst.capture_code((select v from tst.fix where k='LF'));
+
+select tst.expect_ok('T15.5 G가 LF에 합류한다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ select public.join_ledger((select v from tst.val where k='code')) $q$);
+
+select tst.expect_scalar('T15.6 G는 두 장부의 구성원이다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ select count(*)::text from public.ledger_members
+       where user_id = 'eeeeeeee-0000-4000-8000-000000000004' $q$, '2');
+
+-- 여기부터가 0003이 막는 것. 현재 장부를 LF로 두고 LG의 행을 건드린다.
+select tst.expect_error('T15.7 현재 장부를 LF로 두고 LG의 사람을 지울 수 없다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ select public.delete_person((select v from tst.fix where k='LF'),
+                                  '77777777-0000-4000-8000-000000000001') $q$,
+  'wrong_ledger');
+
+select tst.expect_scalar('T15.8 그 사람은 그대로 남아 있다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ select count(*)::text from public.people
+       where id = '77777777-0000-4000-8000-000000000001' $q$, '1');
+
+select tst.expect_scalar('T15.9 현재 장부를 LF로 두면 LG 행사 집계는 0건이다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ select count(*)::text from public.event_summary(
+        (select v from tst.fix where k='LF'),
+        '88888888-0000-4000-8000-000000000001') $q$, '0');
+
+select tst.expect_scalar('T15.10 자기 장부를 넘기면 집계가 나온다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ select coalesce(sum(total), 0)::text from public.event_summary(
+        (select v from tst.fix where k='LG'),
+        '88888888-0000-4000-8000-000000000001') $q$, '50000');
+
+select tst.expect_ok('T15.11 LG에 두 번째 사람을 만든다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ insert into public.people (id, ledger_id, name)
+      values ('77777777-0000-4000-8000-000000000002',
+              (select v from tst.fix where k='LG'), '내장부사람2') $q$);
+
+select tst.expect_error('T15.12 현재 장부를 LF로 두고 LG의 두 사람을 합칠 수 없다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ select public.merge_people((select v from tst.fix where k='LF'),
+                                 '77777777-0000-4000-8000-000000000002',
+                                 '77777777-0000-4000-8000-000000000001') $q$,
+  'wrong_ledger');
+
+select tst.expect_error('T15.13 금액 상한을 넘는 기록은 저장되지 않는다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ insert into public.entries (ledger_id, event_id, person_id, amount)
+      values ((select v from tst.fix where k='LG'),
+              '88888888-0000-4000-8000-000000000001',
+              '77777777-0000-4000-8000-000000000001', 2000000000) $q$,
+  'entries_amount_max');
+
+select tst.expect_ok('T15.14 상한 이하 금액은 저장된다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ insert into public.entries (ledger_id, event_id, person_id, amount)
+      values ((select v from tst.fix where k='LG'),
+              '88888888-0000-4000-8000-000000000001',
+              '77777777-0000-4000-8000-000000000001', 1000000000) $q$);
 
 -- ============================================================================
 -- 결과 요약
