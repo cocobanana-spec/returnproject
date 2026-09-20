@@ -137,9 +137,8 @@ export async function updatePerson(
   return rows[0] as Person;
 }
 
-// 서버 RPC는 SECURITY INVOKER라 RLS만 탄다. RLS는 "내가 구성원인 모든 장부"를 허용하므로
-// 두 장부의 구성원이면 현재 장부가 아닌 쪽의 사람도 지워진다. 파괴적 연산 앞에서 소속을 먼저 확인한다.
-// (근본 수정은 서버 함수에 p_ledger_id를 받아 검사하는 것이다. checklist 3b 참조)
+// 서버 함수도 0003부터 p_ledger_id를 받아 장부를 검사한다(wrong_ledger).
+// 여기서 한 번 더 보는 것은 사용자에게 보일 문구를 만들기 위해서다.
 async function assertInLedger(ledgerId: string, personId: string): Promise<void> {
   const found = await getPerson(ledgerId, personId);
   if (!found) {
@@ -150,7 +149,10 @@ async function assertInLedger(ledgerId: string, personId: string): Promise<void>
 // 기록·공동 부조자 자리·당사자 자리를 서버 함수가 한 번에 정리한다.
 export async function deletePerson(ledgerId: string, personId: string): Promise<void> {
   await assertInLedger(ledgerId, personId);
-  const { error } = await db().rpc('delete_person', { p_id: personId });
+  const { error } = await db().rpc('delete_person', {
+    p_ledger_id: ledgerId,
+    p_id: personId,
+  });
   unwrap({ data: null, error });
 }
 
@@ -163,6 +165,7 @@ export async function mergePeople(
   await assertInLedger(ledgerId, victimId);
   await assertInLedger(ledgerId, survivorId);
   const { error } = await db().rpc('merge_people', {
+    p_ledger_id: ledgerId,
     p_victim: victimId,
     p_survivor: survivorId,
   });

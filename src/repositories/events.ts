@@ -120,12 +120,15 @@ export async function getEventSummary(
   ledgerId: string,
   eventId: string,
 ): Promise<EventSummary> {
-  // event_summary는 RLS만 타므로 다른 장부의 행사 id를 넣어도 집계가 돌아온다.
-  // 현재 장부의 행사인지 먼저 확인한다(people.ts의 assertInLedger와 같은 이유).
+  // 서버 함수도 0003부터 장부 조건을 건다. 여기서 먼저 보는 것은 "없는 행사"와
+  // "다른 장부의 행사"를 빈 집계가 아니라 분명한 오류로 구분해 보여 주기 위해서다.
   const event = await getEvent(ledgerId, eventId);
   if (!event) throw new RepositoryError('이 장부의 행사가 아닙니다.', 'event_not_found');
 
-  const { data, error } = await db().rpc('event_summary', { p_event_id: eventId });
+  const { data, error } = await db().rpc('event_summary', {
+    p_ledger_id: ledgerId,
+    p_event_id: eventId,
+  });
   const rows = unwrap({ data, error });
   return foldEventSummary(rows ?? []);
 }

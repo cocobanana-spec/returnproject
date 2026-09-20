@@ -327,7 +327,10 @@ export type Database = {
     }
     Functions: {
       create_invite_code: { Args: { p_ledger_id: string }; Returns: string }
-      delete_person: { Args: { p_id: string }; Returns: undefined }
+      delete_person: {
+        Args: { p_id: string; p_ledger_id: string }
+        Returns: undefined
+      }
       display_name_of: {
         Args: { p_email: string; p_meta: Json }
         Returns: string
@@ -335,7 +338,7 @@ export type Database = {
       display_name_of_user: { Args: { p_uid: string }; Returns: string }
       ensure_owner: { Args: { p_ledger_id: string }; Returns: undefined }
       event_summary: {
-        Args: { p_event_id: string }
+        Args: { p_event_id: string; p_ledger_id: string }
         Returns: {
           cnt: number
           method: string
@@ -349,7 +352,7 @@ export type Database = {
       is_ledger_owner: { Args: { l: string }; Returns: boolean }
       join_ledger: { Args: { p_code: string }; Returns: string }
       merge_people: {
-        Args: { p_survivor: string; p_victim: string }
+        Args: { p_ledger_id: string; p_survivor: string; p_victim: string }
         Returns: undefined
       }
       prepare_account_deletion: { Args: never; Returns: undefined }
