@@ -11,8 +11,13 @@ export const queryKeys = {
       ['people', 'list', { ledgerId, ...params }] as const,
     search: (ledgerId: string, prefix: string) =>
       ['people', 'search', { ledgerId, prefix }] as const,
+    // people 테이블 행(전화·메모 포함). 편집 화면이 쓴다.
     detail: (ledgerId: string, personId: string) =>
       ['people', 'detail', { ledgerId, personId }] as const,
+    // person_balances 뷰 행(수지 포함). 상세 화면이 쓴다.
+    // 모양이 다른 두 결과를 한 키에 담으면 캐시가 섞여 필드가 조용히 사라진다.
+    balance: (ledgerId: string, personId: string) =>
+      ['people', 'balance', { ledgerId, personId }] as const,
     recent: (ledgerId: string) => ['people', 'recent', { ledgerId }] as const,
   },
   events: {

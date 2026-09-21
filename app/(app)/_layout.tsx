@@ -2,9 +2,10 @@
 import { Stack } from 'expo-router';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { useLedger } from '../../src/ledger/LedgerProvider';
+import { NoLedger } from '../../src/ledger/NoLedger';
 import { useTokens } from '../../src/theme/tokens';
 import { OfflineBanner } from '../../src/ui/OfflineBanner';
-import { NoLedger } from '../../src/ledger/NoLedger';
+import { ToastProvider } from '../../src/ui/ToastProvider';
 
 export default function AppLayout() {
   const { status, error } = useLedger();
@@ -41,9 +42,29 @@ export default function AppLayout() {
   if (status === 'none') return <NoLedger />;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <OfflineBanner />
-      <Stack screenOptions={{ headerShown: false }} />
-    </View>
+    <ToastProvider>
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <OfflineBanner />
+        <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: colors.bg },
+          headerTintColor: colors.text,
+          headerTitleStyle: { color: colors.text },
+          // 그룹 이름 (tabs) 가 뒤로 버튼에 새는 것을 막는다
+          headerBackButtonDisplayMode: 'minimal',
+          contentStyle: { backgroundColor: colors.bg },
+        }}
+      >
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="ledger" options={{ title: '장부' }} />
+        <Stack.Screen name="person/[id]" options={{ title: '' }} />
+        <Stack.Screen name="person/edit" options={{ title: '사람' }} />
+        <Stack.Screen
+          name="record"
+          options={{ title: '기록 남기기', presentation: 'modal' }}
+        />
+        </Stack>
+      </View>
+    </ToastProvider>
   );
 }

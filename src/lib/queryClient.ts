@@ -15,8 +15,13 @@ export const queryClient = new QueryClient({
     },
     mutations: {
       // 쓰기는 온라인 필수다. 큐에 쌓아 두지 않고 실패를 화면에 그대로 보여 준다.
+      //
+      // ⚠ networkMode는 반드시 'always'여야 한다. 'online'으로 두고 누군가 onlineManager를
+      //   NetInfo에 연결하면, 오프라인 저장이 오류 없이 멈춰 있다가 나중에 자동 재전송된다.
+      //   그것이 바로 docs/03 결정 13이 "만들지 않는다"고 못박은 오프라인 쓰기 큐다.
+      //   오프라인 여부는 useOnline()으로 화면이 직접 보여 주고, 저장은 그냥 실패시킨다.
       retry: 0,
-      networkMode: 'online',
+      networkMode: 'always',
     },
   },
 });
