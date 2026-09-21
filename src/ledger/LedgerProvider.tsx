@@ -14,6 +14,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useAuth } from '../auth/AuthProvider';
+import { supabase } from '../lib/supabase';
 import { queryKeys } from '../lib/queryKeys';
 import { listMyLedgers, type MyLedger } from '../repositories/ledgers';
 import { CURRENT_LEDGER_KEY as STORAGE_KEY } from './storage.ts';
@@ -70,12 +71,34 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   }, [selected]);
 
   // 로그아웃하면 선택을 비운다. 다음 로그인 계정이 이전 사용자의 장부를 물려받지 않게 한다.
+  // 메모리뿐 아니라 저장소에서도 지운다. 남겨 두면 다음 계정이 남의 장부 id를 들고 시작한다.
   useEffect(() => {
     if (!userId) {
       setSelected(null);
       setStored(null);
+      AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
     }
   }, [userId]);
+
+  // 장부가 0권으로 보일 때, 진짜 0권인지 세션이 이미 죽은 것인지 가른다.
+  //
+  // 다른 기기에서 계정을 지웠거나 토큰이 무효해진 경우에도 JWT는 만료 전까지 형식상 유효하다.
+  // 그 토큰으로 조회하면 RLS가 오류 없이 0건을 돌려주므로 "장부 없음"과 구별되지 않는다.
+  // 그대로 두면 장부가 멀쩡히 있는 사용자에게 초대 코드 입력 화면이 계속 보인다(실제로 재현됨).
+  // 서버에 사용자를 물어보고 아니라면 로그아웃해 로그인 화면으로 돌려보낸다.
+  useEffect(() => {
+    if (!userId || !query.isSuccess || ledgers.length > 0) return;
+    let alive = true;
+    supabase.auth
+      .getUser()
+      .then(({ error }) => {
+        if (alive && error) void supabase.auth.signOut();
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [userId, query.isSuccess, ledgers.length]);
 
   const setCurrentLedger = useCallback((ledgerId: string) => setSelected(ledgerId), []);
 
