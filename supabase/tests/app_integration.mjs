@@ -15,6 +15,7 @@ import { createDb, setDb } from '../../src/lib/supabaseClient.ts';
 import { normalizeName } from '../../src/domain/name.ts';
 import { normalizeInviteCode } from '../../src/domain/invite.ts';
 import { autoEventTitle, todayISO } from '../../src/domain/title.ts';
+import { undoPlan } from '../../src/domain/quickRecord.ts';
 import * as ledgersRepo from '../../src/repositories/ledgers.ts';
 import * as peopleRepo from '../../src/repositories/people.ts';
 import * as eventsRepo from '../../src/repositories/events.ts';
@@ -241,6 +242,56 @@ async function main() {
 
   const ledger1 = await entriesRepo.listEntriesByPerson(LA, p1.id);
   eq('원장은 대표자와 공동 부조자 기록을 모두 본다', ledger1.rows.length, 2);
+
+  // ------------------------------------- 빠른 기록의 3단 순차 저장과 실행 취소
+  // 화면(S02)이 하는 것과 같은 순서로 부른다. CTE로 묶으면 실패하는 흐름이라 순차가 맞는지,
+  // 그리고 undoPlan이 고른 한 건을 지우면 정말 셋 다 사라지는지 본다.
+  const qrPerson = await peopleRepo.createPerson(LA, { name: '빠른기록 상대', relation_group: 'other' });
+  const qrEvent = await eventsRepo.createEvent(LA, {
+    type: 'senior_birthday',
+    is_mine: false,
+    host_person_id: qrPerson.id,
+    title: autoEventTitle({
+      type: 'senior_birthday',
+      isMine: false,
+      hostName: qrPerson.name,
+      date: '2026-04-04',
+    }),
+    date: '2026-04-04',
+    place: '○○웨딩홀',
+  });
+  const qrEntry = await entriesRepo.createEntry(LA, {
+    event_id: qrEvent.id,
+    person_id: qrPerson.id,
+    amount: 50000,
+  });
+  eq('빠른 기록 제목 자동 생성', qrEvent.title, '빠른기록 상대 회갑·칠순 2026');
+  eq('장소가 행사에 저장된다', qrEvent.place, '○○웨딩홀');
+
+  // 새 사람까지 만든 경우의 실행 취소 — 사람 하나만 지우면 된다.
+  const step = undoPlan({ personId: qrPerson.id, eventId: qrEvent.id, entryId: qrEntry.id });
+  eq('실행 취소는 새로 만든 사람을 고른다', step.kind, 'person');
+  await peopleRepo.deletePerson(LA, step.id);
+
+  eq('실행 취소 후 사람이 사라진다', await peopleRepo.getPerson(LA, qrPerson.id), null);
+  eq('실행 취소 후 행사가 사라진다', await eventsRepo.getEvent(LA, qrEvent.id), null);
+  const qrGone = await entriesRepo.listEntriesByEvent(LA, qrEvent.id);
+  eq('실행 취소 후 기록이 사라진다', qrGone.rows.length, 0);
+
+  // 기존 사람·새 행사만 만든 경우 — 행사를 지우면 기록이 따라간다.
+  const ev2 = await eventsRepo.createEvent(LA, {
+    type: 'opening',
+    is_mine: false,
+    host_person_id: p1.id,
+    title: '개업 취소용',
+    date: '2026-05-05',
+  });
+  const en2 = await entriesRepo.createEntry(LA, { event_id: ev2.id, person_id: p1.id, amount: 20000 });
+  const step2 = undoPlan({ personId: null, eventId: ev2.id, entryId: en2.id });
+  eq('기존 사람이면 실행 취소는 행사를 고른다', step2.kind, 'event');
+  await eventsRepo.deleteEvent(LA, step2.id);
+  eq('행사를 지우면 기록도 사라진다', (await entriesRepo.listEntriesByEvent(LA, ev2.id)).rows.length, 0);
+  check('기존 사람은 남는다', (await peopleRepo.getPerson(LA, p1.id)) !== null, '사람이 같이 지워졌다');
 
   // --------------------------------------------------------------- 페이지네이션
   for (let i = 0; i < 7; i += 1) {
