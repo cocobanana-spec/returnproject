@@ -68,7 +68,7 @@ export async function findMatchingEvent(
       .gte('date', from)
       .lte('date', to)
       .order('date', { ascending: true })
-      .limit(3),
+      .limit(10),
   );
 }
 

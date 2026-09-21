@@ -48,7 +48,7 @@ export async function searchPeopleByPrefix(
       .from('person_balances')
       .select('*')
       .eq('ledger_id', ledgerId)
-      .like('name_normalized', `${prefix}%`)
+      .like('name_normalized', `${escapeLikePrefix(prefix)}%`)
       .order('last_entry_at', { ascending: false, nullsFirst: false })
       .order('name_normalized', { ascending: true })
       .limit(limit),
