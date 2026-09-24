@@ -10,6 +10,9 @@ export type AuthErrorLike = {
 
 export type MappedAuthError = {
   message: string;
+  // 서버 원문. 화면에 띄우지 않는다. 통합 검증과 로그가 원인을 추적하기 위한 것이다.
+  // 2026-09-24 통합 검증에서 가입이 unknown으로 실패했는데 원문이 버려져 원인을 못 찾았다.
+  detail?: { status: number; code: string; message: string };
   // 화면이 추가 동작을 붙일 수 있도록 원인을 분류해 둔다.
   kind:
     | 'invalid_credentials'
@@ -25,6 +28,18 @@ export type MappedAuthError = {
 };
 
 export function mapAuthError(error: AuthErrorLike | null | undefined): MappedAuthError {
+  const mapped = classifyAuthError(error);
+  return {
+    ...mapped,
+    detail: {
+      status: error?.status ?? 0,
+      code: error?.code ?? '',
+      message: error?.message ?? '',
+    },
+  };
+}
+
+function classifyAuthError(error: AuthErrorLike | null | undefined): MappedAuthError {
   const raw = (error?.message ?? '').toLowerCase();
   const code = (error?.code ?? '').toLowerCase();
   const status = error?.status ?? 0;

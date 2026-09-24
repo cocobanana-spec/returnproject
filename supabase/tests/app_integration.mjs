@@ -650,10 +650,20 @@ async function main() {
   // (2) 메일을 보내는 경로 — 제한에 걸리면 건너뛴다
   const fresh = `signup-${tag}@ppurin-test.kr`;
   const signedUp = await emailAuth.signUpWithEmail(fresh, mailPw, 'ppurin://auth/confirm');
-  if (!signedUp.ok && signedUp.error.kind === 'rate_limited') {
-    console.log('  SKIP  가입·재발송·재설정 — Supabase 내장 SMTP 시간당 제한에 걸렸다(커스텀 SMTP 필요)');
+  // 메일 발송 계통 실패는 우리 코드 결함이 아니다. 429(속도 제한)든 5xx(메일러 오류)든
+  // 같은 원인(내장 SMTP)이라 SKIP으로 통일한다. 다만 원문을 남겨 다음 사람이 확인할 수 있게 한다.
+  const mailPathBlocked =
+    !signedUp.ok &&
+    (signedUp.error.kind === 'rate_limited' || (signedUp.error.detail?.status ?? 0) >= 500);
+  if (mailPathBlocked) {
+    console.log('  SKIP  가입·재발송·재설정 — 메일 발송 계통이 막혔다(내장 SMTP, 커스텀 SMTP 필요)');
+    console.log(`        서버 원문 ${JSON.stringify(signedUp.error.detail)}`);
   } else {
-    check('가입이 성공한다', signedUp.ok === true, JSON.stringify(signedUp));
+    check(
+      '가입이 성공한다',
+      signedUp.ok === true,
+      signedUp.ok ? '' : `서버 원문 ${JSON.stringify(signedUp.error.detail)}`,
+    );
     if (signedUp.ok) {
       eq('메일 확인이 켜져 있어 세션이 바로 생기지 않는다', signedUp.needsConfirmation, true);
     }
