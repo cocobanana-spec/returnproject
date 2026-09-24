@@ -1,0 +1,114 @@
+Incident Identifier: F62B8F28-07DF-43E0-94C4-C48FF55AA601
+Distributor ID:      com.apple.TestFlight
+Hardware Model:      iPhone18,5
+Process:             app [8578]
+Path:                /private/var/containers/Bundle/Application/CE4361DC-1AB8-4410-92C3-B12D02C6A292/app.app/app
+Identifier:          com.cocobanana.ppurin
+Version:             1.0.0 (2)
+AppStoreTools:       27A261
+AppVariant:          1:iPhone18,5:26
+Beta:                YES
+Code Type:           ARM-64 (Native)
+Role:                Foreground
+Parent Process:      launchd [1]
+Coalition:           com.cocobanana.ppurin [2336]
+
+Date/Time:           2026-09-24 19:31:25.4575 +0900
+Launch Time:         2026-09-24 19:31:25.1414 +0900
+OS Version:          iPhone OS 27.0 (24A437)
+Release Type:        User
+Baseband Version:    3.01.03
+Report Version:      104
+
+Exception Type:  EXC_BREAKPOINT (SIGTRAP)
+Exception Codes: 0x0000000000000001, 0x0000000196fcd2b8
+Termination Reason: SIGNAL 5 Trace/BPT trap: 5
+Terminating Process: exc handler [8578]
+
+Triggered by Thread:  0
+
+
+Thread 0 name:
+Thread 0 Crashed:
+0   UIKitCore                     	0x0000000196fcd2b8 ___UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption_block_invoke + 700 (:-1)
+1   libdispatch.dylib             	0x00000001c0019fb4 _dispatch_client_callout + 16 (:-1)
+2   libdispatch.dylib             	0x00000001c0002b60 _dispatch_once_callout + 32 (:-1)
+3   UIKitCore                     	0x0000000195e882f0 -[UIApplication workspace:didCreateScene:withTransitionContext:completion:] + 324 (:-1)
+4   UIKitCore                     	0x00000001964b7e40 -[UIApplicationSceneClientAgent scene:didInitializeWithEvent:completion:] + 288 (:-1)
+5   FrontBoardServices            	0x00000001b921214c __95-[FBSScene _callOutQueue_didCreateWithTransitionContext:alternativeCreationCallout:completion:]_block_invoke + 364 (:-1)
+6   FrontBoardServices            	0x00000001b91f8d54 -[FBSScene _callOutQueue_maybeCoalesceClientSettingsUpdates:] + 128 (:-1)
+7   FrontBoardServices            	0x00000001b9211590 -[FBSScene _callOutQueue_didCreateWithTransitionContext:alternativeCreationCallout:completion:] + 420 (:-1)
+8   FrontBoardServices            	0x00000001b92103c0 __93-[FBSWorkspaceScenesClient _callOutQueue_sendDidCreateForScene:transitionContext:completion:]_block_invoke.349 + 252 (:-1)
+9   FrontBoardServices            	0x00000001b91f9458 -[FBSWorkspace _calloutQueue_executeCalloutFromSource:withBlock:] + 168 (:-1)
+10  FrontBoardServices            	0x00000001b92105d8 -[FBSWorkspaceScenesClient _callOutQueue_sendDidCreateForScene:transitionContext:completion:] + 480 (:-1)
+11  FrontBoardServices            	0x00000001b92102a0 __92-[FBSWorkspaceScenesClient createSceneWithIdentity:parameters:transitionContext:completion:]_block_invoke_2 + 268 (:-1)
+12  FrontBoardServices            	0x00000001b91f9458 -[FBSWorkspace _calloutQueue_executeCalloutFromSource:withBlock:] + 168 (:-1)
+13  libdispatch.dylib             	0x00000001c0019fb4 _dispatch_client_callout + 16 (:-1)
+14  libdispatch.dylib             	0x00000001c0004d34 _dispatch_block_invoke_direct + 224 (:-1)
+15  BoardServices                 	0x00000001a0e60874 __BSSERVICEMAINRUNLOOPQUEUE_IS_CALLING_OUT_TO_A_BLOCK__ + 52 (:-1)
+16  BoardServices                 	0x00000001a0e606d4 -[BSServiceMainRunLoopQueue _performNextFromRunLoopSource] + 212 (:-1)
+17  BoardServices                 	0x00000001a0e606d4 BSServiceMainRunLoopSourceHandler + 232 (:-1)
+18  CoreFoundation                	0x0000000191b64c20 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 28 (:-1)
+19  CoreFoundation                	0x0000000191b64b94 __CFRunLoopDoSource0 + 192 (:-1)
+20  CoreFoundation                	0x0000000191b46268 __CFRunLoopDoSources0 + 316 (:-1)
+21  CoreFoundation                	0x0000000191b45384 __CFRunLoopRun + 416 (:-1)
+22  CoreFoundation                	0x0000000191b467f4 _CFRunLoopRunSpecificWithOptions + 344 (:-1)
+23  GraphicsServices              	0x000000023c208f24 GSEventRunModal + 120 (:-1)
+24  UIKitCore                     	0x0000000195e241cc UIApplicationMain + 336 (:-1)
+25  UIKitCore                     	0x00000001960bf644 UIApplicationMain(_:_:_:_:) + 104 (:-1)
+26  app                           	0x00000001022e9484 specialized static UIApplicationDelegate.main() + 28 (/<compiler-generated>:5)
+27  app                           	0x00000001022e9484 static AppDelegate.$main() + 28 (AppDelegate.swift:0)
+28  app                           	0x00000001022e9484 main + 116
+29  dyld                          	0x00000001919975b8 start + 6616 (:-1)
+
+Thread 1:
+
+Thread 2:
+
+Thread 3:
+
+Thread 4:
+
+Thread 5:
+
+Thread 6:
+
+Thread 7:
+
+Thread 8:
+
+
+Thread 0 crashed with ARM Thread State (64-bit):
+    x0: 0x000000014823c111   x1: 0x0000000008000100   x2: 0x0000000000000001   x3: 0x0000000000000000
+    x4: 0x0000000000000149   x5: 0x0000000000000092   x6: 0x0000000000000000   x7: 0x00000001f83e2960
+    x8: 0x00000001f5a38000   x9: 0x831060ace35800fe  x10: 0x0000000000000005  x11: 0x000000000000003f
+   x12: 0x00000000002fe800  x13: 0x000000014820dbc0  x14: 0x01000001f8419ae9  x15: 0x00000001f8419ae8
+   x16: 0x00000001a0e28778  x17: 0x0000000191b4ae44  x18: 0x0000000000000000  x19: 0x000000014823c100
+   x20: 0x0000000148235490  x21: 0x000000016db19c38  x22: 0x0000000148104500  x23: 0x0000000104d9c2a0
+   x24: 0x000000014818cb40  x25: 0x0000000104d97390  x26: 0x00000001f5571000  x27: 0x0000000000000001
+   x28: 0x000000014822d0c0   fp: 0x000000016db19b20   lr: 0x0000000196fcd2b8
+    sp: 0x000000016db19ae0   pc: 0x0000000196fcd2b8 cpsr: 0x60000000
+   esr: 0xf2000000 (Breakpoint) brk 0
+
+
+Binary Images:
+        0x1022e4000 -         0x102743fff app arm64  <bf882b1acf7a3ab192581a9ea81d1bb0> /private/var/containers/Bundle/Application/CE4361DC-1AB8-4410-92C3-B12D02C6A292/app.app/app
+        0x10295c000 -         0x102967fff libobjc-trampolines.dylib arm64e  <ff574c5a1c32369c8b7ae4f6eff43026> /private/preboot/Cryptexes/OS/usr/lib/libobjc-trampolines.dylib
+        0x102b54000 -         0x102b5ffff ExpoModulesWorklets arm64  <d29d5584ecb13f6bafaadda8eebc8a09> /private/var/containers/Bundle/Application/CE4361DC-1AB8-4410-92C3-B12D02C6A292/app.app/Frameworks/ExpoModulesWorklets.framework/ExpoModulesWorklets
+        0x102c00000 -         0x102c0ffff ExpoFont arm64  <d9b56f020a883e8b9ad7c0afa7cbec80> /private/var/containers/Bundle/Application/CE4361DC-1AB8-4410-92C3-B12D02C6A292/app.app/Frameworks/ExpoFont.framework/ExpoFont
+        0x102d24000 -         0x102d7ffff ExpoFileSystem arm64  <77a2eda5119a3400b9437dc9683d192a> /private/var/containers/Bundle/Application/CE4361DC-1AB8-4410-92C3-B12D02C6A292/app.app/Frameworks/ExpoFileSystem.framework/ExpoFileSystem
+        0x102e4c000 -         0x102e9ffff ExpoModulesJSI arm64  <d76760c037f03487affcd7de0f029637> /private/var/containers/Bundle/Application/CE4361DC-1AB8-4410-92C3-B12D02C6A292/app.app/Frameworks/ExpoModulesJSI.framework/ExpoModulesJSI
+        0x103014000 -         0x103097fff ReactNativeDependencies arm64  <db4e121670c636f08a46fdd48fcae1f2> /private/var/containers/Bundle/Application/CE4361DC-1AB8-4410-92C3-B12D02C6A292/app.app/Frameworks/ReactNativeDependencies.framework/ReactNativeDependencies
+        0x103210000 -         0x103353fff ExpoModulesCore arm64  <838a5692d48530dfb7261b7dce9b696b> /private/var/containers/Bundle/Application/CE4361DC-1AB8-4410-92C3-B12D02C6A292/app.app/Frameworks/ExpoModulesCore.framework/ExpoModulesCore
+        0x103ad8000 -         0x103ceffff hermesvm arm64  <be274a2347cc3f5a9e988474553df5a8> /private/var/containers/Bundle/Application/CE4361DC-1AB8-4410-92C3-B12D02C6A292/app.app/Frameworks/hermesvm.framework/hermesvm
+        0x1041a4000 -         0x1045fbfff React arm64  <ee15b752fb4635f2b0bba46636572385> /private/var/containers/Bundle/Application/CE4361DC-1AB8-4410-92C3-B12D02C6A292/app.app/Frameworks/React.framework/React
+        0x191992000 -         0x191a49737 dyld arm64e  <d3f59b02ee07371bb0913f150a078ed8> /usr/lib/dyld
+        0x191b0b000 -         0x191fed777 CoreFoundation arm64e  <9426fc9ab36c3096b836d17d6744a75b> /System/Library/Frameworks/CoreFoundation.framework/CoreFoundation
+        0x195d6a000 -         0x197da0937 UIKitCore arm64e  <aac84a0013ab3b06b622a4e676971eb8> /System/Library/PrivateFrameworks/UIKitCore.framework/UIKitCore
+        0x1a0d91000 -         0x1a0e5d8ff BaseBoard arm64e  <a276669dc54d3ff7a0755fceccedd048> /System/Library/PrivateFrameworks/BaseBoard.framework/BaseBoard
+        0x1a0e5e000 -         0x1a0efe74f BoardServices arm64e  <512cbba4b3f338d79022845f567e8292> /System/Library/PrivateFrameworks/BoardServices.framework/BoardServices
+        0x1b91ef000 -         0x1b92a6e27 FrontBoardServices arm64e  <771f9dd0e6913f32bd22727e6ef4f1a6> /System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices
+        0x1bfffe000 -         0x1c0044d17 libdispatch.dylib arm64e  <8cdf4610f6a539cb94bf687fe349a4be> /usr/lib/system/libdispatch.dylib
+        0x23c208000 -         0x23c20fea3 GraphicsServices arm64e  <d0170165a9733dbb86ea8eb7d0ea9acb> /System/Library/PrivateFrameworks/GraphicsServices.framework/GraphicsServices
+
+EOF

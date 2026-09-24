@@ -134,3 +134,39 @@ for p in sorted(glob.glob('ios/app/Images.xcassets/AppIcon.appiconset/*.png')):
 ```
 
 안드로이드 전경 이미지는 432px이다. Expo 권장은 1024px이므로 안드로이드를 실제로 낼 때 더 큰 원본으로 교체한다.
+
+## iOS 27 장면 수명주기 (반드시 필요)
+
+iOS 27 SDK로 빌드한 앱이 장면(UIScene) 수명주기를 채택하지 않으면 **실행 40ms 만에 죽는다.** 크래시 로그에 이렇게 찍힌다.
+
+```
+Exception Type:  EXC_BREAKPOINT (SIGTRAP)
+0  UIKitCore  ___UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption_block_invoke
+```
+
+TestFlight 빌드 1.0.0(2)가 실제로 이 이유로 죽었다. 시뮬레이터는 이 규칙을 강제하지 않으므로 **시뮬레이터에서 아무리 돌려도 드러나지 않는다.** 실기기나 TestFlight에서만 보인다.
+
+Expo SDK 57의 prebuild 템플릿은 아직 장면을 채택하지 않는다. 다만 expo 57.0.24 패키지 안에 필요한 조각(`ExpoAppSceneDelegate`, `ExpoReactNativeFactoryProvider`)이 이미 들어 있어 연결만 하면 된다. `plugins/withIosSceneLifecycle.js`가 그 일을 한다.
+
+- Info.plist에 `UIApplicationSceneManifest`를 넣고 델리게이트로 `EXExpoAppSceneDelegate`를 지정한다.
+- `AppDelegate.swift`가 `ExpoReactNativeFactoryProvider`를 채택하게 하고, 창 생성과 React Native 시작을 지운다. 그 일은 장면 델리게이트가 한다.
+
+두 파일 모두 prebuild가 다시 만들기 때문에 손으로 고치면 다음 prebuild에서 날아간다. 그래서 설정 플러그인으로 두었다. **Expo SDK 58부터는 기본으로 채택되므로 그때 이 플러그인을 지운다.**
+
+## 실기기에서 바로 확인하는 법
+
+TestFlight를 거치지 않고 붙어 있는 기기에 설치해 확인할 수 있다. 실행 직후 죽는 유형은 이 방법이 훨씬 빠르다.
+
+```
+xcodebuild -workspace ios/app.xcworkspace -scheme app -configuration Release \
+  -destination 'id=<기기 UDID>' -derivedDataPath /tmp/ppurin-dev \
+  -allowProvisioningUpdates DEVELOPMENT_TEAM=58XF2TVK7G build
+
+xcrun devicectl device install app --device <기기 UDID> /tmp/ppurin-dev/Build/Products/Release-iphoneos/app.app
+xcrun devicectl device process launch --device <기기 UDID> com.cocobanana.ppurin
+
+# 몇 초 뒤 프로세스가 살아 있는지 본다. 목록에 없으면 죽은 것이다.
+xcrun devicectl device info processes --device <기기 UDID> | grep app.app
+```
+
+기기 UDID는 `xcrun devicectl list devices`로 확인한다.
