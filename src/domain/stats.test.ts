@@ -1,7 +1,15 @@
 // 집계 접기 단위 테스트. 공동 부조가 행사 합계에서 중복되지 않는다는 규칙이 여기서 드러난다
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { foldEventSummary, foldYearStats, type EventSummaryRow, type StatsRow } from './stats.ts';
+import {
+  foldEventSummary,
+  foldYearStats,
+  foldYearStatsFor,
+  defaultYear,
+  yearsOf,
+  type EventSummaryRow,
+  type StatsRow,
+} from './stats.ts';
 
 const rows: StatsRow[] = [
   { year: 2025, is_mine: false, type: 'wedding', relation_group: 'work', cnt: 2, total: 200000, unconfirmed: 0 },
@@ -85,4 +93,60 @@ test('형태별 버킷에 한국어 라벨이 붙는다', () => {
   const s = foldEventSummary(summaryRows);
   assert.equal(s.byMethod[0]?.label, '현금');
   assert.equal(s.byMethod.find((b) => b.key === 'wreath')?.label, '화환·조화');
+});
+
+test('연도 목록은 최신 연도부터 내림차순으로 중복 없이 나온다', () => {
+  const rows: StatsRow[] = [
+    { year: 2025, is_mine: false, type: 'wedding', relation_group: 'friend', cnt: 1, total: 50000, unconfirmed: 0 },
+    { year: 2026, is_mine: false, type: 'wedding', relation_group: 'friend', cnt: 1, total: 100000, unconfirmed: 0 },
+    { year: 2025, is_mine: true, type: 'wedding', relation_group: 'work', cnt: 2, total: 300000, unconfirmed: 1 },
+  ];
+  assert.deepEqual(yearsOf(rows), [2026, 2025]);
+});
+
+test('행이 없으면 연도 목록도 비어 있다', () => {
+  assert.deepEqual(yearsOf([]), []);
+});
+
+test('연도를 고르면 그 해만 접고 null이면 전체를 접는다', () => {
+  const rows: StatsRow[] = [
+    { year: 2025, is_mine: false, type: 'wedding', relation_group: 'friend', cnt: 1, total: 50000, unconfirmed: 0 },
+    { year: 2026, is_mine: false, type: 'wedding', relation_group: 'friend', cnt: 1, total: 100000, unconfirmed: 0 },
+  ];
+  assert.equal(foldYearStatsFor(rows, 2026).givenTotal, 100000);
+  assert.equal(foldYearStatsFor(rows, 2025).givenTotal, 50000);
+  assert.equal(foldYearStatsFor(rows, null).givenTotal, 150000);
+  assert.equal(foldYearStatsFor(rows, null).givenCount, 2);
+});
+
+test('없는 연도를 고르면 0이 나오고 터지지 않는다', () => {
+  const rows: StatsRow[] = [
+    { year: 2026, is_mine: true, type: 'wedding', relation_group: 'friend', cnt: 1, total: 100000, unconfirmed: 0 },
+  ];
+  const stats = foldYearStatsFor(rows, 1999);
+  assert.equal(stats.receivedTotal, 0);
+  assert.deepEqual(stats.receivedByType, []);
+});
+
+test('미확정 건수는 방향별로도 나뉜다', () => {
+  const split: StatsRow[] = [
+    { year: 2026, is_mine: false, type: 'wedding', relation_group: 'friend', cnt: 2, total: 150000, unconfirmed: 1 },
+    { year: 2026, is_mine: true, type: 'wedding', relation_group: 'work', cnt: 3, total: 300000, unconfirmed: 2 },
+  ];
+  const stats = foldYearStats(split);
+  assert.equal(stats.givenUnconfirmed, 1);
+  assert.equal(stats.receivedUnconfirmed, 2);
+  assert.equal(stats.unconfirmedCount, 3);
+});
+
+test('올해 기록이 있으면 기본 연도는 올해다', () => {
+  assert.equal(defaultYear([2026, 2025], 2026), 2026);
+});
+
+test('올해 기록이 없으면 가장 최근 기록 연도를 고른다', () => {
+  assert.equal(defaultYear([2025, 2023], 2026), 2025);
+});
+
+test('기록이 아예 없으면 전체(null)다', () => {
+  assert.equal(defaultYear([], 2026), null);
 });

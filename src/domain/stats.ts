@@ -29,6 +29,10 @@ export type YearStats = {
   givenCount: number;
   receivedCount: number;
   unconfirmedCount: number;
+  // 방향별로도 나눠 둔다. 홈의 준돈 탭에 받은돈의 미확정 건수가 섞여 나오면
+  // 사용자는 있지도 않은 준돈 미확정을 찾아 헤맨다.
+  givenUnconfirmed: number;
+  receivedUnconfirmed: number;
   givenByType: Bucket[];
   receivedByType: Bucket[];
   givenByGroup: Bucket[];
@@ -60,6 +64,8 @@ export function foldYearStats(rows: StatsRow[]): YearStats {
   let givenCount = 0;
   let receivedCount = 0;
   let unconfirmedCount = 0;
+  let givenUnconfirmed = 0;
+  let receivedUnconfirmed = 0;
 
   for (const row of rows) {
     const typeLabel = EVENT_TYPE_LABEL[row.type as EventType] ?? row.type;
@@ -69,11 +75,13 @@ export function foldYearStats(rows: StatsRow[]): YearStats {
     if (row.is_mine) {
       receivedTotal += row.total;
       receivedCount += row.cnt;
+      receivedUnconfirmed += row.unconfirmed;
       bump(receivedByType, row.type, typeLabel, row.total, row.cnt);
       bump(receivedByGroup, row.relation_group, groupLabel, row.total, row.cnt);
     } else {
       givenTotal += row.total;
       givenCount += row.cnt;
+      givenUnconfirmed += row.unconfirmed;
       bump(givenByType, row.type, typeLabel, row.total, row.cnt);
       bump(givenByGroup, row.relation_group, groupLabel, row.total, row.cnt);
     }
@@ -86,11 +94,32 @@ export function foldYearStats(rows: StatsRow[]): YearStats {
     givenCount,
     receivedCount,
     unconfirmedCount,
+    givenUnconfirmed,
+    receivedUnconfirmed,
     givenByType: sortDesc(givenByType),
     receivedByType: sortDesc(receivedByType),
     givenByGroup: sortDesc(givenByGroup),
     receivedByGroup: sortDesc(receivedByGroup),
   };
+}
+
+// 통계 화면(S11)의 연도 세그먼트. stats_by_year를 연도마다 부르면 왕복이 늘어나므로
+// p_year 없이 한 번만 받아 여기서 연도를 뽑고 연도별로 접는다(docs/03 §5의 방침과 같다).
+export function yearsOf(rows: StatsRow[]): number[] {
+  return [...new Set(rows.map((row) => row.year))].sort((a, b) => b - a);
+}
+
+// 세그먼트의 기본 선택은 반드시 세그먼트 안에 있는 값이어야 한다. 기기의 올해를 그대로
+// 고르면, 올해 기록이 없는 장부에서 아무 칩도 선택 표시가 안 된 채 전부 0으로 보인다.
+// 올해 기록이 있으면 올해, 없으면 가장 최근 기록 연도, 기록이 아예 없으면 전체(null)다.
+export function defaultYear(years: number[], thisYear: number): number | null {
+  if (years.includes(thisYear)) return thisYear;
+  return years[0] ?? null;
+}
+
+// year가 null이면 전체 기간이다. 세그먼트의 "전체"가 이 경로를 쓴다.
+export function foldYearStatsFor(rows: StatsRow[], year: number | null): YearStats {
+  return foldYearStats(year === null ? rows : rows.filter((row) => row.year === year));
 }
 
 export type EventSummaryRow = {
