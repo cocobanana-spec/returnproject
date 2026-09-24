@@ -32,8 +32,8 @@ export const queryKeys = {
   entries: {
     byPerson: (ledgerId: string, personId: string) =>
       ['entries', 'byPerson', { ledgerId, personId }] as const,
-    byEvent: (ledgerId: string, eventId: string) =>
-      ['entries', 'byEvent', { ledgerId, eventId }] as const,
+    byEvent: (ledgerId: string, eventId: string, params?: Record<string, unknown>) =>
+      ['entries', 'byEvent', { ledgerId, eventId, ...params }] as const,
     recent: (ledgerId: string) => ['entries', 'recent', { ledgerId }] as const,
     detail: (ledgerId: string, entryId: string) =>
       ['entries', 'detail', { ledgerId, entryId }] as const,
