@@ -1,27 +1,23 @@
-// 받은돈 연속 입력(S09) — 명부 수백 명을 쉬지 않고 넣는 화면(docs/02 §3.3)
+// 받은돈 연속 입력(S09) — 이름·금액·메모만 받는다. 날짜와 종류는 행사의 것이다(2026-09-24)
 //
+// 측·형태·참석·공동 부조자는 입력에서 뺐다. 컬럼은 남아 있고 기본값으로 저장된다.
 // S02와 같은 다단 저장 구조다. 사람(새 사람일 때) → 기록 순차 INSERT이며, 중간에 실패해도
 // 이미 만든 것을 ref에 기억해 재시도가 이어서 진행한다. 행사는 이미 있으므로 2단이다.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
-  METHODS,
-  METHOD_LABEL,
   RELATION_GROUPS,
   RELATION_GROUP_LABEL,
-  type Method,
   type RelationGroup,
-  type Side,
 } from '../../../src/domain/constants.ts';
 import { entryRowName } from '../../../src/domain/home.ts';
 import { AMOUNT_PRESETS_WON, formatWon, formatWonShort } from '../../../src/domain/money.ts';
 import {
   carryOver,
   emptyReceivingDraft,
-  switchSide,
   validateReceiving,
   type ReceivingDraft,
 } from '../../../src/domain/receiving.ts';
@@ -60,13 +56,11 @@ export default function ReceiveScreen() {
   });
 
   const e = event.data;
-  const hasSides = Boolean(e?.side_a_label);
 
-  const [draft, setDraft] = useState<ReceivingDraft>(() => emptyReceivingDraft(null));
+  const [draft, setDraft] = useState<ReceivingDraft>(() => emptyReceivingDraft());
   const [picked, setPicked] = useState<PersonBalance | null>(null);
   const [nameText, setNameText] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
-  const [showMore, setShowMore] = useState(false);
 
   // 이번 저장에서 새로 만든 사람. 재시도가 같은 이름을 또 만들지 않게 기억한다.
   // 이름도 함께 기억해야 한다. 이름만 기억하지 않으면 사람 생성은 됐는데 기록 생성이 실패한 뒤
@@ -75,14 +69,6 @@ export default function ReceiveScreen() {
     personId: null,
     name: null,
   });
-
-  // 측이 있는 행사는 첫 번째 측으로 시작한다. 명부는 보통 한 측부터 몰아서 넣는다(docs/02 §4.5).
-  const sidePrimed = useRef(false);
-  useEffect(() => {
-    if (sidePrimed.current || !e) return;
-    sidePrimed.current = true;
-    if (e.side_a_label) setDraft((prev) => ({ ...prev, side: 'a' }));
-  }, [e]);
 
   function patch(next: Partial<ReceivingDraft>) {
     setDraft((prev) => ({ ...prev, ...next }));
@@ -124,19 +110,18 @@ export default function ReceiveScreen() {
         created.current = { personId: madePerson.id, name: newName };
       }
 
+      // 형태는 입력에서 뺐다. 현금으로 저장한다(docs/02 §3.3, 2026-09-24).
       await createEntry(ledgerId, {
         event_id: eventId,
         person_id: personId,
-        co_person_id: draft.coPersonId,
         amount: validation.plan.amount,
-        method: draft.method,
-        side: draft.side,
+        method: 'cash',
         memo: draft.memo.trim() || null,
       });
     },
     onSuccess: () => {
       invalidate();
-      // 측·부조 형태·관계 그룹은 유지하고 나머지를 비운다. 이게 속도를 만든다.
+      // 관계 그룹과 금액 단위는 유지하고 나머지를 비운다. 이게 속도를 만든다.
       resetForNext(carryOver(draft));
     },
     onError: (err: Error) => setErrors(err.message.split('\n')),
@@ -161,8 +146,6 @@ export default function ReceiveScreen() {
 
   const s = summary.data;
   const rows = recent.data?.rows ?? [];
-  const sideName = (side: Side | null) =>
-    side === 'a' ? (e?.side_a_label ?? '측 A') : side === 'b' ? (e?.side_b_label ?? '측 B') : '미지정';
 
   if (event.isLoading) {
     return (
@@ -172,8 +155,7 @@ export default function ReceiveScreen() {
     );
   }
 
-  // 행사를 못 받은 채로 입력을 열어 두면 측 세그먼트가 사라진 줄도 모르고 한쪽 측 전체가
-  // 측 미지정으로 저장된다. 나중에 되돌릴 방법이 마땅치 않으니 아예 막는다.
+  // 행사를 못 받은 채로 입력을 열어 두면 어느 행사에 넣는지도 모른 채 기록이 쌓인다. 막는다.
   if (event.isError || !e) {
     return (
       <Screen edges={{ top: false }}>
@@ -204,32 +186,6 @@ export default function ReceiveScreen() {
             </Text>
           )}
         </View>
-
-        {/* 측 세그먼트 — 측 라벨이 있을 때만 */}
-        {hasSides && (
-          <View style={{ gap: space.sm }}>
-            <Text style={{ color: colors.textMuted, fontSize: font.caption }}>어느 측인가요</Text>
-            <View style={{ flexDirection: 'row', gap: space.sm }}>
-              <Chip
-                label={e?.side_a_label ?? '측 A'}
-                selected={draft.side === 'a'}
-                onPress={() => setDraft(switchSide(draft, 'a'))}
-              />
-              {e?.side_b_label && (
-                <Chip
-                  label={e.side_b_label}
-                  selected={draft.side === 'b'}
-                  onPress={() => setDraft(switchSide(draft, 'b'))}
-                />
-              )}
-              <Chip
-                label="미지정"
-                selected={draft.side === null}
-                onPress={() => setDraft(switchSide(draft, null))}
-              />
-            </View>
-          </View>
-        )}
 
         {/* 이름 */}
         <PersonPicker
@@ -306,40 +262,14 @@ export default function ReceiveScreen() {
           </View>
         </View>
 
-        {/* 형태 */}
-        <View style={{ gap: space.sm }}>
-          <Text style={{ color: colors.textMuted, fontSize: font.caption }}>부조 형태</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
-            {METHODS.map((m) => (
-              <Chip
-                key={m}
-                label={METHOD_LABEL[m]}
-                selected={draft.method === m}
-                onPress={() => patch({ method: m as Method })}
-              />
-            ))}
-          </View>
-        </View>
-
-        <Pressable
-          onPress={() => setShowMore((prev) => !prev)}
-          style={{ alignItems: 'center', flexDirection: 'row', gap: space.xs }}
-        >
-          <Ionicons
-            name={showMore ? 'chevron-down' : 'chevron-forward'}
-            size={16}
-            color={colors.textMuted}
-          />
-          <Text style={{ color: colors.textMuted, fontSize: font.caption }}>메모</Text>
-        </Pressable>
-        {showMore && (
-          <Field
-            value={draft.memo}
-            onChangeText={(next) => patch({ memo: next })}
-            maxLength={500}
-            placeholder="봉투에 적힌 문구 …"
-          />
-        )}
+        {/* 메모 */}
+        <Field
+          label="메모"
+          value={draft.memo}
+          onChangeText={(next) => patch({ memo: next })}
+          maxLength={500}
+          placeholder="봉투에 적힌 문구 …"
+        />
 
         {errors.map((err) => (
           <Text key={err} style={{ color: colors.danger, fontSize: font.caption }}>
@@ -355,34 +285,33 @@ export default function ReceiveScreen() {
         />
         <Button label="완료" variant="secondary" onPress={() => router.back()} disabled={save.isPending} />
 
-        {/* 방금 넣은 것들 — 탭하면 지울 수 있다 */}
+        {/* 방금 넣은 것들 — 행을 탭하면 기록 편집(S10), X는 바로 삭제 */}
         {rows.length > 0 && (
           <View style={{ gap: space.sm }}>
             <Text style={{ color: colors.textMuted, fontSize: font.caption }}>방금 넣은 기록</Text>
             {rows.map((item) => (
-              <View
+              <Pressable
                 key={item.id}
-                style={{
+                onPress={() => router.push(`/entry/${item.id}`)}
+                style={({ pressed }) => ({
                   alignItems: 'center',
                   borderBottomColor: colors.border,
                   borderBottomWidth: 1,
                   flexDirection: 'row',
                   gap: space.sm,
                   paddingVertical: space.sm,
-                }}
+                  opacity: pressed ? 0.6 : 1,
+                })}
               >
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: colors.text, fontSize: font.body }} numberOfLines={1}>
                     {entryRowName(item.person, item.co_person)}
                   </Text>
-                  <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: 2 }}>
-                    {[
-                      METHOD_LABEL[item.method as Method] ?? item.method,
-                      hasSides ? sideName(item.side as Side | null) : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </Text>
+                  {item.memo && (
+                    <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: 2 }} numberOfLines={1}>
+                      {item.memo}
+                    </Text>
+                  )}
                 </View>
                 <Text
                   style={{
@@ -404,7 +333,7 @@ export default function ReceiveScreen() {
                 >
                   <Ionicons name="close-circle-outline" size={20} color={colors.textMuted} />
                 </Pressable>
-              </View>
+              </Pressable>
             ))}
             <Pressable onPress={() => router.push(`/event/${eventId}`)}>
               <Text style={{ color: colors.textMuted, fontSize: font.caption }}>전체 보기 →</Text>
