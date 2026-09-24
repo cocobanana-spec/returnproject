@@ -1,18 +1,22 @@
 // 기록 리포지토리. 준돈/받은돈 방향은 컬럼이 아니라 소속 행사의 is_mine에서 파생된다
 import { db } from '../lib/supabaseClient.ts';
 import type { Tables, TablesInsert, TablesUpdate } from '../db/database.types.ts';
-import { pageRange, toPage, unwrap, type Page, type PageParams } from './types.ts';
+import { pageRange, RepositoryError, toPage, unwrap, type Page, type PageParams } from './types.ts';
 
 export type Entry = Tables<'entries'>;
 
 // 목록에서 한 줄을 그리는 데 필요한 것만 붙여 온다.
+// 측 라벨까지 붙여 온다. 기록 상세에서 측을 고치려면 행사에 측이 있는지 알아야 한다.
 const WITH_CONTEXT =
-  '*, event:events(id, title, type, is_mine, date, date_precision), ' +
+  '*, event:events(id, title, type, is_mine, date, date_precision, side_a_label, side_b_label), ' +
   'person:people!person_id(id, name, label), ' +
   'co_person:people!co_person_id(id, name, label)';
 
 export type EntryWithContext = Entry & {
-  event: Pick<Tables<'events'>, 'id' | 'title' | 'type' | 'is_mine' | 'date' | 'date_precision'> | null;
+  event: Pick<
+    Tables<'events'>,
+    'id' | 'title' | 'type' | 'is_mine' | 'date' | 'date_precision' | 'side_a_label' | 'side_b_label'
+  > | null;
   person: Pick<Tables<'people'>, 'id' | 'name' | 'label'> | null;
   co_person: Pick<Tables<'people'>, 'id' | 'name' | 'label'> | null;
 };
@@ -116,7 +120,11 @@ export async function updateEntry(
       .eq('id', entryId)
       .select('*'),
   );
-  return rows[0] as Entry;
+  // PostgREST는 대상 행이 없어도 오류가 아니라 빈 배열을 준다. 그걸 성공으로 읽으면
+  // 이미 지워졌거나 다른 장부가 된 기록을 "저장했다"고 안내하게 된다.
+  const updated = rows[0] as Entry | undefined;
+  if (!updated) throw new RepositoryError('이미 지워졌거나 접근할 수 없는 기록입니다.');
+  return updated;
 }
 
 export async function deleteEntry(ledgerId: string, entryId: string): Promise<void> {

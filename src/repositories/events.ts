@@ -100,7 +100,11 @@ export async function updateEvent(
       .eq('id', eventId)
       .select('*'),
   );
-  return rows[0] as EventRow;
+  // 0행이 갱신돼도 PostgREST는 오류를 내지 않는다. 성공으로 읽으면 이미 지워진 행사를
+  // "저장했다"고 안내하게 된다.
+  const updated = rows[0] as EventRow | undefined;
+  if (!updated) throw new RepositoryError('이미 지워졌거나 접근할 수 없는 행사입니다.');
+  return updated;
 }
 
 // 행사를 지우면 소속 기록도 FK CASCADE로 함께 사라진다. 사람은 남는다.
