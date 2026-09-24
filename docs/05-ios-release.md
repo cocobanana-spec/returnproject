@@ -108,3 +108,29 @@ App record with bundle identifier "com.cocobanana.ppurin" not found on App Store
 ## 수출 규정
 
 앱이 표준 HTTPS만 쓰므로 면제 대상이다. `app.json`의 `expo.ios.config.usesNonExemptEncryption`을 false로 두어 업로드마다 묻지 않게 했다. 나중에 자체 암호화를 넣으면 이 값을 다시 판단해야 한다.
+
+## 앱 아이콘
+
+원본 세트는 `icons/`에 있다. 앱에 실제로 쓰는 것은 `assets/`로 복사한 여섯 개이며, `app.json`이 그쪽을 가리킨다.
+
+| 용도 | 파일 |
+|---|---|
+| iOS 기본 | `assets/icon.png` |
+| iOS 다크 | `assets/icon-dark.png` |
+| iOS 틴티드 | `assets/icon-tinted.png` |
+| 안드로이드 전경 | `assets/android-icon-foreground.png` |
+| 안드로이드 단색 | `assets/android-icon-monochrome.png` |
+| 안드로이드 배경색 | `#FFF8E8` |
+
+**스토어용 1024 아이콘에는 알파 채널이 있으면 안 된다.** 원본은 RGBA지만 prebuild가 기본 아이콘을 RGB로 눕혀서 내보낸다. 다크 변형은 알파를 유지하는 것이 정상이다. 시스템이 배경 위에 합성하기 때문이다. 확인하려면 생성된 파일의 PNG 색 타입을 본다. 2면 알파 없음, 6이면 알파 있음이다.
+
+```
+python3 -c "
+import struct, glob
+for p in sorted(glob.glob('ios/app/Images.xcassets/AppIcon.appiconset/*.png')):
+    d=open(p,'rb').read(); w,h,bd,ct=struct.unpack('>IIBB', d[16:26])
+    print(p.split('/')[-1], w, ct)
+"
+```
+
+안드로이드 전경 이미지는 432px이다. Expo 권장은 1024px이므로 안드로이드를 실제로 낼 때 더 큰 원본으로 교체한다.
