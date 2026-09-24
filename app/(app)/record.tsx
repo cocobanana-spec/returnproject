@@ -69,8 +69,10 @@ export default function RecordScreen() {
   // 저장이 중간에 실패해도 이미 만들어진 것은 서버에 남는다.
   // 무엇을 만들었는지 기억해 두어야 (1) 재시도가 같은 사람을 또 만들지 않고
   // (2) 실행 취소가 새로 만든 것까지 정확히 지운다.
-  const created = useRef<{ personId: string | null; eventId: string | null }>({
+  // 이름도 함께 기억한다. 중간 실패 뒤 이름을 고쳐 다시 저장하면 앞 사람에게 돈이 붙는다.
+  const created = useRef<{ personId: string | null; personName: string | null; eventId: string | null }>({
     personId: null,
+    personName: null,
     eventId: null,
   });
 
@@ -141,14 +143,20 @@ export default function RecordScreen() {
       const validation = validateQuickRecord(draft);
       if (!validation.ok) throw new Error(validation.errors.join('\n'));
 
-      let personId = draft.personId ?? created.current.personId;
+      const newName = validation.plan.personName as string | null;
+      const reusable =
+        created.current.personId !== null && created.current.personName === newName
+          ? created.current.personId
+          : null;
+      let personId = draft.personId ?? reusable;
       if (!personId) {
         const madePerson = await createPerson(ledgerId, {
-          name: validation.plan.personName as string,
+          name: newName as string,
           relation_group: draft.newPersonGroup,
         });
         personId = madePerson.id;
         created.current.personId = madePerson.id;
+        created.current.personName = newName;
       }
 
       let eventId = existingEventId ?? created.current.eventId;
@@ -194,7 +202,7 @@ export default function RecordScreen() {
     onSuccess: ({ refs, amount, eventTitle }) => {
       invalidate();
       const step = undoPlan(refs);
-      created.current = { personId: null, eventId: null };
+      created.current = { personId: null, personName: null, eventId: null };
       toast.show({
         message: `${eventTitle} · ${formatWonShort(amount)} 저장했습니다`,
         actionLabel: '실행 취소',
