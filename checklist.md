@@ -1,6 +1,6 @@
 # 뿌린대로거두리라 — 작업 체크리스트
 
-> 상태: 기획 완료, 착수 가능 — 2026-09-16. 확정: Expo · 클라우드 · iOS+Android 동시 · **Supabase** · **공동 장부 1단계 포함** · 로그인 Apple+Google+Kakao · 로그인 우선.
+> 상태: 기획 완료, 착수 가능 — 2026-09-16. 확정: Expo · 클라우드 · iOS+Android 동시 · **Supabase** · **공동 장부 1단계 포함** · 로그인 **Apple+Google+메일 회원가입**(2026-09-24 변경, Kakao 제외) · 로그인 우선.
 > 남은 확인 질문은 docs/02 §8.2(4~10번)뿐이며 착수를 막지 않는다.
 
 ## 0. 기획 (완료)
@@ -20,13 +20,19 @@
 - [ ] 스토어 표시명·번들 ID 결정 (예 `com.<조직>.ppurin`), 앱 아이콘 방향 결정
 
 ## 2. 외부 콘솔 등록
-- [ ] Supabase 프로젝트 생성 (서울 리전), 플랜 확인 (무료 플랜 일시정지 조건 → 출시 전 Pro)
-- [ ] Apple Developer — Sign in with Apple 서비스 ID·키 발급, Supabase 콜백 등록
-- [ ] Google Cloud — OAuth 클라이언트 3개(iOS·Android·웹), Supabase에 웹 클라이언트 등록
-- [ ] **Kakao Developers — 앱 등록, 플랫폼(iOS 번들 ID·Android 패키지명·키 해시) 등록, Kakao 로그인 활성화, Client Secret 활성화, Redirect URI에 Supabase 콜백 등록, 동의 항목 `profile_nickname`·`profile_image` 설정**
-- [ ] Kakao — 비즈 앱 전환 조건 확인(개인 개발자 가능 여부). 전환 가능하면 `account_email` 추가, 불가하면 이메일 없이 진행(앱은 이메일을 식별에 쓰지 않음)
-- [ ] Kakao — (검증) Kakao 로그인 → OpenID Connect 활성화 후 네이티브 SDK ID 토큰으로 `signInWithIdToken({ provider: 'kakao' })`가 되는지 로컬 Supabase에서 1회 시도. 안 되면 브라우저 OAuth 경로 확정
-- [ ] Supabase Auth — Apple·Google·Kakao 프로바이더 활성화
+> 2026-09-24 로그인 수단 변경 — Kakao 항목은 삭제했다. 조사 결과는 docs/04 §3.1에 보존돼 있다.
+- [x] Supabase 프로젝트 생성 (서울 리전)
+- [ ] **Apple Developer** — App ID(네이티브용)와 **Services ID**(브라우저용) 둘 다 만든다. Sign in with Apple 키(`.p8`)를 받고 Team ID·Key ID를 적어 둔다
+- [ ] Apple — Services ID의 Return URL 에 `https://ekcjfqqiopajlcbqgvfo.supabase.co/auth/v1/callback` 등록
+- [ ] Supabase Auth → Apple — **Client IDs 칸에 Services ID를 첫 번째로 두고 번들 ID(`com.cocobanana.ppurin`)를 쉼표로 붙인다.** Team ID·Key ID·`.p8` 내용 입력
+- [ ] **Google Cloud** — OAuth 클라이언트 웹·iOS 두 개 생성(Android는 서명 지문이 없어 미룬다)
+- [ ] Supabase Auth → Google — **Client ID 칸에 웹 클라이언트를 먼저 쓰고 iOS 클라이언트를 쉼표로 붙인다.** Secret은 웹 것만 넣는다
+- [ ] **Supabase Auth → Email 프로바이더 활성화, "Confirm email" 켠 상태 유지**
+- [ ] **Supabase Auth → URL Configuration → Redirect URLs 에 세 개를 모두 등록** — `ppurin://auth/confirm`, `ppurin://auth/reset`, **`ppurin://auth/callback`**. 마지막 것이 빠지면 Apple·Google 로그인이 코드를 못 받고 조용히 실패한다(허용 목록에 없는 redirect_to 는 Site URL 로 대체된다)
+- [ ] 개발 중 Expo Go로 확인하려면 `exp://<개발머신 IP>:8081/--/auth/confirm`·`.../auth/reset`·`.../auth/callback` 도 임시로 등록한다
+- [ ] URL Configuration 의 **Site URL** 값을 확인해 둔다. 허용 목록에 없는 주소는 여기로 대체되므로 실패 원인을 알아볼 때 필요하다
+- [ ] **Auth → Policies 의 최소 비밀번호 길이를 8자로** 올린다. 앱은 8자+영문+숫자를 강제하지만 서버 기본은 6자라 앱을 거치지 않는 경로에서 규칙이 깨진다
+- [ ] Auth → Rate Limits 의 현재 값을 확인해 적어 둔다(7단계 커스텀 SMTP 판단의 근거)
 
 ## 3. 백엔드 토대 (Supabase) — 2026-09-19 구현 완료, 로컬 검증 154건 통과
 - [x] `supabase init` (config.toml 생성). 로컬 `supabase start`는 **Docker 없어 불가** — 대신 로컬 Postgres 17 + auth 스텁으로 검증(context-notes §7)
@@ -46,7 +52,7 @@
 > 프로젝트 `ekcjfqqiopajlcbqgvfo` (returnproject, 서울 리전). 재실행은 `python3 supabase/tests/remote_smoke.py` (환경변수 3개 필요, 파일 상단 참고).
 - [x] `supabase db push` 성공 — `auth.users`의 `on_auth_user_created` 트리거도 권한 오류 없이 생성됐다
 - [x] 가입 1회 → `ledger_members` 1행·역할 owner·표시 이름 자동 생성 확인 (메일/비밀번호 계정으로 확인. 트리거 경로는 소셜 로그인과 같다)
-- [ ] 소셜 로그인 3종으로 같은 확인 (Apple·Google·Kakao 프로바이더 활성화 후)
+- [ ] 소셜 2종으로 같은 확인 (Apple·Google 프로바이더 활성화 후). 메일 가입 경로는 2026-09-24 원격 검증에서 확인함
 - [x] pgcrypto 경로 확인 — `create_invite_code`가 8자 코드를 실제로 발급하며 혼동 문자 0/O/1/I가 없다
 - [x] anon 권한 0건 재확인 — 테이블 5개 전부 `permission denied`
 - [x] Edge Function `delete-account` 배포 후 실제 계정 삭제 — 혼자 장부(장부·데이터 함께 삭제)와 공유 장부(구성원만 제거, 데이터 보존·owner 승계) 두 경우 모두 확인
@@ -111,9 +117,13 @@
 - [ ] S16 계정 (로그아웃은 더보기에 있음. 계정 삭제 다이얼로그 → Edge Function)
 - [ ] docs/02 §7 검증 기준 중 화면이 필요한 항목 전수 통과
 
-## 5b. 콘솔 등록이 끝나면 정리할 것
-- [ ] 소셜 로그인 3종 실동작 확인 후 **개발 전용 메일 로그인 진입점을 지울지 결정한다** (`src/auth/devSignIn.ts`, `app/(auth)/sign-in.tsx` 호출부, `.env.local`·`.env.example`의 세 키)
-- [ ] 테스트 계정 `dev-sim@ppurin-test.kr` 는 1차 작업 종료 시 삭제했다. 다시 만들면 끝나고 또 지운다
+## 5b. 콘솔 등록이 끝나면 확인할 것
+- [x] 개발 전용 메일 로그인 진입점 삭제 — 정식 메일 로그인이 생겨 존재 이유가 사라졌다(2026-09-24)
+- [ ] Apple 로그인 실동작 (콘솔 등록 후). 실패 시 `src/auth/providers.ts` 한 파일만 손보면 된다
+- [ ] Google 로그인 실동작 (콘솔 등록 후)
+- [ ] 메일 확인 링크가 앱으로 돌아오는지 실기기·시뮬레이터에서 1회 (`ppurin://auth/confirm`)
+- [ ] 비밀번호 재설정 링크가 앱으로 돌아와 새 비밀번호 화면이 열리는지 1회 (`ppurin://auth/reset`)
+- [ ] 테스트 계정은 만들 때마다 작업 끝에 지운다
 
 ## 6. P1 기능
 - [ ] S12 기록 검색/필터 (방향·종류·기간·금액·그룹, 하단 합계)
@@ -125,6 +135,8 @@
 - [ ] (질문 8 답변에 따라) CSV 가져오기
 
 ## 7. 출시 준비
+- [ ] **⛔ 출시 차단 — 커스텀 SMTP 연결.** Supabase 내장 메일 발송은 시간당 몇 건으로 제한된다. 제한에 걸리면 메일만 못 가는 게 아니라 **가입 API가 429로 거부되어 신규 가입이 통째로 막힌다**(2026-09-24 실측). Resend·SendGrid 등 커스텀 SMTP를 붙이고 발신 도메인을 인증해야 한다
+- [ ] 메일 템플릿 한국어화 (확인 메일·재설정 메일). 기본 템플릿은 영문이다
 - [ ] 개인정보 처리방침 작성·호스팅 (서버 보관·서울 리전·수집 항목·소셜 로그인 3종·장부 공유 범위·연락처 권한·계정 삭제 절차)
 - [ ] Supabase Pro 전환, 백업 설정 확인
 - [ ] 앱 아이콘·스플래시·스토어 스크린샷
