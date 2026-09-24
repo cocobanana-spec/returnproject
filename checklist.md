@@ -19,7 +19,10 @@
 - [ ] 경쟁 앱 5개 이상 설치·비교해 docs/01 §5 표를 실측값으로 교체
 - [ ] 스토어 표시명·번들 ID 결정 (예 `com.<조직>.ppurin`), 앱 아이콘 방향 결정
 
-## 2. 외부 콘솔 등록
+## 2. 외부 콘솔 등록 — 2026-09-24 완료 (애플·구글·메일)
+> 서버에서 확인함. `/auth/v1/settings`가 apple·google·email 모두 true, 인증 요청이 각 프로바이더로 정상 리다이렉트된다. 복귀 주소 3종(`ppurin://auth/callback`·`confirm`·`reset`) 허용 목록 등록 완료.
+> **⏰ 애플 client secret 만료 2027-03-23.** 만료되면 애플 로그인이 막힌다. 재발급은 `node tools/apple-client-secret.mjs --team-id Y7U3S84HW6 --key-id JKG4QXCZ49 --services-id com.cocobanana.ppurin.web --key <.p8 경로>`.
+> 남은 것 — 사람이 직접 눌러 보는 실제 로그인 1회(자동화 불가), 안드로이드 구글 클라이언트(서명 지문 필요), iOS 심사 전 네이티브 애플 로그인 전환 판단.
 > 2026-09-24 로그인 수단 변경 — Kakao 항목은 삭제했다. 조사 결과는 docs/04 §3.1에 보존돼 있다.
 - [x] Supabase 프로젝트 생성 (서울 리전)
 - [ ] **Apple Developer** — App ID(네이티브용)와 **Services ID**(브라우저용) 둘 다 만든다. Sign in with Apple 키(`.p8`)를 받고 Team ID·Key ID를 적어 둔다
