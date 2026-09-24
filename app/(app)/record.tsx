@@ -1,5 +1,6 @@
-// 준돈 빠른 기록(S02) — 이름·종류·금액 세 가지만으로 끝나는 것이 목표다(docs/02 §3.2)
+// 준돈 빠른 기록(S02) — 이름·날짜·경조사 종류·금액·메모 다섯 가지만 받는다(2026-09-24 사용자 결정)
 //
+// 형태·참석·공동 부조자·장소는 입력에서 뺐다. 컬럼은 남아 있고 기본값으로 저장된다.
 // 저장은 사람 → 행사 → 기록 순차 INSERT다. 하나의 데이터 수정 CTE로 묶으면 뒤 문장이 앞 CTE가
 // 넣은 행을 보지 못해 FK와 같은 장부 트리거가 전부 실패한다(docs/03 결정 26).
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -11,12 +12,9 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   EVENT_TYPES,
   EVENT_TYPE_LABEL,
-  METHODS,
-  METHOD_LABEL,
   RELATION_GROUPS,
   RELATION_GROUP_LABEL,
   type EventType,
-  type Method,
   type RelationGroup,
 } from '../../src/domain/constants.ts';
 import { AMOUNT_PRESETS_WON, formatWonShort } from '../../src/domain/money.ts';
@@ -58,13 +56,10 @@ export default function RecordScreen() {
   const [draft, setDraft] = useState<QuickRecordDraft>(() => emptyDraft(todayISO()));
   const [picked, setPicked] = useState<PersonBalance | null>(null);
   const [nameText, setNameText] = useState('');
-  const [showMore, setShowMore] = useState(false);
   const [showDate, setShowDate] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   // 저장 판정(기존 행사 조회) 중에도 버튼을 잠근다. 두 번 누르면 기록이 두 건 생긴다.
   const [checking, setChecking] = useState(false);
-  const [coPicked, setCoPicked] = useState<PersonBalance | null>(null);
-  const [coText, setCoText] = useState('');
 
   // 저장이 중간에 실패해도 이미 만들어진 것은 서버에 남는다.
   // 무엇을 만들었는지 기억해 두어야 (1) 재시도가 같은 사람을 또 만들지 않고
@@ -93,25 +88,6 @@ export default function RecordScreen() {
     queryFn: () => listRecentPeople(ledgerId, 5),
     enabled: !picked && prefix.length === 0,
   });
-
-  const coPrefix = normalizeName(coText);
-  const coSuggestions = useQuery({
-    queryKey: queryKeys.people.search(ledgerId, `co:${coPrefix}`),
-    queryFn: () => searchPeopleByPrefix(ledgerId, coPrefix),
-    enabled: showMore && !coPicked && coPrefix.length > 0,
-  });
-
-  function chooseCoPerson(person: PersonBalance) {
-    setCoPicked(person);
-    setCoText('');
-    patch({ coPersonId: person.id as string });
-  }
-
-  function clearCoPerson() {
-    setCoPicked(null);
-    setCoText('');
-    patch({ coPersonId: null });
-  }
 
   function choosePerson(person: PersonBalance) {
     setPicked(person);
@@ -175,7 +151,6 @@ export default function RecordScreen() {
           host_person_id: personId,
           title: eventTitle,
           date: draft.date,
-          place: draft.place.trim() || null,
         });
         eventId = madeEvent.id;
         created.current.eventId = madeEvent.id;
@@ -183,13 +158,12 @@ export default function RecordScreen() {
         eventTitle = (await getEvent(ledgerId, eventId))?.title ?? '';
       }
 
+      // 형태는 입력에서 뺐다. 현금으로 저장한다(docs/02 §3.2, 2026-09-24).
       const entry = await createEntry(ledgerId, {
         event_id: eventId,
         person_id: personId,
-        co_person_id: draft.coPersonId,
         amount: validation.plan.amount,
-        method: draft.method,
-        attended: draft.attended,
+        method: 'cash',
         memo: draft.memo.trim() || null,
       });
 
@@ -297,7 +271,7 @@ export default function RecordScreen() {
         }}
       />
       <View style={{ gap: space.xl }}>
-        {/* 1. 누구에게 */}
+        {/* 1. 이름 */}
         <View style={{ gap: space.sm }}>
           <Text style={{ color: colors.textMuted, fontSize: font.caption }}>누구에게 냈나요</Text>
           {picked ? (
@@ -406,7 +380,42 @@ export default function RecordScreen() {
           )}
         </View>
 
-        {/* 2. 어떤 경조사 */}
+        {/* 2. 날짜 */}
+        <View style={{ gap: space.sm }}>
+          <Text style={{ color: colors.textMuted, fontSize: font.caption }}>날짜</Text>
+          <Pressable
+            onPress={() => setShowDate((prev) => !prev)}
+            style={{
+              borderColor: colors.border,
+              borderRadius: radius.md,
+              borderWidth: 1,
+              paddingHorizontal: space.lg,
+              paddingVertical: space.md,
+            }}
+          >
+            <Text style={{ color: colors.text, fontSize: font.body }}>
+              {formatEventDate(draft.date, 'day')}
+            </Text>
+          </Pressable>
+          {showDate && (
+            <DateTimePicker
+              value={new Date(`${draft.date}T00:00:00`)}
+              mode="date"
+              display="inline"
+              themeVariant={colors.bg === '#FFFFFF' ? 'light' : 'dark'}
+              onChange={(_event, date) => {
+                if (date) {
+                  const y = date.getFullYear();
+                  const m = String(date.getMonth() + 1).padStart(2, '0');
+                  const d = String(date.getDate()).padStart(2, '0');
+                  patch({ date: `${y}-${m}-${d}` });
+                }
+              }}
+            />
+          )}
+        </View>
+
+        {/* 3. 경조사 종류 */}
         <View style={{ gap: space.sm }}>
           <Text style={{ color: colors.textMuted, fontSize: font.caption }}>어떤 경조사인가요</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
@@ -421,7 +430,7 @@ export default function RecordScreen() {
           </View>
         </View>
 
-        {/* 3. 얼마 */}
+        {/* 4. 금액 */}
         <View style={{ gap: space.sm }}>
           <Text style={{ color: colors.textMuted, fontSize: font.caption }}>얼마를 냈나요</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
@@ -462,160 +471,14 @@ export default function RecordScreen() {
           </View>
         </View>
 
-        {/* 4. 날짜와 형태 */}
-        <View style={{ flexDirection: 'row', gap: space.md }}>
-          <View style={{ flex: 1, gap: space.sm }}>
-            <Text style={{ color: colors.textMuted, fontSize: font.caption }}>날짜</Text>
-            <Pressable
-              onPress={() => setShowDate((prev) => !prev)}
-              style={{
-                borderColor: colors.border,
-                borderRadius: radius.md,
-                borderWidth: 1,
-                paddingHorizontal: space.lg,
-                paddingVertical: space.md,
-              }}
-            >
-              <Text style={{ color: colors.text, fontSize: font.body }}>
-                {formatEventDate(draft.date, 'day')}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-        {showDate && (
-          <DateTimePicker
-            value={new Date(`${draft.date}T00:00:00`)}
-            mode="date"
-            display="inline"
-            themeVariant={colors.bg === '#FFFFFF' ? 'light' : 'dark'}
-            onChange={(_event, date) => {
-              if (date) {
-                const y = date.getFullYear();
-                const m = String(date.getMonth() + 1).padStart(2, '0');
-                const d = String(date.getDate()).padStart(2, '0');
-                patch({ date: `${y}-${m}-${d}` });
-              }
-            }}
-          />
-        )}
-
-        <View style={{ gap: space.sm }}>
-          <Text style={{ color: colors.textMuted, fontSize: font.caption }}>부조 형태</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
-            {METHODS.map((m) => (
-              <Chip
-                key={m}
-                label={METHOD_LABEL[m]}
-                selected={draft.method === m}
-                onPress={() => patch({ method: m as Method })}
-              />
-            ))}
-          </View>
-        </View>
-
-        {/* 5. 더 입력 */}
-        <Pressable
-          onPress={() => setShowMore((prev) => !prev)}
-          style={{ alignItems: 'center', flexDirection: 'row', gap: space.xs }}
-        >
-          <Ionicons
-            name={showMore ? 'chevron-down' : 'chevron-forward'}
-            size={16}
-            color={colors.textMuted}
-          />
-          <Text style={{ color: colors.textMuted, fontSize: font.caption }}>더 입력</Text>
-        </Pressable>
-
-        {showMore && (
-          <View style={{ gap: space.lg }}>
-            <Field
-              label="장소"
-              value={draft.place}
-              onChangeText={(next) => patch({ place: next })}
-              maxLength={100}
-              placeholder="○○웨딩홀"
-              hint="새로 만드는 행사에만 붙습니다."
-            />
-
-            <View style={{ gap: space.sm }}>
-              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>참석 여부</Text>
-              <View style={{ flexDirection: 'row', gap: space.sm }}>
-                <Chip
-                  label="참석"
-                  selected={draft.attended === true}
-                  onPress={() => patch({ attended: draft.attended === true ? null : true })}
-                />
-                <Chip
-                  label="불참"
-                  selected={draft.attended === false}
-                  onPress={() => patch({ attended: draft.attended === false ? null : false })}
-                />
-              </View>
-            </View>
-
-            {/* 공동 부조자 — 한 봉투에 두 사람 이름이 적힌 경우. 두 사람 원장에 모두 전액으로 잡힌다 */}
-            <View style={{ gap: space.sm }}>
-              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
-                공동 부조자 (한 봉투에 이름이 둘일 때)
-              </Text>
-              {coPicked ? (
-                <Pressable
-                  onPress={clearCoPerson}
-                  style={{
-                    alignItems: 'center',
-                    backgroundColor: colors.bgSubtle,
-                    borderRadius: radius.md,
-                    flexDirection: 'row',
-                    gap: space.sm,
-                    paddingHorizontal: space.lg,
-                    paddingVertical: space.md,
-                  }}
-                >
-                  <Text style={{ color: colors.text, fontSize: font.body, flex: 1 }}>
-                    {coPicked.name}
-                  </Text>
-                  <Ionicons name="close-circle" size={20} color={colors.textMuted} />
-                </Pressable>
-              ) : (
-                <>
-                  <Field
-                    value={coText}
-                    onChangeText={setCoText}
-                    placeholder="이름으로 찾기"
-                    autoCorrect={false}
-                  />
-                  {(coSuggestions.data ?? [])
-                    .filter((c) => c.id !== draft.personId)
-                    .map((c) => (
-                      <Pressable
-                        key={c.id}
-                        onPress={() => chooseCoPerson(c)}
-                        style={({ pressed }) => ({
-                          borderBottomColor: colors.border,
-                          borderBottomWidth: 1,
-                          paddingVertical: space.sm,
-                          opacity: pressed ? 0.6 : 1,
-                        })}
-                      >
-                        <Text style={{ color: colors.text, fontSize: font.body }}>{c.name}</Text>
-                        <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: 2 }}>
-                          {personSubtitle(c)}
-                        </Text>
-                      </Pressable>
-                    ))}
-                </>
-              )}
-            </View>
-
-            <Field
-              label="메모"
-              value={draft.memo}
-              onChangeText={(next) => patch({ memo: next })}
-              maxLength={500}
-              placeholder="김철수 편에 전달 …"
-            />
-          </View>
-        )}
+        {/* 5. 메모 */}
+        <Field
+          label="메모"
+          value={draft.memo}
+          onChangeText={(next) => patch({ memo: next })}
+          maxLength={500}
+          placeholder="김철수 편에 전달 …"
+        />
 
         {errors.length > 0 && (
           <View style={{ gap: space.xs }}>
