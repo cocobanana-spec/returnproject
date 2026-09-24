@@ -355,6 +355,18 @@ export type Database = {
         Args: { p_ledger_id: string; p_survivor: string; p_victim: string }
         Returns: undefined
       }
+      person_stats_by_year: {
+        Args: { p_ledger_id: string; p_year?: number }
+        Returns: {
+          balance: number
+          entry_count: number
+          given_total: number
+          id: string
+          name: string
+          received_total: number
+          relation_group: string
+        }[]
+      }
       prepare_account_deletion: { Args: never; Returns: undefined }
       random_invite_code: { Args: never; Returns: string }
       remove_member: {

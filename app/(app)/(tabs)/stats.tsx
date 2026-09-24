@@ -9,12 +9,17 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { formatWon, formatWonShort } from '../../../src/domain/money.ts';
-import { defaultYear, foldYearStatsFor, yearsOf, type Bucket } from '../../../src/domain/stats.ts';
+import {
+  defaultYear,
+  foldYearStatsFor,
+  topPeopleScopeLabel,
+  yearsOf,
+  type Bucket,
+} from '../../../src/domain/stats.ts';
 import { todayISO } from '../../../src/domain/title.ts';
 import { useLedgerId } from '../../../src/ledger/LedgerProvider';
 import { queryKeys } from '../../../src/lib/queryKeys';
-import { listStatsRows } from '../../../src/repositories/stats';
-import { listPeople } from '../../../src/repositories/people';
+import { listStatsRows, listTopPeopleByYear } from '../../../src/repositories/stats';
 import { useTokens } from '../../../src/theme/tokens';
 import { Chip } from '../../../src/ui/Chip';
 import { EmptyState } from '../../../src/ui/EmptyState';
@@ -35,12 +40,6 @@ export default function StatsScreen() {
     queryFn: () => listStatsRows(ledgerId),
   });
 
-  // 사람별 상위는 person_balances 뷰를 쓴다. 이 뷰에는 연도 구분이 없어 전체 기간 기준이다.
-  const topPeople = useQuery({
-    queryKey: queryKeys.people.list(ledgerId, { sort: 'balance', top: true }),
-    queryFn: () => listPeople(ledgerId, { sort: 'balance', limit: 5 }),
-  });
-
   const rows = useMemo(() => raw.data ?? [], [raw.data]);
   const years = useMemo(() => yearsOf(rows), [rows]);
   // 고른 적이 없거나 고른 연도가 세그먼트에서 사라졌으면(기록을 다 지운 경우) 기본값으로 돌린다.
@@ -50,6 +49,15 @@ export default function StatsScreen() {
       : defaultYear(years, thisYear);
   const stats = useMemo(() => foldYearStatsFor(rows, year), [rows, year]);
   const setYear = (next: number | null) => setPicked({ year: next });
+
+  // 사람별 상위는 전체 기간이 기본이고, 위 세그먼트의 연도로 좁힐 수 있다(2026-09-24 사용자 결정).
+  const [topScope, setTopScope] = useState<'all' | 'year'>('all');
+  const topYear = topScope === 'year' ? year : null;
+  const topPeople = useQuery({
+    queryKey: queryKeys.stats.topPeople(ledgerId, topYear),
+    queryFn: () => listTopPeopleByYear(ledgerId, topYear),
+    enabled: rows.length > 0,
+  });
 
   const hasAnything = rows.length > 0;
 
@@ -135,22 +143,30 @@ export default function StatsScreen() {
           <View style={{ gap: space.sm }}>
             <View style={{ gap: 2 }}>
               <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
-                차액이 큰 사람 (전체 기간)
+                차액이 큰 사람 ({topPeopleScopeLabel(topYear)})
               </Text>
               <Text style={{ color: colors.textMuted, fontSize: font.caption - 1 }}>
                 공동 부조는 두 사람 모두에게 계산됩니다.
               </Text>
             </View>
+            <View style={{ flexDirection: 'row', gap: space.sm }}>
+              <Chip label="전체 기간" selected={topScope === 'all'} onPress={() => setTopScope('all')} />
+              {year !== null && (
+                <Chip label={`${year}년만`} selected={topScope === 'year'} onPress={() => setTopScope('year')} />
+              )}
+            </View>
             {topPeople.isError ? (
               <LoadFailed title="사람을 불러오지 못했습니다" onRetry={() => void topPeople.refetch()} />
-            ) : (topPeople.data?.rows ?? []).length === 0 ? (
+            ) : topPeople.isLoading ? (
+              <ActivityIndicator color={colors.textMuted} style={{ marginVertical: space.md }} />
+            ) : (topPeople.data ?? []).length === 0 ? (
               <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
-                아직 표시할 사람이 없습니다.
+                {topYear === null ? '아직 표시할 사람이 없습니다.' : `${topYear}년에는 기록된 사람이 없습니다.`}
               </Text>
             ) : (
-              (topPeople.data?.rows ?? []).map((p) => (
+              (topPeople.data ?? []).map((p) => (
                 <Pressable
-                  key={p.id as string}
+                  key={p.id}
                   onPress={() => router.push(`/person/${p.id}`)}
                   style={({ pressed }) => ({
                     alignItems: 'center',

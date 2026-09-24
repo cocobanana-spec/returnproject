@@ -6,6 +6,7 @@ import {
   foldYearStats,
   foldYearStatsFor,
   defaultYear,
+  topPeopleScopeLabel,
   yearsOf,
   type EventSummaryRow,
   type StatsRow,
@@ -149,4 +150,9 @@ test('올해 기록이 없으면 가장 최근 기록 연도를 고른다', () =
 
 test('기록이 아예 없으면 전체(null)다', () => {
   assert.equal(defaultYear([], 2026), null);
+});
+
+test('사람별 상위의 기간 표시는 null이면 전체 기간이다', () => {
+  assert.equal(topPeopleScopeLabel(null), '전체 기간');
+  assert.equal(topPeopleScopeLabel(2026), '2026년');
 });

@@ -22,6 +22,22 @@ export type StatsRow = {
 
 export type Bucket = { key: string; label: string; total: number; cnt: number };
 
+// person_stats_by_year 한 행. person_balances 뷰와 같은 이름을 써서 화면이 둘을 구분할 일이 없다.
+export type PersonStatsRow = {
+  id: string;
+  name: string;
+  relation_group: string;
+  given_total: number;
+  received_total: number;
+  balance: number;
+  entry_count: number;
+};
+
+// "차액이 큰 사람" 블록의 기간 표시. 전체 기간이 기본이고 세그먼트의 연도를 고를 수 있다.
+export function topPeopleScopeLabel(year: number | null): string {
+  return year === null ? '전체 기간' : `${year}년`;
+}
+
 export type YearStats = {
   givenTotal: number;
   receivedTotal: number;

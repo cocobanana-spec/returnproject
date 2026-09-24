@@ -1,6 +1,6 @@
 // 통계 리포지토리. 서버 RPC가 연도·방향·종류·그룹으로 쪼갠 행을 도메인 함수가 접는다
 import { db } from '../lib/supabaseClient.ts';
-import { foldYearStats, type StatsRow, type YearStats } from '../domain/stats.ts';
+import { foldYearStats, type PersonStatsRow, type StatsRow, type YearStats } from '../domain/stats.ts';
 import { toRepositoryError } from './types.ts';
 
 export async function getYearStats(
@@ -21,4 +21,20 @@ export async function listStatsRows(ledgerId: string): Promise<StatsRow[]> {
   const { data, error } = await db().rpc('stats_by_year', { p_ledger_id: ledgerId });
   if (error) throw toRepositoryError(error);
   return (data ?? []) as StatsRow[];
+}
+
+// 사람별 상위(S11). year가 null이면 전체 기간이다(마이그레이션 0004).
+// 정렬과 상한은 서버에 맡긴다. 명부가 큰 장부는 한 해에도 수백 명이라 다 받아올 이유가 없다.
+export async function listTopPeopleByYear(
+  ledgerId: string,
+  year: number | null,
+  limit = 5,
+): Promise<PersonStatsRow[]> {
+  const { data, error } = await db()
+    .rpc('person_stats_by_year', { p_ledger_id: ledgerId, ...(year === null ? {} : { p_year: year }) })
+    .order('balance', { ascending: false })
+    .order('name', { ascending: true })
+    .limit(limit);
+  if (error) throw toRepositoryError(error);
+  return (data ?? []) as PersonStatsRow[];
 }
