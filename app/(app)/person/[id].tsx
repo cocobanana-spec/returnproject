@@ -13,6 +13,7 @@ import { listEntriesByPerson } from '../../../src/repositories/entries';
 import { deletePerson, getPersonBalance, mergePeople } from '../../../src/repositories/people';
 import { useTokens } from '../../../src/theme/tokens';
 import { EmptyState } from '../../../src/ui/EmptyState';
+import { LoadFailed } from '../../../src/ui/LoadFailed';
 import { MergePicker } from '../../../src/ui/MergePicker';
 import { Screen } from '../../../src/ui/Screen';
 
@@ -96,6 +97,16 @@ export default function PersonDetailScreen() {
     );
   }
 
+  // 조회 실패를 "이미 삭제된 사람"으로 읽으면 안 된다. 사람 탭이 사라진 뒤로 이 화면이
+  // 사람별 수지에 닿는 주 도착지라, 여기서 실패를 삼키면 기록이 사라진 것처럼 보인다.
+  if (balance.isError) {
+    return (
+      <Screen edges={{ top: false }}>
+        <LoadFailed title="사람을 불러오지 못했습니다" onRetry={() => void balance.refetch()} />
+      </Screen>
+    );
+  }
+
   if (!person) {
     return (
       <Screen>
@@ -168,16 +179,21 @@ export default function PersonDetailScreen() {
               <Action icon="trash-outline" label="삭제" danger onPress={confirmDelete} />
             </View>
 
+            {/* 기록 조회가 실패했는데 "0건"을 찍으면 수지는 있는데 이력만 없는 모순이 된다 */}
             <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: space.sm }}>
-              주고받은 기록 {rows.length}건
+              {entries.isError ? '주고받은 기록' : `주고받은 기록 ${rows.length}건`}
             </Text>
           </View>
         }
         ListEmptyComponent={
-          <EmptyState
-            title="아직 주고받은 기록이 없습니다"
-            hint="홈에서 기록을 남기면 여기에 쌓입니다."
-          />
+          entries.isError ? (
+            <LoadFailed title="기록을 불러오지 못했습니다" onRetry={() => void entries.refetch()} />
+          ) : (
+            <EmptyState
+              title="아직 주고받은 기록이 없습니다"
+              hint="홈에서 기록을 남기면 여기에 쌓입니다."
+            />
+          )
         }
         renderItem={({ item }) => {
           const isMine = item.event?.is_mine ?? false;

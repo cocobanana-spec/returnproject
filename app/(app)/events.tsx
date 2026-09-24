@@ -1,20 +1,23 @@
 // 행사 목록(S06) — 전체·내 행사·남의 행사 세그먼트와 연도 헤더
+//
+// 하단 탭에서 빠지고 더보기 안으로 들어왔다(2026-09-24). 받은돈은 행사에 속해야만 기록되므로
+// 이 화면이 사라지면 내 행사 명부 입력(S09)으로 가는 길이 끊긴다. 그래서 지우지 않는다.
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { eventTypeLabel, groupEventsByYear } from '../../../src/domain/event.ts';
-import { formatEventDate } from '../../../src/domain/title.ts';
-import type { DatePrecision } from '../../../src/domain/constants.ts';
-import { useLedgerId } from '../../../src/ledger/LedgerProvider';
-import { queryKeys } from '../../../src/lib/queryKeys';
-import { listEvents, type EventRow } from '../../../src/repositories/events';
-import { useTokens } from '../../../src/theme/tokens';
-import { Chip } from '../../../src/ui/Chip';
-import { EmptyState } from '../../../src/ui/EmptyState';
-import { LoadFailed } from '../../../src/ui/LoadFailed';
-import { Screen } from '../../../src/ui/Screen';
+import { eventTypeLabel, groupEventsByYear } from '../../src/domain/event.ts';
+import { formatEventDate } from '../../src/domain/title.ts';
+import type { DatePrecision } from '../../src/domain/constants.ts';
+import { useLedgerId } from '../../src/ledger/LedgerProvider';
+import { queryKeys } from '../../src/lib/queryKeys';
+import { listEvents, type EventRow } from '../../src/repositories/events';
+import { useTokens } from '../../src/theme/tokens';
+import { Chip } from '../../src/ui/Chip';
+import { EmptyState } from '../../src/ui/EmptyState';
+import { LoadFailed } from '../../src/ui/LoadFailed';
+import { Screen } from '../../src/ui/Screen';
 
 type Filter = { key: string; label: string; isMine: boolean | null };
 const FILTERS: Filter[] = [
@@ -50,10 +53,9 @@ export default function EventsScreen() {
   }, [query.data]);
 
   return (
-    <Screen padded={false}>
-      <View style={{ gap: space.md, paddingHorizontal: space.xl }}>
-        <View style={{ alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }}>
-          <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '700' }}>행사</Text>
+    <Screen padded={false} edges={{ top: false }}>
+      <View style={{ gap: space.md, paddingHorizontal: space.xl, paddingTop: space.md }}>
+        <View style={{ alignItems: 'center', flexDirection: 'row', justifyContent: 'flex-end' }}>
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push('/event/edit')}

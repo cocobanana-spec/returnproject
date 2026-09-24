@@ -1,4 +1,7 @@
-// 하단 탭 4개 — 홈·사람·행사·더보기. 기록은 탭이 아니라 홈의 FAB로 시작한다
+// 하단 탭 3개 — 홈·통계·더보기. 기록은 탭이 아니라 홈의 FAB로 시작한다
+//
+// 사람·행사는 2026-09-24에 탭에서 빠져 더보기로 들어갔다. 사람은 홈 목록의 이름을 눌러,
+// 행사는 받은돈 탭과 더보기에서 들어간다. 화면 자체는 지우지 않았다.
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useTokens } from '../../../src/theme/tokens';
@@ -28,19 +31,13 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="people"
+        name="stats"
         options={{
-          title: '사람',
+          title: '통계',
           headerShown: false,
-          tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="events"
-        options={{
-          title: '행사',
-          headerShown: false,
-          tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="stats-chart-outline" color={color} size={size} />
+          ),
         }}
       />
       <Tabs.Screen

@@ -57,6 +57,9 @@ export default function AppLayout() {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="ledger" options={{ title: '장부' }} />
+        <Stack.Screen name="search" options={{ title: '사람 찾기' }} />
+        <Stack.Screen name="people" options={{ title: '사람' }} />
+        <Stack.Screen name="events" options={{ title: '행사' }} />
         <Stack.Screen name="person/[id]" options={{ title: '' }} />
         <Stack.Screen name="person/edit" options={{ title: '사람' }} />
         <Stack.Screen name="event/[id]" options={{ title: '' }} />
