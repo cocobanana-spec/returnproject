@@ -11,7 +11,8 @@
 //   node supabase/tests/app_integration.mjs
 
 import { createClient } from '@supabase/supabase-js';
-import { createDb, setDb } from '../../src/lib/supabaseClient.ts';
+import { createDb, db, setDb } from '../../src/lib/supabaseClient.ts';
+import * as emailAuth from '../../src/auth/email.ts';
 import { normalizeName } from '../../src/domain/name.ts';
 import { normalizeInviteCode } from '../../src/domain/invite.ts';
 import { autoEventTitle, todayISO } from '../../src/domain/title.ts';
@@ -504,6 +505,119 @@ async function main() {
   await ledgersRepo.prepareAccountDeletion();
   const carolAfter = await ledgersRepo.listMyLedgers(carol.id);
   eq('계정 삭제 준비 후 장부 0권', carolAfter.length, 0);
+
+  // ------------------------------------------------ 메일·비밀번호 인증 한살이
+  //
+  // 메일을 실제로 보내는 경로(가입·재발송·재설정 요청)는 Supabase 내장 SMTP의 시간당 제한에
+  // 걸리면 통째로 실패한다. 메일이 안 가는 정도가 아니라 **가입 API 자체가 429로 거부된다.**
+  // 그래서 메일을 보내지 않는 경로는 관리자 API로 만든 계정으로 항상 검증하고,
+  // 메일을 보내는 경로는 제한에 걸리면 건너뛴다(출시 전 커스텀 SMTP가 필요한 이유다).
+  const mailPw = 'Ppurin-Mail-2026a1';
+  const newPw = 'Ppurin-Mail-2026b2';
+
+  // (1) 메일을 보내지 않는 경로 — 언제나 검증한다
+  const confirmed = await makeUser('mail', '메일사용자');
+  setDb(createDb(URL, ANON));
+
+  const wrongPw = await emailAuth.signInWithEmail(confirmed.email, 'WrongPassword123');
+  check(
+    '틀린 비밀번호는 자격 증명 오류로 구분된다',
+    wrongPw.ok === false && wrongPw.error.kind === 'invalid_credentials',
+    JSON.stringify(wrongPw),
+  );
+  check(
+    '오류 문구가 영문 원문이 아니라 약속된 한국어다',
+    wrongPw.ok === false &&
+      wrongPw.error.message === '메일 주소 또는 비밀번호가 올바르지 않습니다.',
+    wrongPw.ok ? '' : wrongPw.error.message,
+  );
+
+  const signedIn = await emailAuth.signInWithEmail(confirmed.email, PW);
+  check('확인된 계정은 메일·비밀번호로 로그인된다', signedIn.ok === true, JSON.stringify(signedIn));
+
+  const mailLedgers = await ledgersRepo.listMyLedgers(confirmed.id);
+  eq('메일 계정에도 개인 장부가 자동으로 생긴다', mailLedgers.length, 1);
+  eq('그 계정이 owner다', mailLedgers[0].role, 'owner');
+
+  const changed = await emailAuth.updatePassword(newPw);
+  check('로그인 상태에서 비밀번호를 바꾼다', changed.ok === true, JSON.stringify(changed));
+
+  setDb(createDb(URL, ANON));
+  const oldPwTry = await emailAuth.signInWithEmail(confirmed.email, PW);
+  check('옛 비밀번호로는 로그인되지 않는다', oldPwTry.ok === false, JSON.stringify(oldPwTry));
+  const newPwTry = await emailAuth.signInWithEmail(confirmed.email, newPw);
+  check('새 비밀번호로 로그인된다', newPwTry.ok === true, JSON.stringify(newPwTry));
+
+  // 메일 미확인 계정은 로그인이 막힌다(관리자 API로 확인 없이 만든다. 메일은 안 나간다).
+  const pending = await admin.auth.admin.createUser({
+    email: `pending-${tag}@ppurin-test.kr`,
+    password: mailPw,
+    email_confirm: false,
+  });
+  if (pending.data?.user) createdUsers.push(pending.data.user.id);
+  setDb(createDb(URL, ANON));
+  const beforeConfirm = await emailAuth.signInWithEmail(pending.data.user.email, mailPw);
+  check(
+    '메일 확인 전에는 로그인이 막히고 그렇게 안내한다',
+    beforeConfirm.ok === false && beforeConfirm.error.kind === 'email_not_confirmed',
+    JSON.stringify(beforeConfirm),
+  );
+
+  // (2) 메일을 보내는 경로 — 제한에 걸리면 건너뛴다
+  const fresh = `signup-${tag}@ppurin-test.kr`;
+  const signedUp = await emailAuth.signUpWithEmail(fresh, mailPw, 'ppurin://auth/confirm');
+  if (!signedUp.ok && signedUp.error.kind === 'rate_limited') {
+    console.log('  SKIP  가입·재발송·재설정 — Supabase 내장 SMTP 시간당 제한에 걸렸다(커스텀 SMTP 필요)');
+  } else {
+    check('가입이 성공한다', signedUp.ok === true, JSON.stringify(signedUp));
+    if (signedUp.ok) {
+      eq('메일 확인이 켜져 있어 세션이 바로 생기지 않는다', signedUp.needsConfirmation, true);
+    }
+    const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    const found = list.users.find((u) => u.email === fresh);
+    if (found) createdUsers.push(found.id);
+    check('가입한 사용자가 서버에 생겼다', Boolean(found), fresh);
+    eq('아직 메일 미확인 상태다', found?.email_confirmed_at ?? null, null);
+
+    const again = await emailAuth.signUpWithEmail(fresh, mailPw, 'ppurin://auth/confirm');
+    check(
+      '이미 가입된 메일은 한국어로 안내한다',
+      again.ok === false &&
+        (again.error.kind === 'already_registered' || again.error.kind === 'rate_limited'),
+      JSON.stringify(again),
+    );
+
+    // 확인 메일 재발송 — check-email 화면이 실제로 부르는 경로다.
+    const resent = await emailAuth.resendConfirmation(fresh, 'ppurin://auth/confirm');
+    check(
+      '확인 메일 재발송이 받아들여지거나 속도 제한으로 구분된다',
+      resent.ok === true || (resent.ok === false && resent.error.kind === 'rate_limited'),
+      JSON.stringify(resent),
+    );
+
+    // 확인이 끝난 계정에 재발송을 부르면 서버가 거부한다. 영문이 새지 않는지 본다.
+    const resendConfirmed = await emailAuth.resendConfirmation(
+      confirmed.email,
+      'ppurin://auth/confirm',
+    );
+    check(
+      '이미 확인된 계정의 재발송 결과도 한국어로 나온다',
+      resendConfirmed.ok === true ||
+        (resendConfirmed.ok === false && /[가-힣]/.test(resendConfirmed.error.message)),
+      JSON.stringify(resendConfirmed),
+    );
+  }
+
+  const resetRequested = await emailAuth.requestPasswordReset(
+    confirmed.email,
+    'ppurin://auth/reset',
+  );
+  check(
+    '재설정 메일 요청이 받아들여지거나 속도 제한으로 구분된다',
+    resetRequested.ok === true ||
+      (resetRequested.ok === false && resetRequested.error.kind === 'rate_limited'),
+    JSON.stringify(resetRequested),
+  );
 
   console.log(`\n== 요약  통과 ${pass} · 실패 ${fail}\n`);
   if (failures.length) {
