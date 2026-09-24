@@ -1,13 +1,13 @@
 # 뿌린대로거두리라 — 기술 스택 확정안
 
-> 작성일 2026-09-14 · 작성 cto-orchestrator · 2026-09-15 사용자 결정 1~3 반영 · **2026-09-16 사용자 결정 11~14 반영** — 공동 장부 1단계 포함, 로그인 Apple + Google + Kakao, 첫 실행 로그인 우선, **백엔드 Supabase 확정**.
+> 작성일 2026-09-14 · 작성 cto-orchestrator · 2026-09-15 사용자 결정 1~3 반영 · 2026-09-16 사용자 결정 11~14 반영 · **2026-09-24 로그인 수단 변경** — 공동 장부 1단계 포함, **로그인 Apple + Google + 메일·비밀번호(Kakao 제외)**, 첫 실행 로그인 우선, 백엔드 Supabase 확정.
 > 판단 근거는 2026-09-14 로컬 실측 결과(context-notes.md "기술 환경 발견")에 기반한다.
 
 ## 0. 판단의 전제
 
 - 1인 개발이며 iOS와 Android를 동시에 출시한다(확정).
 - 1단계부터 서버가 데이터의 원본(SoT)이고, **부부(가족)가 한 장부를 함께 쓴다**(확정). 데이터의 소유 단위는 사용자가 아니라 장부다(docs/03).
-- 첫 실행은 로그인이 먼저다(확정). 로그인 수단은 Apple·Google·Kakao 세 가지를 첫 출시부터 넣는다(확정).
+- 첫 실행은 로그인이 먼저다(확정). 로그인 수단은 **Apple·Google·메일 회원가입** 세 가지다(2026-09-24 확정. Kakao는 뺐다).
 - 2단계 청첩장은 공개 웹 페이지와 하객 회신이 필요하다. 1단계 백엔드가 그대로 2단계를 받는다.
 - 실측된 환경 — Xcode 26.6, Android Studio + SDK, Node 26, Bun, CocoaPods 있음. Flutter/Dart 없음. 사용자 실전 경험은 Swift(321go 출시), Kotlin/Compose(321go 베타), Expo(FluencC SDK 57, scentilique), Next.js + Supabase(coco-finance), Supabase Auth·RLS·Edge Function(scentilique).
 
@@ -43,16 +43,22 @@
 
 | 항목 | 결정 | 비고 |
 |---|---|---|
-| 프로바이더 | **Apple + Google + Kakao**, 첫 출시부터 | iOS에서 소셜 로그인을 하나라도 넣으면 Apple 로그인이 의무다 |
+| 로그인 수단 | **Apple + Google + 메일·비밀번호**, 첫 출시부터 | iOS에서 소셜 로그인을 하나라도 넣으면 Apple 로그인이 의무다 |
+| 메일·비밀번호 | Supabase 기본 email 프로바이더. 가입·메일 확인·재발송·비밀번호 재설정 네 흐름 | 비밀번호 8자 이상 + 영문·숫자(앱 규칙. 서버 최소는 6자라 앱 규칙이 더 엄격하다) |
+| 메일 확인 | **켠 채로 둔다** | 오타 메일과 남용을 막는다. 가입 직후에는 세션이 없고 확인 링크를 눌러야 끝난다 |
+| 딥링크 | 확인 `ppurin://auth/confirm`, 재설정 `ppurin://auth/reset`, OAuth 복귀 `ppurin://auth/callback` | PKCE라 `?code=`를 달고 돌아온다. `src/auth/links.ts`가 해석하고 `AuthProvider`가 교환한다. **`app/+native-intent.ts`가 이 경로들을 라우터에서 가로채지 않으면 사용자가 Unmatched Route에 갇힌다** |
 | 첫 실행 | 로그인 화면이 먼저 뜬다. 로그인 성공 시 서버 트리거가 개인 장부를 만들고 홈으로 간다 | 익명 시작은 하지 않는다(확정) |
-| Apple | `expo-apple-authentication` → `supabase.auth.signInWithIdToken({ provider: 'apple' })` | 네이티브 모듈. Expo Go 불가, dev client 빌드 필수 |
-| Google | `@react-native-google-signin/google-signin` → `signInWithIdToken({ provider: 'google' })` | 네이티브 모듈. iOS·Android 클라이언트 ID 각각 발급 |
-| Kakao | §3.1 사실 확인 참조. 기본 경로는 `signInWithOAuth({ provider: 'kakao' })` + `expo-web-browser` + 앱 딥링크 리다이렉트 | Supabase 기본 제공 프로바이더 |
+| Apple | **현재 구현은 `signInWithOAuth` 브라우저 PKCE 흐름**(`src/auth/providers.ts`). 네이티브 모듈을 쓰지 않아 Expo Go에서도 돈다 | iOS 심사 전에 `expo-apple-authentication` + `signInWithIdToken` 네이티브 흐름으로 바꾸는 것을 권한다. 바꿀 자리는 providers.ts 한 곳 |
+| Google | **현재 구현은 `signInWithOAuth` 브라우저 PKCE 흐름**. 앱에 클라이언트 ID를 넣지 않는다 | Supabase Client ID 칸에 웹 클라이언트를 먼저, iOS 클라이언트를 쉼표로 붙인다 |
 | 세션 저장 | supabase-js 기본(AsyncStorage) | 1단계는 기본값 |
 | 계정 삭제 | 설정 → 계정 → 계정 삭제. 앱이 사용자 JWT로 RPC `prepare_account_deletion()`을 호출한 뒤 Edge Function `delete-account`가 service role로 사용자를 삭제 | App Store 필수 요건. 장부 처리 규칙은 docs/03 §6.2 |
 | 앱 잠금(생체 인증) | 사용자 확인 질문 4번. 기본 가정은 첫 출시 제외 | expo-local-authentication |
 
-### 3.1 Kakao 로그인 — 사실 확인 (2026-09-16, Supabase 공식 문서 `guides/auth/social-login/auth-kakao` 기준)
+### 3.1 Kakao 로그인 — **1단계에서 제외됨 (2026-09-24)**
+
+> 사용자 결정으로 Kakao는 1단계에 넣지 않는다. 아래 조사 결과는 **지우지 않고 보존한다.**
+> 나중에 다시 넣기로 하면 이 내용이 그대로 유효하므로 재조사가 필요 없다.
+> (2026-09-16, Supabase 공식 문서 `guides/auth/social-login/auth-kakao` 기준)
 
 **확인된 사실**
 - Kakao는 Supabase Auth의 **기본 제공(built-in) OAuth 프로바이더**다. 대시보드 Authentication → Providers에서 켠다.
@@ -91,7 +97,7 @@
 | JS 업데이트 | EAS Update | |
 | 백엔드 환경 | Supabase 프로젝트 1개(운영) + 로컬 `supabase start`(개발) | 마이그레이션은 로컬에서 만들어 `supabase db push`. `auth.users` 트리거는 로컬에서 먼저 검증 |
 | 비밀값 | anon key와 URL만 앱에 포함. service role은 Edge Function 환경변수에만 | |
-| 외부 콘솔 | Apple Developer(Sign in with Apple 키), Google Cloud(OAuth 클라이언트 iOS·Android·웹), **Kakao Developers(앱 등록, 플랫폼 등록, Redirect URI, 동의 항목, 비즈 앱 여부)** | 세 콘솔 모두 Supabase 콜백 URL 등록 |
+| 외부 콘솔 | Apple Developer(App ID + Services ID, Team ID·Key ID·.p8 키), Google Cloud(OAuth 클라이언트 웹·iOS·Android) | 두 콘솔 모두 Supabase 콜백 `https://<ref>.supabase.co/auth/v1/callback` 등록 |
 | iOS 배포 | TestFlight → App Store | 계정 삭제 기능 심사 항목 |
 | Android 배포 | 내부 테스트 → 클로즈드 테스트 → 프로덕션 | 클로즈드 테스트 요건 현행 수치 확인 |
 | 개인정보 처리방침 | 필수. 서버 보관·리전·수집 항목·소셜 로그인 3종에서 받는 정보·장부 공유 범위·연락처 권한·계정 삭제 절차 | |
@@ -101,7 +107,7 @@
 
 - 로컬 DB·오프라인 쓰기 큐·동기화 엔진·충돌 해결·실시간 구독. 오프라인은 읽기 캐시만.
 - 별도 API 서버·ORM.
-- 익명 시작·이메일/비밀번호 로그인·전화번호 인증.
+- 익명 시작·전화번호 인증·소셜 계정 연결(같은 사람이 메일과 Apple로 각각 가입하면 별개 계정이 된다).
 - 장부 만들기·장부 합치기·장부 삭제 UI. 장부는 첫 로그인 시 자동 생성되고 마지막 구성원의 계정 삭제로만 사라진다.
 - 초대 딥링크·전화번호 매칭 초대. 초대는 코드 입력만.
 - JSON 가져오기. 내보내기만 P1.
@@ -116,6 +122,6 @@
 | 출시 플랫폼 | **확정** — iOS·Android 동시 |
 | 백엔드 | **확정** — Supabase |
 | 공동 장부 | **확정** — 1단계 포함, 소유 축 `ledger_id` |
-| 로그인 수단 | **확정** — Apple + Google + Kakao (Kakao 네이티브 SDK 경로는 검증 필요, 기본은 브라우저 OAuth) |
+| 로그인 수단 | **확정** — Apple + Google + 메일·비밀번호 (2026-09-24 변경. Kakao 제외) |
 | 첫 실행 | **확정** — 로그인 먼저 |
 | 앱 잠금 등 | 사용자 확인 질문 4~10번 (docs/02 §8.2) |
