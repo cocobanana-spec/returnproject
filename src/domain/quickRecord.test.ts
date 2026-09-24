@@ -41,16 +41,10 @@ test('숫자가 아니면 막는다', () => {
   assert.equal(result.ok, false);
 });
 
-test('현금인데 금액이 비면 막는다', () => {
+test('금액이 비면 막는다', () => {
   const result = validateQuickRecord(draft({ personId: 'p1', amountText: '' }));
   assert.equal(result.ok, false);
-  if (!result.ok) assert.ok(result.errors.some((e) => e.includes('부조 형태')));
-});
-
-test('화환은 금액이 비어도 미확정으로 통과한다', () => {
-  const result = validateQuickRecord(draft({ personId: 'p1', amountText: '', method: 'wreath' }));
-  assert.equal(result.ok, true);
-  if (result.ok) assert.equal(result.plan.amount, null);
+  if (!result.ok) assert.ok(result.errors.some((e) => e.includes('금액')));
 });
 
 test('0원은 유효하다', () => {
@@ -59,18 +53,17 @@ test('0원은 유효하다', () => {
   if (result.ok) assert.equal(result.plan.amount, 0);
 });
 
-test('공동 부조자가 본인이면 막는다', () => {
-  const result = validateQuickRecord(draft({ personId: 'p1', coPersonId: 'p1' }));
-  assert.equal(result.ok, false);
-});
-
-test('장소는 기본이 빈 문자열이다', () => {
-  assert.equal(emptyDraft('2026-03-10').place, '');
-});
-
-test('공동 부조자가 있어도 대표자와 다르면 통과한다', () => {
-  const result = validateQuickRecord(draft({ personId: 'p1', coPersonId: 'p2' }));
-  assert.equal(result.ok, true);
+test('초안은 다섯 필드와 새 사람 정보만 가진다', () => {
+  assert.deepEqual(Object.keys(emptyDraft('2026-03-10')).sort(), [
+    'amountText',
+    'amountUnit',
+    'date',
+    'memo',
+    'newPersonGroup',
+    'newPersonName',
+    'personId',
+    'type',
+  ]);
 });
 
 test('후보가 없으면 null', () => {

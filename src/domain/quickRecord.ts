@@ -1,7 +1,10 @@
 // 준돈 빠른 기록(S02)의 판단 로직. 화면에 계산을 묻어 두지 않기 위해 순수 함수로 뺀다
-import { allowsMissingAmount, parseAmountInput, type AmountUnit } from './money.ts';
+//
+// 입력은 이름·날짜·종류·금액·메모 다섯 가지다(2026-09-24 사용자 결정). 형태·참석·공동 부조자·
+// 장소는 초안에서 뺐다. 컬럼은 남아 있고 저장 시 기본값(형태는 현금)으로 들어간다.
+import { parseAmountInput, type AmountUnit } from './money.ts';
 import { isValidName, trimName } from './name.ts';
-import type { EventType, Method, RelationGroup } from './constants.ts';
+import type { EventType, RelationGroup } from './constants.ts';
 
 export type QuickRecordDraft = {
   // 기존 사람을 고르면 personId, 새 사람이면 newPersonName을 쓴다. 둘 중 하나만 채워진다.
@@ -12,11 +15,6 @@ export type QuickRecordDraft = {
   amountText: string;
   amountUnit: AmountUnit;
   date: string;
-  method: Method;
-  coPersonId: string | null;
-  attended: boolean | null;
-  // 장소는 행사에 속한다. 새 행사를 만들 때만 쓰이고 기존 행사에 붙일 때는 무시된다.
-  place: string;
   memo: string;
 };
 
@@ -29,10 +27,6 @@ export function emptyDraft(today: string): QuickRecordDraft {
     amountText: '',
     amountUnit: 'won',
     date: today,
-    method: 'cash',
-    coPersonId: null,
-    attended: null,
-    place: '',
     memo: '',
   };
 }
@@ -60,14 +54,8 @@ export function validateQuickRecord(draft: QuickRecordDraft): ValidationResult {
   const amount = parseAmountInput(draft.amountText, draft.amountUnit);
   if (amount === undefined) errors.push('금액은 숫자로만 넣어 주세요.');
 
-  if (amount === null && !allowsMissingAmount(draft.method)) {
-    // 현금·이체인데 금액이 비면 실수일 가능성이 높다. 화환·선물·없음은 비어도 자연스럽다.
-    errors.push('금액을 넣거나 부조 형태를 바꿔 주세요.');
-  }
-
-  if (draft.coPersonId && draft.personId && draft.coPersonId === draft.personId) {
-    errors.push('공동 부조자는 본인과 다른 사람이어야 합니다.');
-  }
+  // 준돈은 낸 금액을 아는 상태에서 적는다. 비어 있으면 실수다(받은돈의 미확정과 다르다).
+  if (amount === null) errors.push('금액을 넣어 주세요.');
 
   if (errors.length > 0) return { ok: false, errors };
   return {

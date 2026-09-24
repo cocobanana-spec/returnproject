@@ -3,7 +3,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   MAX_AMOUNT_WON,
-  allowsMissingAmount,
   formatBalance,
   formatWon,
   formatWonShort,
@@ -51,13 +50,6 @@ test('표시 형식', () => {
   assert.equal(formatWonShort(0), '0원');
 });
 
-test('화환·선물·없음은 금액이 비어도 된다', () => {
-  assert.equal(allowsMissingAmount('wreath'), true);
-  assert.equal(allowsMissingAmount('gift'), true);
-  assert.equal(allowsMissingAmount('none'), true);
-  assert.equal(allowsMissingAmount('cash'), false);
-  assert.equal(allowsMissingAmount('transfer'), false);
-});
 
 test('수지 방향 표기', () => {
   assert.equal(formatBalance(50000).direction, 'given');

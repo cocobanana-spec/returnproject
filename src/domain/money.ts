@@ -1,5 +1,4 @@
 // 금액은 언제나 원 단위 정수 하나로만 다룬다. 만원 단위 변환은 입력 컴포넌트 경계에서만 일어난다
-import type { Method } from './constants.ts';
 
 export const AMOUNT_PRESETS_WON = [50_000, 100_000, 200_000, 300_000, 500_000] as const;
 
@@ -36,11 +35,6 @@ export function formatWonShort(amount: number | null | undefined): string {
   if (amount === 0) return '0원';
   if (amount % 10_000 === 0) return `${(amount / 10_000).toLocaleString('ko-KR')}만원`;
   return `${amount.toLocaleString('ko-KR')}원`;
-}
-
-// 금액이 없어도 되는 부조 형태인지. 화환·선물·없음은 금액 미확정이 자연스럽다.
-export function allowsMissingAmount(method: Method): boolean {
-  return method === 'wreath' || method === 'gift' || method === 'none';
 }
 
 export function formatBalance(balance: number): { text: string; direction: 'given' | 'received' | 'even' } {
