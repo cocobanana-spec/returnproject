@@ -1,8 +1,7 @@
 // 더보기 탭(S13) — 이번 차수에는 장부로 가는 입구와 로그아웃만 둔다
 import { useRouter } from 'expo-router';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { signOut } from '../../../src/auth/providers';
 import { useLedger } from '../../../src/ledger/LedgerProvider';
 import { useTokens } from '../../../src/theme/tokens';
 import { Screen } from '../../../src/ui/Screen';
@@ -58,20 +57,16 @@ export default function MoreScreen() {
         onPress={() => router.push('/ledger')}
       />
       <Row
-        icon="log-out-outline"
-        label="로그아웃"
-        onPress={() =>
-          Alert.alert('로그아웃', '이 기기에서 로그아웃합니다.', [
-            { text: '취소', style: 'cancel' },
-            { text: '로그아웃', style: 'destructive', onPress: () => void signOut() },
-          ])
-        }
+        icon="person-circle-outline"
+        label="계정"
+        hint="로그아웃, 계정 삭제"
+        onPress={() => router.push('/account')}
       />
 
       <Text
         style={{ color: colors.textMuted, fontSize: font.caption, marginTop: space.xl, lineHeight: 20 }}
       >
-        통계·기록 검색·데이터 내보내기·계정 삭제는 다음 차수에서 들어옵니다.
+        통계·기록 검색·데이터 내보내기는 다음 단계(P1)에서 들어옵니다.
       </Text>
     </Screen>
   );

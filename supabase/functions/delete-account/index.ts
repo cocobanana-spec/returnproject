@@ -47,8 +47,10 @@ Deno.serve(async (req) => {
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
   const { error: delErr } = await admin.auth.admin.deleteUser(userId)
   if (delErr) {
+    // 이 시점에는 장부 정리가 이미 커밋됐다. "아무 일도 없었다"고 안내하면 거짓말이 된다.
+    // 앱이 구분해서 안내할 수 있도록 별도 코드를 준다.
     console.error('deleteUser 실패', userId, delErr)
-    return json({ error: 'delete_failed', detail: delErr.message }, 500)
+    return json({ error: 'delete_failed', prepared: true, detail: delErr.message }, 500)
   }
 
   return json({ ok: true }, 200)
