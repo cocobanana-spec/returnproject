@@ -59,6 +59,11 @@ export default function AppLayout() {
         <Stack.Screen name="ledger" options={{ title: '장부' }} />
         <Stack.Screen name="person/[id]" options={{ title: '' }} />
         <Stack.Screen name="person/edit" options={{ title: '사람' }} />
+        <Stack.Screen name="event/[id]" options={{ title: '' }} />
+        <Stack.Screen name="event/edit" options={{ title: '행사' }} />
+        <Stack.Screen name="event/receive" options={{ title: '명부 입력' }} />
+        <Stack.Screen name="entry/[id]" options={{ title: '기록' }} />
+        <Stack.Screen name="account" options={{ title: '계정' }} />
         <Stack.Screen
           name="record"
           options={{ title: '기록 남기기', presentation: 'modal' }}
