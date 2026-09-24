@@ -1,21 +1,16 @@
-// 기록 상세·편집(S10) — 금액·형태·참석·측·답례·메모를 고친다
+// 기록 상세·편집(S10) — 이름·날짜·종류는 보여 주고 금액·메모를 고친다(2026-09-24 사용자 결정)
 //
-// 방향(준돈/받은돈)은 컬럼이 아니라 소속 행사의 is_mine에서 파생되므로 여기서 바꿀 수 없다.
-// 표시만 한다(docs/03 결정 5). 입력자는 구성원이 2명 이상일 때만 보여 준다.
+// 형태·참석·측·답례는 입력에서 뺐다. 저장돼 있는 값은 표시하지 않되 저장 시
+// (공동 부조자는 기존 데이터를 위해 배지로 표시만 한다)
+// 페이로드에 넣지 않아 덮어쓰지 않는다. 방향은 소속 행사의 is_mine에서 파생되므로 여기서
+// 바꿀 수 없다. 표시만 한다(docs/03 결정 5). 입력자는 구성원이 2명 이상일 때만 보여 준다.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  METHODS,
-  METHOD_LABEL,
-  type DatePrecision,
-  type Method,
-  type Side,
-} from '../../../src/domain/constants.ts';
 import { directionLabel, entrySubtitle } from '../../../src/domain/entry.ts';
-import { allowsMissingAmount, formatWon, parseAmountInput } from '../../../src/domain/money.ts';
+import { formatWon, parseAmountInput } from '../../../src/domain/money.ts';
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { useLedgerId } from '../../../src/ledger/LedgerProvider';
 import { queryKeys } from '../../../src/lib/queryKeys';
@@ -23,7 +18,6 @@ import { deleteEntry, getEntry, updateEntry } from '../../../src/repositories/en
 import { listMembers } from '../../../src/repositories/ledgers';
 import { useTokens } from '../../../src/theme/tokens';
 import { Button } from '../../../src/ui/Button';
-import { Chip } from '../../../src/ui/Chip';
 import { EmptyState } from '../../../src/ui/EmptyState';
 import { Field } from '../../../src/ui/Field';
 import { Screen } from '../../../src/ui/Screen';
@@ -58,11 +52,6 @@ export default function EntryDetailScreen() {
   });
 
   const [amountText, setAmountText] = useState('');
-  const [method, setMethod] = useState<Method>('cash');
-  const [attended, setAttended] = useState<boolean | null>(null);
-  const [side, setSide] = useState<Side | null>(null);
-  const [returned, setReturned] = useState(false);
-  const [returnMemo, setReturnMemo] = useState('');
   const [memo, setMemo] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
 
@@ -73,11 +62,6 @@ export default function EntryDetailScreen() {
     if (!row || filled.current) return;
     filled.current = true;
     setAmountText(row.amount === null ? '' : String(row.amount));
-    setMethod(row.method as Method);
-    setAttended(row.attended);
-    setSide(row.side as Side | null);
-    setReturned(row.returned_at !== null);
-    setReturnMemo(row.return_memo ?? '');
     setMemo(row.memo ?? '');
   }, [entry.data]);
 
@@ -92,16 +76,9 @@ export default function EntryDetailScreen() {
     mutationFn: async () => {
       const amount = parseAmountInput(amountText);
       if (amount === undefined) throw new Error('금액은 숫자로만 넣어 주세요.');
-      if (amount === null && !allowsMissingAmount(method)) {
-        throw new Error('금액을 넣거나 부조 형태를 바꿔 주세요.');
-      }
+      // 금액과 메모만 보낸다. 형태·참석·측·답례는 화면에 없으므로 저장돼 있는 값을 건드리지 않는다.
       return updateEntry(ledgerId, entryId, {
         amount,
-        method,
-        attended,
-        side,
-        returned_at: returned ? (entry.data?.returned_at ?? new Date().toISOString()) : null,
-        return_memo: returned ? returnMemo.trim() || null : null,
         memo: memo.trim() || null,
       });
     },
@@ -156,7 +133,6 @@ export default function EntryDetailScreen() {
   }
 
   const isMine = row.event?.is_mine ?? false;
-  const hasSides = Boolean(row.event?.side_a_label);
   // 구성원이 나 혼자면 입력자를 보여 줄 이유가 없다(docs/02 §5).
   const memberList = members.data ?? [];
   const showCreator = memberList.length > 1;
@@ -210,66 +186,6 @@ export default function EntryDetailScreen() {
           keyboardType="number-pad"
           hint={amountHint(amountText)}
         />
-
-        <View style={{ gap: space.sm }}>
-          <Text style={{ color: colors.textMuted, fontSize: font.caption }}>부조 형태</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
-            {METHODS.map((m) => (
-              <Chip key={m} label={METHOD_LABEL[m]} selected={method === m} onPress={() => setMethod(m)} />
-            ))}
-          </View>
-        </View>
-
-        <View style={{ gap: space.sm }}>
-          <Text style={{ color: colors.textMuted, fontSize: font.caption }}>참석 여부</Text>
-          <View style={{ flexDirection: 'row', gap: space.sm }}>
-            <Chip label="참석" selected={attended === true} onPress={() => setAttended(attended === true ? null : true)} />
-            <Chip label="불참" selected={attended === false} onPress={() => setAttended(attended === false ? null : false)} />
-          </View>
-        </View>
-
-        {hasSides && (
-          <View style={{ gap: space.sm }}>
-            <Text style={{ color: colors.textMuted, fontSize: font.caption }}>측</Text>
-            <View style={{ flexDirection: 'row', gap: space.sm }}>
-              <Chip label="미지정" selected={side === null} onPress={() => setSide(null)} />
-              <Chip
-                label={row.event?.side_a_label ?? '측 A'}
-                selected={side === 'a'}
-                onPress={() => setSide('a')}
-              />
-              {row.event?.side_b_label && (
-                <Chip
-                  label={row.event.side_b_label}
-                  selected={side === 'b'}
-                  onPress={() => setSide('b')}
-                />
-              )}
-            </View>
-          </View>
-        )}
-
-        {/* 답례는 받은돈에만 의미가 있다 */}
-        {isMine && (
-          <View style={{ gap: space.sm }}>
-            <Text style={{ color: colors.textMuted, fontSize: font.caption }}>답례</Text>
-            <View style={{ flexDirection: 'row', gap: space.sm }}>
-              <Chip
-                label={returned ? '답례 완료' : '답례 안 함'}
-                selected={returned}
-                onPress={() => setReturned((prev) => !prev)}
-              />
-            </View>
-            {returned && (
-              <Field
-                value={returnMemo}
-                onChangeText={setReturnMemo}
-                maxLength={200}
-                placeholder="답례떡 발송 5/20"
-              />
-            )}
-          </View>
-        )}
 
         <Field label="메모" value={memo} onChangeText={setMemo} maxLength={500} multiline />
 
