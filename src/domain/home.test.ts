@@ -6,6 +6,7 @@ import {
   daysUntil,
   directionOf,
   entryRowName,
+  entryRowNames,
   entryRowSubtitle,
   isMineOf,
   totalCaption,
@@ -61,6 +62,24 @@ test('공동 부조자는 이름 뒤에 붙는다', () => {
 
 test('이름이 비어도 빈 문자열을 그리지 않는다', () => {
   assert.equal(entryRowName(null, null), '(이름 없음)');
+});
+
+test('이름 조각은 각자 id를 들고 있어 화면이 문자열을 쪼개지 않는다', () => {
+  const parts = entryRowNames({ id: 'p1', name: '이영희' }, { id: 'p2', name: '박민수' });
+  assert.deepEqual(parts, [
+    { id: 'p1', name: '이영희', co: false },
+    { id: 'p2', name: '박민수', co: true },
+  ]);
+});
+
+test('공동 부조자가 없으면 조각은 하나다', () => {
+  assert.deepEqual(entryRowNames({ id: 'p1', name: '이영희' }, null), [
+    { id: 'p1', name: '이영희', co: false },
+  ]);
+});
+
+test('사람이 없어도 조각은 하나 남고 id는 null이다', () => {
+  assert.deepEqual(entryRowNames(null, null), [{ id: null, name: '(이름 없음)', co: false }]);
 });
 
 test('남은 날짜는 날짜 경계로 센다', () => {

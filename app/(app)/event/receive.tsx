@@ -16,6 +16,7 @@ import {
   type RelationGroup,
   type Side,
 } from '../../../src/domain/constants.ts';
+import { entryRowName } from '../../../src/domain/home.ts';
 import { AMOUNT_PRESETS_WON, formatWon, formatWonShort } from '../../../src/domain/money.ts';
 import {
   carryOver,
@@ -372,8 +373,7 @@ export default function ReceiveScreen() {
               >
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: colors.text, fontSize: font.body }} numberOfLines={1}>
-                    {item.person?.name ?? ''}
-                    {item.co_person ? ` (+${item.co_person.name})` : ''}
+                    {entryRowName(item.person, item.co_person)}
                   </Text>
                   <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: 2 }}>
                     {[

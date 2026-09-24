@@ -12,7 +12,6 @@ import {
   DEFAULT_DIRECTION,
   DIRECTIONS,
   DIRECTION_LABEL,
-  entryRowName,
   entryRowSubtitle,
   isMineOf,
   totalCaption,
@@ -28,6 +27,7 @@ import { listUpcomingEvents } from '../../../src/repositories/events';
 import { getYearStats } from '../../../src/repositories/stats';
 import { useTokens } from '../../../src/theme/tokens';
 import { EmptyState } from '../../../src/ui/EmptyState';
+import { EntryNames } from '../../../src/ui/EntryNames';
 import { LoadFailed } from '../../../src/ui/LoadFailed';
 
 export default function HomeScreen() {
@@ -320,21 +320,7 @@ function EntryRow({ item }: { item: EntryWithContext }) {
       }}
     >
       <View style={{ flex: 1 }}>
-        <Pressable
-          accessibilityRole="link"
-          accessibilityLabel={`${item.person?.name ?? ''} 원장 보기`}
-          disabled={!item.person}
-          hitSlop={{ top: 8, bottom: 8, left: 4, right: 12 }}
-          onPress={() => item.person && router.push(`/person/${item.person.id}`)}
-          style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
-        >
-          <View style={{ alignItems: 'center', flexDirection: 'row', gap: space.xs }}>
-            <Text style={{ color: colors.text, fontSize: font.body, fontWeight: '600' }} numberOfLines={1}>
-              {entryRowName(item.person, item.co_person)}
-            </Text>
-            <Ionicons name="chevron-forward" size={13} color={colors.textMuted} />
-          </View>
-        </Pressable>
+        <EntryNames person={item.person} coPerson={item.co_person} />
         <Pressable
           onPress={() => router.push(`/entry/${item.id}`)}
           style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}

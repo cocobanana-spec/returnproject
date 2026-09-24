@@ -42,13 +42,28 @@ export function entryRowSubtitle(event: {
   return [title, date].filter((part) => part.length > 0).join(' · ');
 }
 
-// 대표자와 공동 부조자를 한 이름으로 합친다. 공동 부조는 한 건이 두 사람에게 걸린다.
+// 목록 한 행에 보일 이름 조각. 공동 부조는 한 건이 두 사람에게 걸리므로 조각이 둘이 된다.
+// 각 조각이 자기 원장으로 가야 해서(2026-09-24 사용자 결정) 문자열이 아니라 id를 함께 돌려준다.
+// 화면이 "김철수 (+이영희)"를 다시 쪼개 파싱하는 일이 없어야 한다.
+export type NamePart = { id: string | null; name: string; co: boolean };
+
+export function entryRowNames(
+  person: { id?: string | null; name?: string | null } | null,
+  coPerson: { id?: string | null; name?: string | null } | null,
+): NamePart[] {
+  const parts: NamePart[] = [{ id: person?.id ?? null, name: person?.name ?? '(이름 없음)', co: false }];
+  if (coPerson?.name) parts.push({ id: coPerson.id ?? null, name: coPerson.name, co: true });
+  return parts;
+}
+
+// 접근성 라벨이나 한 줄 표시가 필요할 때만 문자열로 합친다.
 export function entryRowName(
-  person: { name?: string | null } | null,
-  coPerson: { name?: string | null } | null,
+  person: { id?: string | null; name?: string | null } | null,
+  coPerson: { id?: string | null; name?: string | null } | null,
 ): string {
-  const base = person?.name ?? '(이름 없음)';
-  return coPerson?.name ? `${base} (+${coPerson.name})` : base;
+  return entryRowNames(person, coPerson)
+    .map((part) => (part.co ? `(+${part.name})` : part.name))
+    .join(' ');
 }
 
 // 목록 상단 띠에 쓸 다가오는 행사 문구. 알림을 넣지 않기로 한 결정 9의 대체물이라

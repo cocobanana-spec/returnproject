@@ -17,6 +17,7 @@ import { useTokens } from '../../../src/theme/tokens';
 import { Button } from '../../../src/ui/Button';
 import { Chip } from '../../../src/ui/Chip';
 import { EmptyState } from '../../../src/ui/EmptyState';
+import { EntryNames } from '../../../src/ui/EntryNames';
 import { LoadFailed } from '../../../src/ui/LoadFailed';
 import { Screen } from '../../../src/ui/Screen';
 
@@ -284,16 +285,7 @@ export default function EventDetailScreen() {
             })}
           >
             <View style={{ flex: 1 }}>
-              <View style={{ alignItems: 'center', flexDirection: 'row', gap: space.xs }}>
-                <Text style={{ color: colors.text, fontSize: font.body }} numberOfLines={1}>
-                  {item.person?.name ?? '(이름 없음)'}
-                </Text>
-                {item.co_person && (
-                  <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
-                    +{item.co_person.name}
-                  </Text>
-                )}
-              </View>
+              <EntryNames person={item.person} coPerson={item.co_person} />
               <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: 2 }}>
                 {[
                   item.side ? sideLabel(item.side as Side) : null,
