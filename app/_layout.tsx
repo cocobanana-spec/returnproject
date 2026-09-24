@@ -11,7 +11,7 @@ import { persistOptions, queryClient } from '../src/lib/queryClient';
 import { useTokens } from '../src/theme/tokens';
 
 function Gate() {
-  const { session, restoring } = useAuth();
+  const { session, restoring, resetPending } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const { colors } = useTokens();
@@ -19,9 +19,18 @@ function Gate() {
   useEffect(() => {
     if (restoring) return;
     const inAuthGroup = segments[0] === '(auth)';
+    const onResetScreen = segments[segments.length - 1] === 'reset-password';
+
+    // 재설정 링크로 들어왔으면 세션이 있어도 홈으로 보내지 않는다.
+    // 새 비밀번호를 넣기 전까지는 재설정 화면에 붙잡아 둔다.
+    if (resetPending) {
+      if (!onResetScreen) router.replace('/reset-password');
+      return;
+    }
+
     if (!session && !inAuthGroup) router.replace('/sign-in');
     else if (session && inAuthGroup) router.replace('/');
-  }, [session, restoring, segments, router]);
+  }, [session, restoring, resetPending, segments, router]);
 
   if (restoring) {
     return (
