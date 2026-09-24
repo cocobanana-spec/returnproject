@@ -48,6 +48,19 @@ function check(name, cond, detail = '') {
   }
 }
 
+// Supabase 내장 속도 제한(메일 발송·로그인)에 걸린 결과는 코드 결함이 아니다.
+// 같은 원인이 어떤 실행에서는 SKIP, 어떤 실행에서는 FAIL로 나오면 검증 전체를 믿을 수 없게 된다.
+// 속도 제한이면 건너뛰고, 그 밖에는 평소대로 판정한다.
+let skipped = 0;
+function checkUnlessRateLimited(name, result, cond, detail = '') {
+  if (result && result.ok === false && result.error?.kind === 'rate_limited') {
+    skipped += 1;
+    console.log(`  SKIP  ${name} — Supabase 속도 제한(커스텀 SMTP 필요)`);
+    return;
+  }
+  check(name, cond, detail);
+}
+
 function eq(name, actual, expected) {
   check(name, Object.is(actual, expected), `실제 ${JSON.stringify(actual)} / 기대 ${JSON.stringify(expected)}`);
 }
@@ -546,7 +559,7 @@ async function main() {
   const oldPwTry = await emailAuth.signInWithEmail(confirmed.email, PW);
   check('옛 비밀번호로는 로그인되지 않는다', oldPwTry.ok === false, JSON.stringify(oldPwTry));
   const newPwTry = await emailAuth.signInWithEmail(confirmed.email, newPw);
-  check('새 비밀번호로 로그인된다', newPwTry.ok === true, JSON.stringify(newPwTry));
+  checkUnlessRateLimited('새 비밀번호로 로그인된다', newPwTry, newPwTry.ok === true, JSON.stringify(newPwTry));
 
   // 메일 미확인 계정은 로그인이 막힌다(관리자 API로 확인 없이 만든다. 메일은 안 나간다).
   const pending = await admin.auth.admin.createUser({
@@ -557,8 +570,9 @@ async function main() {
   if (pending.data?.user) createdUsers.push(pending.data.user.id);
   setDb(createDb(URL, ANON));
   const beforeConfirm = await emailAuth.signInWithEmail(pending.data.user.email, mailPw);
-  check(
+  checkUnlessRateLimited(
     '메일 확인 전에는 로그인이 막히고 그렇게 안내한다',
+    beforeConfirm,
     beforeConfirm.ok === false && beforeConfirm.error.kind === 'email_not_confirmed',
     JSON.stringify(beforeConfirm),
   );
@@ -619,7 +633,10 @@ async function main() {
     JSON.stringify(resetRequested),
   );
 
-  console.log(`\n== 요약  통과 ${pass} · 실패 ${fail}\n`);
+  console.log(`\n== 요약  통과 ${pass} · 실패 ${fail} · 건너뜀 ${skipped}\n`);
+  if (skipped > 0) {
+    console.log('건너뛴 검사는 Supabase 속도 제한 때문이며 커스텀 SMTP를 붙이면 사라진다.\n');
+  }
   if (failures.length) {
     console.log('실패 목록');
     for (const f of failures) console.log(`  - ${f}`);
