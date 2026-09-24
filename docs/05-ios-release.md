@@ -1,0 +1,84 @@
+# iOS 빌드와 TestFlight 업로드 절차
+
+> EAS를 쓰지 않는다. Xcode 명령줄 도구만으로 아카이브하고 App Store Connect에 올린다.
+> 2026-09-24 실제로 실행해 아카이브·서명·IPA 생성까지 확인한 절차다.
+
+## 확정 값
+
+| 항목 | 값 |
+|---|---|
+| 번들 식별자 | `com.cocobanana.ppurin` |
+| 팀 식별자 | `58XF2TVK7G` |
+| 워크스페이스 | `ios/app.xcworkspace` (prebuild가 만든다) |
+| 스킴 | `app` |
+
+**팀 식별자를 인증서 이름에서 읽지 마라.** `Apple Development: 이름 (XXXXXXXXXX)`의 괄호 안은 인증서 자체의 식별자이지 팀 식별자가 아니다. 팀 식별자는 인증서 주체의 OU 필드다.
+
+```
+security find-certificate -a -c "Apple Development" -p | openssl x509 -noout -subject
+# subject=UID=..., CN=Apple Development: ... (Y7U3S84HW6), OU=58XF2TVK7G, ...
+#                                                            ^^^^^^^^^^ 이쪽이 팀 식별자
+```
+
+## 순서
+
+### 1. 빌드 번호를 올린다
+
+같은 번호는 두 번 올릴 수 없다. `app.json`의 `expo.ios.buildNumber`를 올린다. prebuild가 이 값을 `CURRENT_PROJECT_VERSION`으로 옮긴다. 네이티브 프로젝트를 직접 고치면 다음 prebuild에서 날아간다.
+
+### 2. 네이티브 프로젝트를 뽑고 의존성을 설치한다
+
+```
+npx expo prebuild --platform ios --no-install
+cd ios && pod install && cd ..
+```
+
+`ios/`는 gitignore 대상이며 언제든 다시 만들 수 있는 산출물이다.
+
+### 3. 아카이브
+
+CocoaPods를 쓰므로 `-project`가 아니라 **`-workspace`** 를 넘겨야 한다.
+
+```
+xcodebuild -workspace ios/app.xcworkspace -scheme app -configuration Release \
+  -destination 'generic/platform=iOS' -archivePath /tmp/ppurin.xcarchive \
+  -allowProvisioningUpdates DEVELOPMENT_TEAM=58XF2TVK7G archive
+```
+
+`DEVELOPMENT_TEAM`을 넘기지 않으면 prebuild가 만든 프로젝트에 팀이 비어 있어 프로비저닝 프로파일을 못 찾는다. `-allowProvisioningUpdates`가 Xcode에 로그인된 계정으로 인증서와 프로파일을 발급한다. App Store Connect API 키는 필요 없다.
+
+### 4. 서명만 먼저 확인한다
+
+`ExportOptions.plist`의 `destination`을 `export`로 두고 돌리면 업로드 없이 IPA만 나온다.
+
+```
+xcodebuild -exportArchive -archivePath /tmp/ppurin.xcarchive \
+  -exportOptionsPlist ExportOptions.plist -exportPath /tmp/ppurin-out \
+  -allowProvisioningUpdates
+```
+
+`** EXPORT SUCCEEDED **`와 `app.ipa`가 나오면 서명은 끝난 것이다.
+
+### 5. 업로드
+
+`destination`을 `upload`로 바꾸고 같은 명령을 다시 돌린다. 로그 끝에 `Upload succeeded.`가 떠야 한다.
+
+## 전제 조건
+
+- Xcode에 애플 ID가 로그인돼 있어야 한다.
+- **App Store Connect에 이 번들 식별자로 앱 레코드가 먼저 있어야 한다.** 없으면 4단계까지 전부 성공하고 업로드에서만 실패한다.
+
+```
+App record with bundle identifier "com.cocobanana.ppurin" not found on App Store Connect.
+```
+
+앱 레코드는 appstoreconnect.apple.com → 앱 → 추가에서 만든다. 플랫폼 iOS, 기본 언어 한국어, 번들 ID는 목록에서 고르고, SKU는 아무 고유 문자열이면 된다.
+
+## 자주 걸리는 것
+
+| 증상 | 원인 |
+|---|---|
+| `No Account for Team "XXXX"` | 팀 식별자가 틀렸다. 인증서 OU를 확인하라 |
+| `No profiles for '...' were found` | 위와 같은 원인이거나 `-allowProvisioningUpdates`가 빠졌다 |
+| `App record ... not found` | App Store Connect에 앱 레코드가 없다 |
+| 업로드는 됐는데 TestFlight에 안 보임 | 처리에 몇 분 걸린다. 수출 규정 답변이 필요할 수 있다 |

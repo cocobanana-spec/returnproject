@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.cocobanana.ppurin"
+      "bundleIdentifier": "com.cocobanana.ppurin",
+      "buildNumber": "1"
     },
     "android": {
       "package": "com.cocobanana.ppurin",
