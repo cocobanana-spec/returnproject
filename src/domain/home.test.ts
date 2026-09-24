@@ -1,0 +1,92 @@
+// 홈 방향 탭과 목록 행 조립 규칙 검증
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import {
+  DEFAULT_DIRECTION,
+  daysUntil,
+  directionOf,
+  entryRowName,
+  entryRowSubtitle,
+  isMineOf,
+  totalCaption,
+  upcomingHint,
+} from './home.ts';
+
+test('기본 탭은 준돈이다', () => {
+  assert.equal(DEFAULT_DIRECTION, 'given');
+});
+
+test('준돈은 내 행사가 아니고 받은돈은 내 행사다', () => {
+  assert.equal(isMineOf('given'), false);
+  assert.equal(isMineOf('received'), true);
+});
+
+test('방향 변환은 양쪽이 서로 뒤집힌다', () => {
+  assert.equal(directionOf(false), 'given');
+  assert.equal(directionOf(true), 'received');
+  assert.equal(isMineOf(directionOf(true)), true);
+  assert.equal(isMineOf(directionOf(false)), false);
+});
+
+test('부제는 행사 이름과 날짜를 잇는다', () => {
+  assert.equal(
+    entryRowSubtitle({ title: '김철수 결혼식', date: '2026-05-18', date_precision: 'day' }),
+    '김철수 결혼식 · 2026.05.18',
+  );
+});
+
+test('정밀도가 낮으면 날짜도 줄여 적는다', () => {
+  assert.equal(
+    entryRowSubtitle({ title: '이영희 조부상', date: '2025-09-01', date_precision: 'month' }),
+    '이영희 조부상 · 2025.09',
+  );
+  assert.equal(
+    entryRowSubtitle({ title: '옛 기록', date: '2022-01-01', date_precision: 'year' }),
+    '옛 기록 · 2022년',
+  );
+});
+
+test('행사가 없어도 빈 줄을 돌려주지 않는다', () => {
+  assert.equal(entryRowSubtitle(null), '행사 정보 없음');
+});
+
+test('행사 이름만 있어도 구분자가 남지 않는다', () => {
+  assert.equal(entryRowSubtitle({ title: '제목만', date: null }), '제목만');
+});
+
+test('공동 부조자는 이름 뒤에 붙는다', () => {
+  assert.equal(entryRowName({ name: '이영희' }, { name: '박민수' }), '이영희 (+박민수)');
+  assert.equal(entryRowName({ name: '이영희' }, null), '이영희');
+});
+
+test('이름이 비어도 빈 문자열을 그리지 않는다', () => {
+  assert.equal(entryRowName(null, null), '(이름 없음)');
+});
+
+test('남은 날짜는 날짜 경계로 센다', () => {
+  assert.equal(daysUntil('2026-09-24', '2026-09-24'), 0);
+  assert.equal(daysUntil('2026-09-24', '2026-09-25'), 1);
+  assert.equal(daysUntil('2026-09-24', '2026-10-01'), 7);
+});
+
+test('다가오는 행사 문구는 오늘·내일을 따로 적는다', () => {
+  assert.equal(upcomingHint('2026-09-24', '2026-09-24'), '오늘');
+  assert.equal(upcomingHint('2026-09-24', '2026-09-25'), '내일');
+  assert.equal(upcomingHint('2026-09-24', '2026-09-30'), '6일 뒤');
+});
+
+test('이미 지난 날짜도 오늘로 적는다', () => {
+  assert.equal(upcomingHint('2026-09-24', '2026-09-20'), '오늘');
+});
+
+test('미확정이 없으면 합계 문구에 덧붙이지 않는다', () => {
+  assert.equal(totalCaption(2026, 12, 0), '2026년 12건');
+});
+
+test('미확정은 건수가 아니라 합계에서 빠진다고 적는다', () => {
+  assert.equal(totalCaption(2026, 12, 3), '2026년 12건 · 미확정 3건은 합계에서 빠짐');
+});
+
+test('미확정 건수가 음수로 들어와도 덧붙이지 않는다', () => {
+  assert.equal(totalCaption(2026, 0, -1), '2026년 0건');
+});

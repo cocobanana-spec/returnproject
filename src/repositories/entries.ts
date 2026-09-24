@@ -12,6 +12,9 @@ const WITH_CONTEXT =
   'person:people!person_id(id, name, label), ' +
   'co_person:people!co_person_id(id, name, label)';
 
+// 방향으로 거르려면 행사를 inner join 해야 한다. 바깥 조인이면 조건이 걸리지 않는다.
+const WITH_CONTEXT_INNER = WITH_CONTEXT.replace('event:events(', 'event:events!inner(');
+
 export type EntryWithContext = Entry & {
   event: Pick<
     Tables<'events'>,
@@ -57,6 +60,32 @@ export async function listEntriesByEvent(
   if (opts?.unreturnedOnly) query = query.is('returned_at', null);
 
   const rows = unwrap(await query.order('created_at', { ascending: false }).range(from, to));
+  return toPage(rows as unknown as EntryWithContext[], from, limit);
+}
+
+// 방향별 기록 목록. 홈의 준돈·받은돈 탭이 쓴다.
+//
+// 방향은 entries에 컬럼이 없고 소속 행사의 is_mine에서 파생된다(docs/03 결정 5). 그래서
+// events를 !inner로 묶어 걸러야 한다. 정렬도 마찬가지로 행사 날짜를 봐야 하는데,
+// PostgREST에서 부모 행을 조인 컬럼으로 정렬하려면 `event(date)` 형태여야 한다.
+// `referencedTable` 옵션은 임베드된 쪽만 정렬하고 부모 순서는 그대로 두므로 쓰면 안 된다
+// (2026-09-24 실측. 날짜가 뒤섞인 채로 조용히 돌아온다).
+export async function listEntriesByDirection(
+  ledgerId: string,
+  isMine: boolean,
+  opts?: PageParams,
+): Promise<Page<EntryWithContext>> {
+  const { from, to, limit } = pageRange(opts);
+  const rows = unwrap(
+    await db()
+      .from('entries')
+      .select(WITH_CONTEXT_INNER)
+      .eq('ledger_id', ledgerId)
+      .eq('event.is_mine', isMine)
+      .order('event(date)', { ascending: false })
+      .order('created_at', { ascending: false })
+      .range(from, to),
+  );
   return toPage(rows as unknown as EntryWithContext[], from, limit);
 }
 

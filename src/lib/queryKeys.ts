@@ -35,12 +35,17 @@ export const queryKeys = {
     byEvent: (ledgerId: string, eventId: string, params?: Record<string, unknown>) =>
       ['entries', 'byEvent', { ledgerId, eventId, ...params }] as const,
     recent: (ledgerId: string) => ['entries', 'recent', { ledgerId }] as const,
+    // 홈의 준돈·받은돈 탭. 방향이 키에 들어가야 탭을 오갈 때 서로의 캐시를 보지 않는다.
+    byDirection: (ledgerId: string, direction: string) =>
+      ['entries', 'byDirection', { ledgerId, direction }] as const,
     detail: (ledgerId: string, entryId: string) =>
       ['entries', 'detail', { ledgerId, entryId }] as const,
   },
   stats: {
     byYear: (ledgerId: string, year: number | null) =>
       ['stats', 'byYear', { ledgerId, year }] as const,
+    // 통계 화면은 연도 세그먼트를 만들려고 전체 연도를 한 번에 받는다.
+    allYears: (ledgerId: string) => ['stats', 'allYears', { ledgerId }] as const,
   },
 } as const;
 
