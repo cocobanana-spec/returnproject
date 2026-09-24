@@ -777,6 +777,68 @@ select tst.expect_scalar('T9.26 사람은 남는다',
   $q$ select count(*)::text from public.people
        where id = '11111111-0000-4000-8000-000000000002' $q$, '1');
 
+-- 사람별 연도 집계(마이그레이션 0004). 뷰와 같은 규칙으로 연도만 자를 수 있어야 한다.
+-- 이 시점의 데이터 — P1은 2025년 남의 결혼식에 100000 준돈, 2026년 내 행사에 공동 부조자로 50000.
+-- P2는 2026년 내 행사에 대표자로 50000과 미확정 1건.
+select tst.expect_scalar('T9.27 2026년 P1 받은 합계 50000(공동 부조 전액)',
+  (select v from tst.fix where k='A'),
+  $q$ select received_total::text
+        from public.person_stats_by_year((select v from tst.fix where k='L1'), 2026)
+       where id = '11111111-0000-4000-8000-000000000001' $q$, '50000');
+
+select tst.expect_scalar('T9.28 2026년 P1 준 합계는 0(2025년 기록은 빠진다)',
+  (select v from tst.fix where k='A'),
+  $q$ select given_total::text
+        from public.person_stats_by_year((select v from tst.fix where k='L1'), 2026)
+       where id = '11111111-0000-4000-8000-000000000001' $q$, '0');
+
+select tst.expect_scalar('T9.29 2025년 P1 준 합계 100000',
+  (select v from tst.fix where k='A'),
+  $q$ select given_total::text
+        from public.person_stats_by_year((select v from tst.fix where k='L1'), 2025)
+       where id = '11111111-0000-4000-8000-000000000001' $q$, '100000');
+
+select tst.expect_scalar('T9.30 2025년에 기록이 없는 P2는 행 자체가 없다',
+  (select v from tst.fix where k='A'),
+  $q$ select count(*)::text
+        from public.person_stats_by_year((select v from tst.fix where k='L1'), 2025)
+       where id = '11111111-0000-4000-8000-000000000002' $q$, '0');
+
+select tst.expect_scalar('T9.31 연도 NULL은 전체 기간이라 뷰의 차액과 같다',
+  (select v from tst.fix where k='A'),
+  $q$ select balance::text
+        from public.person_stats_by_year((select v from tst.fix where k='L1'), null)
+       where id = '11111111-0000-4000-8000-000000000001' $q$, '50000');
+
+select tst.expect_scalar('T9.32 2026년 P2 미확정은 합계에서 빠지고 건수에는 들어간다',
+  (select v from tst.fix where k='A'),
+  $q$ select received_total::text || '/' || entry_count::text
+        from public.person_stats_by_year((select v from tst.fix where k='L1'), 2026)
+       where id = '11111111-0000-4000-8000-000000000002' $q$, '50000/2');
+
+select tst.expect_scalar('T9.33 사람별 집계는 현재 장부만 센다',
+  (select v from tst.fix where k='D'),
+  $q$ select count(*)::text
+        from public.person_stats_by_year((select v from tst.fix where k='L4'), null) $q$, '0');
+
+select tst.expect_scalar('T9.34 구성원이 아닌 장부의 사람별 집계는 빈 결과다',
+  (select v from tst.fix where k='C'),
+  $q$ select count(*)::text
+        from public.person_stats_by_year((select v from tst.fix where k='L1'), null) $q$, '0');
+
+-- 0005 — p_year를 생략하면(기본값 NULL) 전체 기간과 같아야 한다. PostgREST는 인자를 생략한
+-- 호출을 그 인자가 없는 함수로 찾으므로, 기본값이 없으면 앱의 전체 기간 호출이 404가 난다.
+select tst.expect_scalar('T9.35 p_year를 생략하면 전체 기간(NULL)과 같다',
+  (select v from tst.fix where k='A'),
+  $q$ select ((select count(*) from public.person_stats_by_year((select v from tst.fix where k='L1')))
+            = (select count(*) from public.person_stats_by_year((select v from tst.fix where k='L1'), null)))::text $q$,
+  'true');
+
+select tst.expect_scalar('T9.36 생략 호출도 행을 돌려준다(빈 결과가 아니다)',
+  (select v from tst.fix where k='A'),
+  $q$ select (count(*) > 0)::text from public.person_stats_by_year((select v from tst.fix where k='L1')) $q$,
+  'true');
+
 -- ============================================================================
 -- T10. 병합 — 세 참조 축이 함께 옮겨진다
 -- ============================================================================

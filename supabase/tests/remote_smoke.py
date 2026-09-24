@@ -202,6 +202,49 @@ try:
     st, rows = req("POST", "/rest/v1/rpc/event_summary", tf, {"p_ledger_id": ld, "p_event_id": own[0]["id"]})
     check("현재 장부 밖의 집계는 빈 결과다", st == 200 and rows == [], f"{st} {rows}")
 
+    print("== 10. 사람별 연도 집계 (마이그레이션 0004)")
+    # 공동 부조는 두 사람 모두에게 전액, 연도를 고르면 그 해만, NULL이면 전체 기간.
+    eg = f"smoke-g-{tag}@ppurin-test.kr"
+    ug = make_user(eg)
+    created.append(ug)
+    tg = sign_in(eg)
+    lg = my_ledger(tg, ug)
+    rep = {"Prefer": "return=representation"}
+    st, p_rep = req("POST", "/rest/v1/people", tg, {"ledger_id": lg, "name": "대표자"}, rep)
+    st, p_co = req("POST", "/rest/v1/people", tg, {"ledger_id": lg, "name": "공동부조자"}, rep)
+    st, ev_mine = req("POST", "/rest/v1/events", tg,
+                      {"ledger_id": lg, "type": "wedding", "is_mine": True, "title": "내 결혼식",
+                       "date": "2026-03-01"}, rep)
+    st, ev_other = req("POST", "/rest/v1/events", tg,
+                       {"ledger_id": lg, "type": "funeral", "is_mine": False, "title": "대표자 조부상",
+                        "date": "2025-05-18", "host_person_id": p_rep[0]["id"]}, rep)
+    check("집계용 행사 2건을 만든다", ev_mine and ev_other, f"{ev_mine} {ev_other}")
+    st, _ = req("POST", "/rest/v1/entries", tg,
+                {"ledger_id": lg, "event_id": ev_mine[0]["id"], "person_id": p_rep[0]["id"],
+                 "co_person_id": p_co[0]["id"], "amount": 50000})
+    check("공동 부조 기록을 만든다", st in (200, 201), f"{st}")
+    st, _ = req("POST", "/rest/v1/entries", tg,
+                {"ledger_id": lg, "event_id": ev_other[0]["id"], "person_id": p_rep[0]["id"], "amount": 100000})
+    check("준돈 기록을 만든다", st in (200, 201), f"{st}")
+
+    def by_id(rows, pid):
+        return next((r for r in rows if r["id"] == pid), None)
+
+    st, rows = req("POST", "/rest/v1/rpc/person_stats_by_year", tg, {"p_ledger_id": lg, "p_year": 2026})
+    r_rep, r_co = by_id(rows or [], p_rep[0]["id"]), by_id(rows or [], p_co[0]["id"])
+    check("2026년 대표자 받은 합계 50000", st == 200 and r_rep and r_rep["received_total"] == 50000, f"{st} {rows}")
+    check("2026년 공동 부조자도 전액 50000", r_co is not None and r_co["received_total"] == 50000, f"{rows}")
+    check("2026년에는 준돈이 없다", r_rep is not None and r_rep["given_total"] == 0, f"{rows}")
+    st, rows = req("POST", "/rest/v1/rpc/person_stats_by_year", tg, {"p_ledger_id": lg, "p_year": 2025})
+    r_rep, r_co = by_id(rows or [], p_rep[0]["id"]), by_id(rows or [], p_co[0]["id"])
+    check("2025년 대표자 준 합계 100000", st == 200 and r_rep and r_rep["given_total"] == 100000, f"{st} {rows}")
+    check("2025년에 기록이 없는 사람은 행이 없다", r_co is None, f"{rows}")
+    st, rows = req("POST", "/rest/v1/rpc/person_stats_by_year", tg, {"p_ledger_id": lg, "p_year": None})
+    r_rep = by_id(rows or [], p_rep[0]["id"])
+    check("연도 NULL은 전체 기간이라 차액 50000", st == 200 and r_rep and r_rep["balance"] == 50000, f"{st} {rows}")
+    st, rows = req("POST", "/rest/v1/rpc/person_stats_by_year", tg, {"p_ledger_id": ld, "p_year": None})
+    check("구성원이 아닌 장부의 사람별 집계는 빈 결과다", st == 200 and rows == [], f"{st} {rows}")
+
 finally:
     # 이 실행에서 만든 계정만, 그것도 메일 도메인을 서버에 다시 물어 확인한 뒤에만 지운다.
     # 2026-09-24에 "모든 사용자를 훑어 삭제"하는 절차 때문에 실계정이 지워졌다. 되돌리지 못했다.
