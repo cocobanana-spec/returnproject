@@ -22,6 +22,8 @@ URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 ANON = os.environ.get("SUPABASE_ANON_KEY", "")
 SVC = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 PW = "Ppurin-Smoke-2026!"
+# 이 도메인으로 끝나는 계정만 삭제한다. 실계정 삭제 사고 재발 방지용 안전장치다.
+TEST_EMAIL_DOMAIN = "@ppurin-test.kr"
 
 if not (URL and ANON and SVC):
     sys.exit("SUPABASE_URL · SUPABASE_ANON_KEY · SUPABASE_SERVICE_ROLE_KEY 를 모두 설정해야 한다.")
@@ -201,10 +203,19 @@ try:
     check("현재 장부 밖의 집계는 빈 결과다", st == 200 and rows == [], f"{st} {rows}")
 
 finally:
+    # 이 실행에서 만든 계정만, 그것도 메일 도메인을 서버에 다시 물어 확인한 뒤에만 지운다.
+    # 2026-09-24에 "모든 사용자를 훑어 삭제"하는 절차 때문에 실계정이 지워졌다. 되돌리지 못했다.
     print("== 정리")
     for user_id in created:
+        st, body = req("GET", f"/auth/v1/admin/users/{user_id}", SVC)
+        email = (body or {}).get("email", "") if isinstance(body, dict) else ""
+        if st == 404:
+            continue
+        if not email.endswith(TEST_EMAIL_DOMAIN):
+            print(f"  ⛔ 삭제하지 않음 — 테스트 계정이 아니다: {email or user_id[:8]}")
+            continue
         st, _ = req("DELETE", f"/auth/v1/admin/users/{user_id}", SVC)
-        print(f"  테스트 계정 삭제 {user_id[:8]} → {st}")
+        print(f"  테스트 계정 삭제 {email} → {st}")
     st, rows = req("GET", "/rest/v1/ledgers?select=id", SVC)
     print(f"  남은 장부 {len(rows) if isinstance(rows, list) else rows}권")
 

@@ -78,6 +78,7 @@ async function expectError(name, fn, needle) {
 const admin = createClient(URL, SVC, { auth: { persistSession: false, autoRefreshToken: false } });
 const tag = Date.now().toString(36);
 const createdUsers = [];
+let cleanedUp = 0;
 
 async function makeUser(prefix, displayName) {
   const email = `int-${prefix}-${tag}@ppurin-test.kr`;
@@ -101,10 +102,30 @@ async function actAs(user) {
   return client;
 }
 
+// 테스트 계정만 삭제한다. 실계정을 지우는 사고를 두 번 내지 않기 위한 안전장치다.
+//
+// 2026-09-24에 정리 절차가 "모든 사용자를 훑어 전부 삭제"였던 탓에 사용자의 실계정과
+// 실기기로 넣은 기록이 지워졌다. 되돌리지 못했다. 그때의 잘못은 "사용자 0명"이라는
+// 확인 조건을 삭제 명령으로 바꿔 쓴 것이다.
+//
+// 규칙 — 이 실행에서 만든 id만 지우고, 지우기 직전에 메일 도메인을 서버에 다시 물어
+// 확인한다. 도메인이 다르면 지우지 않고 경고만 남긴다. 목록을 훑어 지우지 않는다.
+const TEST_EMAIL_DOMAIN = '@ppurin-test.kr';
+
 async function cleanup() {
+  let deleted = 0;
   for (const id of createdUsers) {
+    const { data, error } = await admin.auth.admin.getUserById(id);
+    if (error || !data?.user) continue;
+    const email = data.user.email ?? '';
+    if (!email.endsWith(TEST_EMAIL_DOMAIN)) {
+      console.error(`  ⛔ 삭제하지 않음 — 테스트 계정이 아니다: ${email}`);
+      continue;
+    }
     await admin.auth.admin.deleteUser(id).catch(() => {});
+    deleted += 1;
   }
+  return deleted;
 }
 
 async function main() {
@@ -256,6 +277,55 @@ async function main() {
 
   const ledger1 = await entriesRepo.listEntriesByPerson(LA, p1.id);
   eq('원장은 대표자와 공동 부조자 기록을 모두 본다', ledger1.rows.length, 2);
+
+  // ------------------------------------------------- 홈의 준돈·받은돈 탭 조회
+  // 방향 필터는 events를 !inner로 묶어야 걸리고, 정렬은 `event(date)` 문법이어야 부모 행이
+  // 정렬된다. 둘 다 틀려도 서버는 오류를 내지 않고 조용히 섞인 결과를 준다. 그래서 검증한다.
+  // e1 = 남의 결혼식(2025-05-18, 준돈 1건), e2 = 내 돌잔치(2026-03-01, 받은돈 2건)
+  const givenPage = await entriesRepo.listEntriesByDirection(LA, false);
+  eq('준돈 탭은 남의 행사 기록만 본다', givenPage.rows.length, 1);
+  check(
+    '준돈 탭에 내 행사 기록이 섞이지 않는다',
+    givenPage.rows.every((row) => row.event?.is_mine === false),
+    JSON.stringify(givenPage.rows.map((row) => row.event?.is_mine)),
+  );
+
+  const receivedPage = await entriesRepo.listEntriesByDirection(LA, true);
+  eq('받은돈 탭은 내 행사 기록만 본다', receivedPage.rows.length, 2);
+  check(
+    '받은돈 탭에 남의 행사 기록이 섞이지 않는다',
+    receivedPage.rows.every((row) => row.event?.is_mine === true),
+    JSON.stringify(receivedPage.rows.map((row) => row.event?.is_mine)),
+  );
+
+  eq(
+    '두 탭을 합치면 전체 기록 수와 같다',
+    givenPage.rows.length + receivedPage.rows.length,
+    recent.length,
+  );
+
+  // 정렬 확인용으로 더 최근 날짜의 남의 행사를 하나 더 넣는다.
+  const laterEvent = await eventsRepo.createEvent(LA, {
+    type: 'funeral',
+    is_mine: false,
+    host_person_id: p2.id,
+    title: '정렬 확인용 행사',
+    date: '2027-01-15',
+  });
+  await entriesRepo.createEntry(LA, { event_id: laterEvent.id, person_id: p2.id, amount: 30000 });
+
+  const sorted = await entriesRepo.listEntriesByDirection(LA, false);
+  eq('새 기록이 준돈 탭에 들어온다', sorted.rows.length, 2);
+  const dates = sorted.rows.map((row) => row.event?.date);
+  eq('행사 날짜 내림차순으로 온다', JSON.stringify(dates), JSON.stringify(['2027-01-15', '2025-05-18']));
+
+  await entriesRepo.deleteEntry(LA, sorted.rows[0].id);
+  await eventsRepo.deleteEvent(LA, laterEvent.id);
+  eq(
+    '정렬 확인용 기록을 지우면 원래대로 돌아온다',
+    (await entriesRepo.listEntriesByDirection(LA, false)).rows.length,
+    1,
+  );
 
   // ------------------------------------- 빠른 기록의 3단 순차 저장과 실행 취소
   // 화면(S02)이 하는 것과 같은 순서로 부른다. CTE로 묶으면 실패하는 흐름이라 순차가 맞는지,
@@ -650,7 +720,7 @@ main()
     if (error?.stack) console.error(error.stack.split('\n').slice(1, 4).join('\n'));
   })
   .finally(async () => {
-    await cleanup();
-    console.log(`정리 완료 — 테스트 계정 ${createdUsers.length}개 삭제`);
+    cleanedUp = await cleanup();
+    console.log(`정리 완료 — 테스트 계정 ${cleanedUp}개 삭제`);
     process.exit(fail > 0 ? 1 : 0);
   });
