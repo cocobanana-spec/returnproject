@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from '../src/auth/AuthProvider';
 import { LedgerProvider } from '../src/ledger/LedgerProvider';
 import { persistOptions, queryClient } from '../src/lib/queryClient';
 import { useTokens } from '../src/theme/tokens';
+import { ErrorBoundary } from '../src/ui/ErrorBoundary';
 
 function Gate() {
   const { session, restoring, resetPending } = useAuth();
@@ -51,7 +52,10 @@ export default function RootLayout() {
         <LedgerProvider>
           <SafeAreaProvider>
             <StatusBar style={isDark ? 'light' : 'dark'} />
-            <Gate />
+            {/* 화면 렌더 오류가 앱을 죽이지 않게 한다. 릴리스에는 개발용 오류 화면이 없다. */}
+            <ErrorBoundary>
+              <Gate />
+            </ErrorBoundary>
           </SafeAreaProvider>
         </LedgerProvider>
       </AuthProvider>
