@@ -27,6 +27,8 @@ import path from 'node:path';
 import { detectEncoding, readTable } from '../../src/domain/importFile.ts';
 import { buildRows, guessMapping, markSameNames, planSave, summarize, trimTable } from '../../src/domain/importPlan.ts';
 import { emptyImportState, runImport, defaultDeps } from '../../src/import/runner.ts';
+import { resolveSameName } from '../../src/domain/person.ts';
+import { pickClosestEvent } from '../../src/domain/quickRecord.ts';
 
 const URL = (process.env.SUPABASE_URL ?? '').replace(/\/$/, '');
 const ANON = process.env.SUPABASE_ANON_KEY ?? '';
@@ -412,15 +414,23 @@ async function main() {
     const keys = [...new Set(built.map((r) => r.nameKey).filter(Boolean))];
     const found = await peopleRepo.listPeopleByNormalizedNames(LA, keys);
     const existing = new Map();
-    for (const p of found) existing.set(p.name_normalized, [...(existing.get(p.name_normalized) ?? []), p.id]);
+    for (const p of found) {
+      existing.set(p.name_normalized, [
+        ...(existing.get(p.name_normalized) ?? []),
+        { id: p.id, name: p.name, label: p.label },
+      ]);
+    }
     let rows = markSameNames(built, existing);
     const before = summarize(rows);
-    eq('수정 필요 행 수 — 동명이인 2 + 파일 중복 2 + 금액 오류 2 + 빈 이름 1', before.fix, 7);
-    // 화면에서 사용자가 하는 수정 — 김철수는 기존 사람에게, 이영희는 새 사람 라벨, 장보고는 다른 사람 라벨,
+    // 장부에 같은 이름이 한 명뿐이면 그 사람에게 자동 연결되므로 더는 수정 필요가 아니다(2026-09-26).
+    eq('수정 필요 행 수 — 파일 중복 2 + 금액 오류 2 + 빈 이름 1', before.fix, 5);
+    const kimRow = rows.find((r) => r.name === '김철수');
+    eq('김철수는 기존 사람에게 자동 연결됐다', kimRow?.attachTo, p1.id);
+    const leeRow = rows.find((r) => r.name === '이영희');
+    eq('이영희도 기존 사람에게 자동 연결됐다', leeRow?.attachTo, lee.id);
+    // 화면에서 사용자가 하는 수정 — 장보고는 파일 안 중복이라 다른 사람 라벨,
     // 금액 오류 1행은 고치고 1행은 건너뜀, 빈 이름은 건너뜀
     rows = rows.map((r) => {
-      if (r.name === '김철수') return { ...r, attachTo: p1.id };
-      if (r.name === '이영희') return { ...r, label: '회사' };
       if (r.name === '장보고') return { ...r, dupChoice: 'different', label: r.index === 6 ? '고향' : '직장' };
       if (r.name === '신사임당') return { ...r, amount: 70000, issues: r.issues.filter((i) => i !== 'bad_amount') };
       if (r.name === '이순신' || r.name === '') return { ...r, skip: true };
@@ -463,15 +473,15 @@ async function main() {
 
     const peopleAfter = (await peopleRepo.listPeople(LA, { limit: 500 })).rows;
     const eventsAfter = (await eventsRepo.listEvents(LA, { limit: 500 })).rows;
-    // 새 사람 — 18건 중 김철수(기존)를 뺀 17건에서 장보고 2명(다른 사람) 포함, 이름이 겹치는 것 없음 → 17명
-    eq('새로 만든 사람 수 17 (기존 김철수 제외, 장보고는 두 사람)', peopleAfter.length - peopleBefore, 17);
+    // 새 사람 — 18건 중 김철수·이영희(둘 다 기존에 자동 연결)를 뺀 16건. 장보고는 다른 사람 둘이다.
+    eq('새로 만든 사람 수 16 (기존 김철수·이영희 제외)', peopleAfter.length - peopleBefore, 16);
     eq('새로 만든 행사 수 18 (사람·종류가 다 달라 행마다 하나)', eventsAfter.length - eventsBefore, 18);
     const importedEntries = await entriesRepo.listEntriesByDirection(LA, false, { limit: 500 });
     const imported = importedEntries.rows.filter((r) => r.event?.date === '2026-06-06');
     eq('기록 18건이 정확히 한 번씩만 생겼다', imported.length, 18);
     eq('기록 합계가 저장 계획 합계와 같다', imported.reduce((a, r) => a + (r.amount ?? 0), 0), expectedTotal);
     const leeRows = imported.filter((r) => r.person?.name === '이영희');
-    check('이영희는 라벨 있는 새 사람으로 생겼다', leeRows.length === 1 && leeRows[0].person?.label === '회사' && leeRows[0].person?.id !== lee.id, JSON.stringify(leeRows.map((r) => r.person)));
+    check('이영희는 새로 생기지 않고 기존 사람에게 붙었다', leeRows.length === 1 && leeRows[0].person?.id === lee.id, JSON.stringify(leeRows.map((r) => r.person)));
     const kimRows = imported.filter((r) => r.person?.id === p1.id);
     eq('김철수는 기존 사람(p1)에게 붙었다', kimRows.length, 1);
     eq('createEntry는 실패 1회를 포함해 19번 불렸다', entryCalls, 19);
@@ -483,6 +493,108 @@ async function main() {
     const newPeople = peopleAfter.filter((p) => !peopleBeforeIds.has(p.id));
     for (const p of newPeople) await peopleRepo.deletePerson(LA, p.id);
     eq('가져오기 정리 뒤 사람 수가 원래대로', (await peopleRepo.listPeople(LA, { limit: 500 })).rows.length, peopleBefore - 1);
+  }
+
+  // ------------------- S02 자동 연결이 기존 행사를 다시 쓰는지 (2026-09-26 QA 3번)
+  // 이름만 타이핑해 기존 사람에게 자동 연결되는 흔한 경로다. 당사자를 먼저 정하지 않으면
+  // 기존 행사 확인이 통째로 건너뛰어져 같은 행사가 하나 더 생긴다. 화면 onSave와 같은 순서로 부른다.
+  {
+    const host = await peopleRepo.createPerson(LA, { name: '재사용확인', relation_group: 'friend' });
+    const made = await eventsRepo.createEvent(LA, {
+      type: 'wedding',
+      is_mine: false,
+      host_person_id: host.id,
+      title: autoEventTitle({ type: 'wedding', isMine: false, hostName: '재사용확인', date: '2026-08-10' }),
+      date: '2026-08-10',
+    });
+    // 1) 사람을 먼저 정한다 — 화면은 personId 없이 이름만 가진 상태다
+    const same = await peopleRepo.findByNormalizedName(LA, normalizeName('재사용확인'));
+    const resolved = resolveSameName(
+      same.map((p) => ({ id: p.id, name: p.name, label: p.label })),
+      { wantsNewPerson: false, label: '' },
+    );
+    eq('이름만 쳤을 때 기존 사람으로 정해진다', resolved.kind, 'attach');
+    eq('정해진 사람이 그 사람이다', resolved.personId, host.id);
+    // 2) 그 사람으로 기존 행사를 찾는다
+    const matches = await eventsRepo.findMatchingEvent(LA, {
+      hostPersonId: resolved.personId,
+      type: 'wedding',
+      date: '2026-08-12',
+    });
+    const best = pickClosestEvent(matches, '2026-08-12');
+    check('자동 연결된 사람의 기존 행사를 찾아낸다', best?.id === made.id, JSON.stringify(best));
+
+    await eventsRepo.deleteEvent(LA, made.id);
+    await peopleRepo.deletePerson(LA, host.id);
+  }
+
+  // ------------------------- 가져오기 — 절반이 이미 있는 명부(이번 변경의 핵심)
+  // 준돈으로 만들어 둔 사람들이 내 행사 명부에도 나온다. 겹치는 것이 정상이고 대개 같은 사람이다.
+  // 사람이 새로 생기지 않고 기존 사람에게 기록이 붙어야 한다(2026-09-26 사용자 피드백).
+  {
+    const mine = await eventsRepo.createEvent(LA, {
+      type: 'wedding',
+      is_mine: true,
+      title: '내 결혼식(겹치는 명부)',
+      date: '2026-07-07',
+    });
+    const overlapNames = ['겹침가', '겹침나', '겹침다', '겹침라', '겹침마', '겹침바'];
+    const freshNames = ['신규가', '신규나', '신규다', '신규라', '신규마', '신규바'];
+    const madeBefore = [];
+    for (const name of overlapNames) {
+      madeBefore.push(await peopleRepo.createPerson(LA, { name, relation_group: 'other' }));
+    }
+    const peopleCountBefore = (await peopleRepo.listPeople(LA, { limit: 500 })).rows.length;
+
+    const table = [['이름', '금액'], ...[...overlapNames, ...freshNames].map((n, i) => [n, 50000 + i * 1000])];
+    const mapping = guessMapping(table);
+    const built = buildRows(table, mapping, { target: 'received', defaultDate: '2026-07-07', eventType: 'wedding' });
+    eq('겹치는 명부 12행', built.length, 12);
+    const keys = [...new Set(built.map((r) => r.nameKey).filter(Boolean))];
+    const found = await peopleRepo.listPeopleByNormalizedNames(LA, keys);
+    const existing = new Map();
+    for (const p of found) {
+      existing.set(p.name_normalized, [
+        ...(existing.get(p.name_normalized) ?? []),
+        { id: p.id, name: p.name, label: p.label },
+      ]);
+    }
+    const rows = markSameNames(built, existing);
+    const summary = summarize(rows);
+    eq('겹치는 이름이 절반이어도 수정 필요는 0이다', summary.fix, 0);
+    eq('12행 전부 저장 대상이다', summary.save, 12);
+    const attached = rows.filter((r) => r.attachTo !== null);
+    eq('겹치는 6행이 기존 사람에게 자동 연결됐다', attached.length, 6);
+    const byId = new Map(madeBefore.map((p) => [p.id, p.name]));
+    check(
+      '자동 연결된 곳이 실제로 그 이름의 기존 사람이다',
+      attached.every((r) => byId.get(r.attachTo) === r.name),
+      JSON.stringify(attached.map((r) => [r.name, byId.get(r.attachTo)])),
+    );
+
+    const items = planSave(rows, 'received');
+    await runImport({ ledgerId: LA, target: 'received', eventId: mine.id, items, state: emptyImportState() });
+
+    const peopleCountAfter = (await peopleRepo.listPeople(LA, { limit: 500 })).rows.length;
+    eq('새로 생긴 사람은 겹치지 않는 6명뿐이다', peopleCountAfter - peopleCountBefore, 6);
+
+    const entries = (await entriesRepo.listEntriesByEvent(LA, mine.id, { limit: 100 })).rows;
+    eq('기록 12건이 붙었다', entries.length, 12);
+    const attachedIds = new Set(madeBefore.map((p) => p.id));
+    eq(
+      '겹치는 6건은 기존 사람 id에 붙었다',
+      entries.filter((e) => attachedIds.has(e.person?.id ?? e.person_id)).length,
+      6,
+    );
+    // 같은 사람 하나에 준 돈과 받은 돈이 함께 모였는지가 이 앱의 목적이다.
+    const one = await peopleRepo.getPersonBalance(LA, madeBefore[0].id);
+    check('기존 사람에게 받은 돈이 생겼다', (one?.received_total ?? 0) > 0, JSON.stringify(one));
+
+    // 뒷 검사가 사람 수에 기대므로 되돌린다.
+    await eventsRepo.deleteEvent(LA, mine.id);
+    const now = (await peopleRepo.listPeople(LA, { limit: 500 })).rows;
+    for (const p of now) if (overlapNames.includes(p.name) || freshNames.includes(p.name)) await peopleRepo.deletePerson(LA, p.id);
+    eq('겹치는 명부 정리 뒤 사람 수가 원래대로', (await peopleRepo.listPeople(LA, { limit: 500 })).rows.length, peopleCountBefore - overlapNames.length);
   }
 
   // --------------------------------------------------------------- 페이지네이션
