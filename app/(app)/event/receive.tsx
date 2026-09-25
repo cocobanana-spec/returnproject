@@ -1,12 +1,16 @@
 // 받은돈 연속 입력(S09) — 이름·금액·메모만 받는다. 날짜와 종류는 행사의 것이다(2026-09-24)
 //
+// 홈 받은돈 탭의 "+ 기록"도 이 화면으로 온다(2026-09-25). 그때는 행사 파라미터가 없으므로
+// 맨 위에서 내 행사를 고른다. 받은돈은 반드시 행사에 속하기 때문이다. 화면을 따로 만들지 않고
+// 같은 저장 경로·같은 구분 라벨 규칙을 쓴다.
+//
 // 측·형태·참석·공동 부조자는 입력에서 뺐다. 컬럼은 남아 있고 기본값으로 저장된다.
 // S02와 같은 다단 저장 구조다. 사람(새 사람일 때) → 기록 순차 INSERT이며, 중간에 실패해도
 // 이미 만든 것을 ref에 기억해 재시도가 이어서 진행한다. 행사는 이미 있으므로 2단이다.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
   RELATION_GROUPS,
@@ -26,7 +30,9 @@ import {
 import { useLedgerId } from '../../../src/ledger/LedgerProvider';
 import { queryKeys } from '../../../src/lib/queryKeys';
 import { createEntry, deleteEntry, listEntriesByEvent } from '../../../src/repositories/entries';
-import { getEvent, getEventSummary } from '../../../src/repositories/events';
+import { pickDefaultEvent } from '../../../src/domain/event.ts';
+import { formatEventDate, todayISO } from '../../../src/domain/title.ts';
+import { getEvent, getEventSummary, listEvents } from '../../../src/repositories/events';
 import { createPerson, findByNormalizedName, type PersonBalance } from '../../../src/repositories/people';
 import { useTokens } from '../../../src/theme/tokens';
 import { Button } from '../../../src/ui/Button';
@@ -41,20 +47,40 @@ export default function ReceiveScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { colors, space, font, radius } = useTokens();
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const eventId = id as string;
+  const { id } = useLocalSearchParams<{ id?: string }>();
+
+  // 행사가 지정되지 않고 들어오면(홈 받은돈 탭의 + 기록) 내 행사를 골라야 한다.
+  const [chosen, setChosen] = useState<string | null>(id ?? null);
+  const myEvents = useQuery({
+    queryKey: queryKeys.events.list(ledgerId, { isMine: true, forReceive: true }),
+    queryFn: () => listEvents(ledgerId, { isMine: true }),
+    enabled: !id,
+  });
+  const myRows = myEvents.data?.rows ?? [];
+  // 하나면 자동, 여럿이면 이미 치른 행사 중 최근 것이 기본값이다.
+  const eventId = chosen ?? pickDefaultEvent(myRows, todayISO())?.id ?? '';
+  const picking = !id && myRows.length > 1;
+
+  // 기본값이 정해지면 고정한다. 저장할 때마다 ['events']를 무효화하므로, 고정하지 않으면
+  // 배우자가 다른 기기에서 새 내 행사를 만들었을 때 입력 도중 대상 행사가 조용히 바뀐다.
+  useEffect(() => {
+    if (!chosen && eventId.length > 0) setChosen(eventId);
+  }, [chosen, eventId]);
 
   const event = useQuery({
     queryKey: queryKeys.events.detail(ledgerId, eventId),
     queryFn: () => getEvent(ledgerId, eventId),
+    enabled: eventId.length > 0,
   });
   const summary = useQuery({
     queryKey: queryKeys.events.summary(ledgerId, eventId),
     queryFn: () => getEventSummary(ledgerId, eventId),
+    enabled: eventId.length > 0,
   });
   const recent = useQuery({
     queryKey: queryKeys.entries.byEvent(ledgerId, eventId, { recent: true }),
     queryFn: () => listEntriesByEvent(ledgerId, eventId, { limit: 8 }),
+    enabled: eventId.length > 0,
   });
 
   const e = event.data;
@@ -165,10 +191,36 @@ export default function ReceiveScreen() {
   const s = summary.data;
   const rows = recent.data?.rows ?? [];
 
-  if (event.isLoading) {
+  if (myEvents.isLoading || (eventId.length > 0 && event.isLoading)) {
     return (
       <Screen edges={{ top: false }}>
         <ActivityIndicator color={colors.textMuted} />
+      </Screen>
+    );
+  }
+
+  // 조회 실패를 "내 행사가 없다"로 읽으면 이미 있는 행사를 하나 더 만들어 명부가 쪼개진다.
+  if (!id && myEvents.isError) {
+    return (
+      <Screen edges={{ top: false }}>
+        <LoadFailed title="내 행사를 불러오지 못했습니다" onRetry={() => void myEvents.refetch()} />
+      </Screen>
+    );
+  }
+
+  // 내 행사가 하나도 없으면 막다른 골목이 된다. 그 자리에서 만들러 보낸다.
+  if (!id && myRows.length === 0) {
+    return (
+      <Screen edges={{ top: false }}>
+        <View style={{ gap: space.lg, paddingTop: space.xl }}>
+          <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }}>
+            내 행사가 아직 없습니다
+          </Text>
+          <Text style={{ color: colors.textMuted, fontSize: font.body, lineHeight: 22 }}>
+            받은 돈은 결혼식·돌잔치 같은 내 행사에 속합니다. 행사를 먼저 만들면 여기서 명부를 넣을 수 있습니다.
+          </Text>
+          <Button label="내 행사 만들기" onPress={() => router.replace('/event/edit')} />
+        </View>
       </Screen>
     );
   }
@@ -184,7 +236,40 @@ export default function ReceiveScreen() {
 
   return (
     <Screen scroll edges={{ top: false }}>
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="가져오기"
+              hitSlop={8}
+              onPress={() => router.push(`/import?target=received&eventId=${eventId}`)}
+            >
+              <Ionicons name="cloud-upload-outline" size={22} color={colors.text} />
+            </Pressable>
+          ),
+        }}
+      />
       <View style={{ gap: space.lg }}>
+        {/* 행사 선택 — 홈에서 바로 들어온 경우에만 고른다 */}
+        {picking && (
+          <View style={{ gap: space.sm }}>
+            <Text style={{ color: colors.textMuted, fontSize: font.caption }}>어느 행사의 명부인가요</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ flexDirection: 'row', gap: space.sm }}>
+                {myRows.map((ev) => (
+                  <Chip
+                    key={ev.id}
+                    label={`${ev.title} · ${formatEventDate(ev.date, 'day')}`}
+                    selected={eventId === ev.id}
+                    onPress={() => setChosen(ev.id)}
+                  />
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        )}
+
         {/* 누적 — 명부를 넣는 동안 계속 보인다 */}
         <View
           style={{

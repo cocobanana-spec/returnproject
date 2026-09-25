@@ -6,8 +6,7 @@ import {
   emptyEventDraft,
   groupEventsByYear,
   isMineLocked,
-  validateEvent,
-} from './event.ts';
+  validateEvent, pickDefaultEvent } from './event.ts';
 
 function draft(patch: Partial<ReturnType<typeof emptyEventDraft>> = {}) {
   return { ...emptyEventDraft('2026-03-10'), type: 'wedding' as const, title: '내 결혼식', ...patch };
@@ -103,4 +102,47 @@ test('빈 목록은 빈 그룹', () => {
 test('같은 연도가 떨어져 있으면 따로 묶인다(정렬 전제를 드러낸다)', () => {
   const groups = groupEventsByYear([{ date: '2026-01-01' }, { date: '2025-01-01' }, { date: '2026-06-01' }]);
   assert.deepEqual(groups.map((g) => g.year), ['2026', '2025', '2026']);
+});
+
+test('내 행사가 없으면 기본 행사도 없다', () => {
+  assert.equal(pickDefaultEvent([], '2026-09-25'), null);
+});
+
+test('하나면 그것을 고른다', () => {
+  assert.deepEqual(pickDefaultEvent([{ date: '2026-02-14' }], '2026-09-25'), { date: '2026-02-14' });
+});
+
+test('오늘까지의 행사 중 가장 최근 것을 고른다', () => {
+  const picked = pickDefaultEvent(
+    [{ date: '2025-09-03' }, { date: '2026-08-01' }, { date: '2026-02-14' }],
+    '2026-09-25',
+  );
+  assert.equal(picked?.date, '2026-08-01');
+});
+
+test('미래 예정 행사가 더 최근이어도 지난 행사를 고른다', () => {
+  // 명부는 이미 치른 행사에 넣는다. 예정 행사에 200건이 들어가면 안 된다.
+  const picked = pickDefaultEvent(
+    [{ date: '2026-06-13' }, { date: '2027-03-03' }],
+    '2026-09-25',
+  );
+  assert.equal(picked?.date, '2026-06-13');
+});
+
+test('지난 행사가 하나도 없으면 가장 가까운 미래를 고른다', () => {
+  const picked = pickDefaultEvent([{ date: '2027-03-03' }, { date: '2026-12-01' }], '2026-09-25');
+  assert.equal(picked?.date, '2026-12-01');
+});
+
+test('오늘 치른 행사도 지난 행사로 본다', () => {
+  const picked = pickDefaultEvent([{ date: '2026-09-25' }, { date: '2027-01-01' }], '2026-09-25');
+  assert.equal(picked?.date, '2026-09-25');
+});
+
+test('같은 날이면 먼저 온 것을 고른다', () => {
+  const picked = pickDefaultEvent(
+    [{ date: '2026-02-14', id: 'a' }, { date: '2026-02-14', id: 'b' }],
+    '2026-09-25',
+  );
+  assert.equal((picked as { id: string }).id, 'a');
 });

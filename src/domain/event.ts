@@ -118,3 +118,20 @@ export function groupEventsByYear<T extends { date: string }>(events: T[]): Year
 export function eventTypeLabel(type: string): string {
   return EVENT_TYPE_LABEL[type as EventType] ?? type;
 }
+
+// 받은돈 기록의 기본 행사. 명부는 **이미 치른** 행사에 넣는 일이 대부분이다.
+// 그래서 오늘까지의 행사 중 가장 최근 것을 먼저 고른다. 미래 날짜를 고르면 예정 행사에
+// 명부 200건이 들어간다(이 앱은 예정 행사를 1급으로 다룬다 — docs/02 §5).
+// 지난 행사가 하나도 없을 때만 가장 가까운 미래 행사를 고른다. 같은 날이면 먼저 온 것이다.
+export function pickDefaultEvent<T extends { date: string }>(events: T[], today: string): T | null {
+  if (events.length === 0) return null;
+  const past = events.filter((e) => e.date <= today);
+  if (past.length > 0) {
+    let best = past[0] as T;
+    for (const e of past.slice(1)) if (e.date > best.date) best = e;
+    return best;
+  }
+  let soonest = events[0] as T;
+  for (const e of events.slice(1)) if (e.date < soonest.date) soonest = e;
+  return soonest;
+}
