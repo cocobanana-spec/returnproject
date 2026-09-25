@@ -82,6 +82,17 @@ export async function findByNormalizedName(
   );
 }
 
+// 정규화 이름 목록으로 같은 이름의 사람들을 한 번에 받는다. 가져오기 미리보기가 쓴다.
+export async function listPeopleByNormalizedNames(
+  ledgerId: string,
+  keys: string[],
+): Promise<PersonBalance[]> {
+  if (keys.length === 0) return [];
+  return unwrap(
+    await db().from('person_balances').select('*').eq('ledger_id', ledgerId).in('name_normalized', keys),
+  );
+}
+
 // id 목록으로 사람 요약을 받는다. 통계의 사람별 상위가 라벨을 붙일 때 쓴다(RPC 결과에는 라벨이 없다).
 export async function listPeopleByIds(ledgerId: string, ids: string[]): Promise<PersonBalance[]> {
   if (ids.length === 0) return [];
