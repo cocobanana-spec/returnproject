@@ -1,7 +1,7 @@
 // 기록 표시 단위 테스트
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { directionLabel, entrySubtitle, isCoEntryFor } from './entry.ts';
+import { directionLabel, entrySubtitle, isCoEntryFor, amountFieldLabel, validateEntryAmount } from './entry.ts';
 
 test('방향은 행사의 is_mine에서 나온다', () => {
   assert.equal(directionLabel(true), '받은돈');
@@ -36,4 +36,32 @@ test('연도만 아는 행사는 연도로 보인다', () => {
 
 test('행사가 없으면 빈 문자열', () => {
   assert.equal(entrySubtitle(null), '');
+});
+
+test('준돈은 빈 금액을 거부한다', () => {
+  const r = validateEntryAmount('', false);
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.ok(r.error.includes('준 돈'));
+});
+
+test('받은돈은 빈 금액이 미확정으로 통과한다', () => {
+  const r = validateEntryAmount('', true);
+  assert.equal(r.ok, true);
+  if (r.ok) assert.equal(r.amount, null);
+});
+
+test('숫자가 아니면 방향과 무관하게 거부한다', () => {
+  assert.equal(validateEntryAmount('십만', false).ok, false);
+  assert.equal(validateEntryAmount('십만', true).ok, false);
+});
+
+test('콤마가 섞인 금액도 원 단위 정수로 읽는다', () => {
+  const r = validateEntryAmount('12,000', false);
+  assert.equal(r.ok, true);
+  if (r.ok) assert.equal(r.amount, 12000);
+});
+
+test('금액 칸 라벨은 받은돈에만 미확정 안내를 붙인다', () => {
+  assert.equal(amountFieldLabel(true), '금액 (비워 두면 미확정)');
+  assert.equal(amountFieldLabel(false), '금액');
 });
