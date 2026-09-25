@@ -11,6 +11,9 @@ export type QuickRecordDraft = {
   personId: string | null;
   newPersonName: string;
   newPersonGroup: RelationGroup;
+  // 같은 이름이 이미 있을 때만 쓰인다. 그때는 필수다(docs/02 §5 동명이인).
+  newPersonLabel: string;
+  sameNameExists: boolean;
   type: EventType | null;
   amountText: string;
   amountUnit: AmountUnit;
@@ -23,6 +26,8 @@ export function emptyDraft(today: string): QuickRecordDraft {
     personId: null,
     newPersonName: '',
     newPersonGroup: 'other',
+    newPersonLabel: '',
+    sameNameExists: false,
     type: null,
     amountText: '',
     amountUnit: 'won',
@@ -34,6 +39,7 @@ export function emptyDraft(today: string): QuickRecordDraft {
 export type QuickRecordPlan = {
   amount: number | null;
   personName: string | null; // 새 사람일 때만
+  personLabel: string | null; // 새 사람이고 같은 이름이 있을 때만
 };
 
 export type ValidationResult =
@@ -49,6 +55,12 @@ export function validateQuickRecord(draft: QuickRecordDraft): ValidationResult {
     errors.push('누구에게 냈는지 이름을 넣어 주세요.');
   }
 
+  // 같은 이름이 이미 있는데 구분할 말이 없으면 나중에 두 사람을 가를 방법이 없다.
+  const label = draft.newPersonLabel.trim();
+  if (!hasExisting && draft.sameNameExists && label.length === 0) {
+    errors.push('같은 이름이 이미 있어요. 구분할 말을 적어 주세요(예: 회사, 고등학교).');
+  }
+
   if (!draft.type) errors.push('어떤 경조사인지 골라 주세요.');
 
   const amount = parseAmountInput(draft.amountText, draft.amountUnit);
@@ -60,7 +72,12 @@ export function validateQuickRecord(draft: QuickRecordDraft): ValidationResult {
   if (errors.length > 0) return { ok: false, errors };
   return {
     ok: true,
-    plan: { amount: amount as number | null, personName: hasExisting ? null : trimmed },
+    plan: {
+      amount: amount as number | null,
+      personName: hasExisting ? null : trimmed,
+      // 같은 이름이 없으면 칸이 보이지 않았으므로 남아 있는 값은 채택하지 않는다.
+      personLabel: !hasExisting && draft.sameNameExists && label.length > 0 ? label : null,
+    },
   };
 }
 

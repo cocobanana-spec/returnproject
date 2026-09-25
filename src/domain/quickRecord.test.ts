@@ -60,10 +60,42 @@ test('초안은 다섯 필드와 새 사람 정보만 가진다', () => {
     'date',
     'memo',
     'newPersonGroup',
+    'newPersonLabel',
     'newPersonName',
     'personId',
+    'sameNameExists',
     'type',
   ]);
+});
+
+test('같은 이름이 있으면 구분할 말이 필수다', () => {
+  const result = validateQuickRecord(draft({ newPersonName: '김철수', sameNameExists: true }));
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.ok(result.errors.some((e) => e.includes('구분할 말')));
+});
+
+test('구분할 말을 적으면 라벨로 저장된다', () => {
+  const result = validateQuickRecord(
+    draft({ newPersonName: '김철수', sameNameExists: true, newPersonLabel: ' 회사 ' }),
+  );
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.plan.personLabel, '회사');
+});
+
+test('같은 이름이 없으면 구분할 말 없이 통과하고 라벨은 null이다', () => {
+  const result = validateQuickRecord(draft({ newPersonName: '김철수' }));
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.plan.personLabel, null);
+});
+
+test('같은 이름이 없으면 남아 있던 구분할 말은 버린다', () => {
+  const result = validateQuickRecord(draft({ newPersonName: '김철민', newPersonLabel: '회사' }));
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.plan.personLabel, null);
+});
+
+test('기존 사람을 골랐으면 동명 여부와 무관하게 통과한다', () => {
+  assert.equal(validateQuickRecord(draft({ personId: 'p1', sameNameExists: true })).ok, true);
 });
 
 test('후보가 없으면 null', () => {

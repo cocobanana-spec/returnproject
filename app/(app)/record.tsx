@@ -19,7 +19,12 @@ import {
 } from '../../src/domain/constants.ts';
 import { AMOUNT_PRESETS_WON, formatWonShort } from '../../src/domain/money.ts';
 import { normalizeName, trimName } from '../../src/domain/name.ts';
-import { balanceHint, personSubtitle } from '../../src/domain/person.ts';
+import {
+  displayName,
+  distinguishLine,
+  duplicateNameKeys,
+  sameNameCandidates,
+} from '../../src/domain/person.ts';
 import {
   emptyDraft,
   pickClosestEvent,
@@ -35,6 +40,7 @@ import { createEvent, deleteEvent, findMatchingEvent, getEvent } from '../../src
 import {
   createPerson,
   deletePerson,
+  findByNormalizedName,
   listRecentPeople,
   searchPeopleByPrefix,
   type PersonBalance,
@@ -106,6 +112,13 @@ export default function RecordScreen() {
     patch({ personId: null, newPersonName: nameText });
   }
 
+  // 입력한 이름과 정규화가 같은 사람이 이미 있으면 새 사람에게 구분할 말이 필요하다.
+  // 자동완성 결과가 실패했거나 아직 안 왔으면 같은 이름이 있는지 모르는 상태다. 그때는 저장 직전
+  // 서버 재확인(mutationFn)이 막아 준다.
+  const sameName = sameNameCandidates(suggestions.data ?? [], nameText);
+  const needsLabel = !picked && trimName(nameText).length > 0 && sameName.length > 0;
+  const draftForSave = (): QuickRecordDraft => ({ ...draft, sameNameExists: needsLabel });
+
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ['people'] });
     void queryClient.invalidateQueries({ queryKey: ['entries'] });
@@ -116,7 +129,7 @@ export default function RecordScreen() {
   // 사람 → 행사 → 기록 순차 저장. existingEventId가 있으면 행사를 새로 만들지 않는다.
   const save = useMutation({
     mutationFn: async (existingEventId: string | null) => {
-      const validation = validateQuickRecord(draft);
+      const validation = validateQuickRecord(draftForSave());
       if (!validation.ok) throw new Error(validation.errors.join('\n'));
 
       const newName = validation.plan.personName as string | null;
@@ -126,9 +139,16 @@ export default function RecordScreen() {
           : null;
       let personId = draft.personId ?? reusable;
       if (!personId) {
+        // 화면의 자동완성은 8건 상한이고 실패할 수도 있다. 서버에 한 번 더 물어 같은 이름이
+        // 있는데 구분할 말이 없으면 막는다. 라벨 없는 동명이인이 조용히 생기는 것을 막는 마지막 문이다.
+        const same = await findByNormalizedName(ledgerId, normalizeName(newName as string));
+        if (same.length > 0 && !validation.plan.personLabel) {
+          throw new Error('같은 이름이 이미 있어요. 구분할 말을 적어 주세요(예: 회사, 고등학교).');
+        }
         const madePerson = await createPerson(ledgerId, {
           name: newName as string,
           relation_group: draft.newPersonGroup,
+          label: validation.plan.personLabel,
         });
         personId = madePerson.id;
         created.current.personId = madePerson.id;
@@ -204,7 +224,7 @@ export default function RecordScreen() {
   async function onSave() {
     if (checking || save.isPending) return;
     setErrors([]);
-    const validation = validateQuickRecord(draft);
+    const validation = validateQuickRecord(draftForSave());
     if (!validation.ok) {
       setErrors(validation.errors);
       return;
@@ -258,6 +278,7 @@ export default function RecordScreen() {
 
   const showSuggestions = !picked;
   const list = prefix.length > 0 ? (suggestions.data ?? []) : (recent.data ?? []);
+  const dupKeys = duplicateNameKeys(list);
 
   return (
     <Screen scroll edges={{ top: false }}>
@@ -289,10 +310,10 @@ export default function RecordScreen() {
             >
               <View style={{ flex: 1 }}>
                 <Text style={{ color: colors.text, fontSize: font.body, fontWeight: '600' }}>
-                  {picked.name}
+                  {displayName(picked)}
                 </Text>
                 <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: 2 }}>
-                  {[personSubtitle(picked), balanceHint(picked)].filter(Boolean).join(' · ')}
+                  {distinguishLine(picked)}
                 </Text>
               </View>
               <Ionicons name="close-circle" size={20} color={colors.textMuted} />
@@ -330,13 +351,18 @@ export default function RecordScreen() {
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                       <View style={{ flexDirection: 'row', gap: space.sm }}>
                         {list.map((p) => (
-                          <Chip key={p.id} label={p.name ?? ''} onPress={() => choosePerson(p)} />
+                          <Chip key={p.id} label={displayName(p)} onPress={() => choosePerson(p)} />
                         ))}
                       </View>
                     </ScrollView>
+                  ) : suggestions.isError ? (
+                    // 조회 실패를 "그런 사람 없음"으로 읽으면 이미 있는 사람을 또 만들게 된다.
+                    <Text style={{ color: colors.danger, fontSize: font.caption }}>
+                      이름을 확인하지 못했습니다. 연결을 확인하고 다시 시도해 주세요.
+                    </Text>
                   ) : (
                     <>
-                      {list.length === 0 && <NewPersonRow />}
+                      {list.length === 0 && !suggestions.isFetching && <NewPersonRow />}
                       {list.map((p) => (
                         <Pressable
                           key={p.id}
@@ -348,9 +374,9 @@ export default function RecordScreen() {
                             opacity: pressed ? 0.6 : 1,
                           })}
                         >
-                          <Text style={{ color: colors.text, fontSize: font.body }}>{p.name}</Text>
+                          <Text style={{ color: colors.text, fontSize: font.body }}>{displayName(p)}</Text>
                           <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: 2 }}>
-                            {[personSubtitle(p), balanceHint(p)].filter(Boolean).join(' · ')}
+                            {distinguishLine(p, dupKeys)}
                           </Text>
                         </Pressable>
                       ))}
@@ -359,6 +385,17 @@ export default function RecordScreen() {
                     </>
                   )}
                 </View>
+              )}
+
+              {/* 같은 이름이 이미 있을 때만 나타나는 구분 칸. 다섯 필드 화면은 그대로다 */}
+              {needsLabel && (
+                <Field
+                  label="같은 이름이 이미 있어요. 구분할 말을 적어 주세요(예: 회사, 고등학교)"
+                  value={draft.newPersonLabel}
+                  onChangeText={(next) => patch({ newPersonLabel: next })}
+                  maxLength={30}
+                  placeholder="회사"
+                />
               )}
 
               {!picked && trimName(nameText).length > 0 && (
