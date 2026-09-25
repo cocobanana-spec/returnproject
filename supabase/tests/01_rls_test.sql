@@ -826,6 +826,60 @@ select tst.expect_scalar('T9.34 구성원이 아닌 장부의 사람별 집계�
   $q$ select count(*)::text
         from public.person_stats_by_year((select v from tst.fix where k='L1'), null) $q$, '0');
 
+-- 행사별 집계(마이그레이션 0006). 내 행사 1건(기록 2건 중 1건 미확정)과 남의 행사들이 있다.
+select tst.expect_scalar('T9.36 행사별 집계에 내 행사가 잡힌다',
+  (select v from tst.fix where k='A'),
+  $q$ select (cnt::text || '/' || total::text || '/' || unconfirmed::text)
+        from public.event_totals((select v from tst.fix where k='L1'))
+       where event_id = '22222222-0000-4000-8000-000000000002' $q$, '2/50000/1');
+
+select tst.expect_scalar('T9.37 p_is_mine으로 방향을 거른다',
+  (select v from tst.fix where k='A'),
+  $q$ select count(*)::text
+        from public.event_totals((select v from tst.fix where k='L1'), null, true) $q$, '1');
+
+select tst.expect_scalar('T9.38 인자를 생략하면 전체 행사가 나온다',
+  (select v from tst.fix where k='A'),
+  $q$ select count(*)::text
+        from public.event_totals((select v from tst.fix where k='L1')) $q$,
+  (select count(*)::text from public.events where ledger_id = (select v from tst.fix where k='L1')));
+
+select tst.expect_scalar('T9.39 연도로 거르면 그 해 행사만 나온다',
+  (select v from tst.fix where k='A'),
+  $q$ select count(*)::text
+        from public.event_totals((select v from tst.fix where k='L1'), 2026) $q$,
+  (select count(*)::text from public.events
+     where ledger_id = (select v from tst.fix where k='L1')
+       and extract(year from date)::int = 2026));
+
+-- 기록이 0건인 행사도 행으로 나와야 한다(left join). 예정 행사가 통계에서 빠지면 안 된다.
+select tst.expect_ok('T9.40 기록 없는 예정 행사를 만든다',
+  (select v from tst.fix where k='A'),
+  $q$ insert into public.events (id, ledger_id, type, is_mine, title, date)
+      values ('22222222-0000-4000-8000-00000000000a', (select v from tst.fix where k='L1'),
+              'opening', true, '기록 없는 예정 행사', '2027-03-03') $q$);
+
+select tst.expect_scalar('T9.40b 기록이 0건인 행사도 행으로 나온다(합계 0)',
+  (select v from tst.fix where k='A'),
+  $q$ select (cnt::text || '/' || total::text)
+        from public.event_totals((select v from tst.fix where k='L1'))
+       where event_id = '22222222-0000-4000-8000-00000000000a' $q$, '0/0');
+
+select tst.expect_rows('T9.40c 예정 행사를 정리한다',
+  (select v from tst.fix where k='A'),
+  $q$ delete from public.events where id = '22222222-0000-4000-8000-00000000000a' $q$, 1);
+
+select tst.expect_scalar('T9.41 행사별 집계는 현재 장부만 센다',
+  (select v from tst.fix where k='D'),
+  $q$ select count(*)::text
+        from public.event_totals((select v from tst.fix where k='L4')) $q$,
+  (select count(*)::text from public.events where ledger_id = (select v from tst.fix where k='L4')));
+
+select tst.expect_scalar('T9.42 구성원이 아닌 장부의 행사별 집계는 빈 결과다',
+  (select v from tst.fix where k='C'),
+  $q$ select count(*)::text
+        from public.event_totals((select v from tst.fix where k='L1')) $q$, '0');
+
 -- 0005 — p_year를 생략하면(기본값 NULL) 전체 기간과 같아야 한다. PostgREST는 인자를 생략한
 -- 호출을 그 인자가 없는 함수로 찾으므로, 기본값이 없으면 앱의 전체 기간 호출이 404가 난다.
 select tst.expect_scalar('T9.35 p_year를 생략하면 전체 기간(NULL)과 같다',

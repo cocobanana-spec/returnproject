@@ -245,6 +245,25 @@ try:
     st, rows = req("POST", "/rest/v1/rpc/person_stats_by_year", tg, {"p_ledger_id": ld, "p_year": None})
     check("구성원이 아닌 장부의 사람별 집계는 빈 결과다", st == 200 and rows == [], f"{st} {rows}")
 
+    print("== 11. 행사별 집계 (마이그레이션 0006)")
+    # 인자를 생략한 호출(앱이 전체를 뜻할 때)이 404로 떨어지지 않아야 한다(0005의 교훈).
+    st, rows = req("POST", "/rest/v1/rpc/event_totals", tg, {"p_ledger_id": lg})
+    check("인자를 생략해도 호출된다", st == 200 and isinstance(rows, list), f"{st} {rows}")
+    mine = [r for r in (rows or []) if r["is_mine"]]
+    other = [r for r in (rows or []) if not r["is_mine"]]
+    # 공동 부조는 봉투 하나이므로 행사 집계에서는 1건이다. 두 사람 모두에게 전액이 잡히는 것은
+    # 사람별 집계(person_stats_by_year)의 규칙이고, 행사·기간 합계는 기록 단위로 센다(docs/03 §4).
+    # 여기서 2건을 기대하면 합계는 50000인데 건수만 2가 되어 스스로 어긋난다.
+    check("내 행사 1건이 합계 50000·1건으로 잡힌다",
+          len(mine) == 1 and mine[0]["total"] == 50000 and mine[0]["cnt"] == 1, f"{mine}")
+    check("남의 행사도 함께 나온다", len(other) >= 1, f"{other}")
+    st, rows = req("POST", "/rest/v1/rpc/event_totals", tg, {"p_ledger_id": lg, "p_is_mine": True})
+    check("p_is_mine으로 방향을 거른다", st == 200 and len(rows) == 1, f"{st} {rows}")
+    st, rows = req("POST", "/rest/v1/rpc/event_totals", tg, {"p_ledger_id": lg, "p_year": 1999})
+    check("없는 연도는 빈 결과다", st == 200 and rows == [], f"{st} {rows}")
+    st, rows = req("POST", "/rest/v1/rpc/event_totals", tg, {"p_ledger_id": ld})
+    check("구성원이 아닌 장부의 행사별 집계는 빈 결과다", st == 200 and rows == [], f"{st} {rows}")
+
 finally:
     # 이 실행에서 만든 계정만, 그것도 메일 도메인을 서버에 다시 물어 확인한 뒤에만 지운다.
     # 2026-09-24에 "모든 사용자를 훑어 삭제"하는 절차 때문에 실계정이 지워졌다. 되돌리지 못했다.
