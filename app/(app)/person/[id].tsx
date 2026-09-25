@@ -12,6 +12,7 @@ import { queryKeys } from '../../../src/lib/queryKeys';
 import { listEntriesByPerson } from '../../../src/repositories/entries';
 import { deletePerson, getPersonBalance, mergePeople } from '../../../src/repositories/people';
 import { useTokens } from '../../../src/theme/tokens';
+import { displayName } from '../../../src/domain/person.ts';
 import { EmptyState } from '../../../src/ui/EmptyState';
 import { LoadFailed } from '../../../src/ui/LoadFailed';
 import { MergePicker } from '../../../src/ui/MergePicker';
@@ -40,8 +41,8 @@ export default function PersonDetailScreen() {
   const person = balance.data;
 
   useLayoutEffect(() => {
-    navigation.setOptions({ title: person?.name ?? '' });
-  }, [navigation, person?.name]);
+    navigation.setOptions({ title: person ? displayName(person) : '' });
+  }, [navigation, person]);
 
   function invalidateAll() {
     void queryClient.invalidateQueries({ queryKey: ['people'] });
@@ -75,7 +76,7 @@ export default function PersonDetailScreen() {
   function confirmDelete() {
     const count = entries.data?.rows.length ?? 0;
     Alert.alert(
-      `${person?.name ?? '이 사람'} 삭제`,
+      `${person ? displayName(person) : '이 사람'} 삭제`,
       count > 0
         ? `기록 ${count}건도 함께 삭제됩니다. 되돌릴 수 없습니다.\n중복으로 만들어진 사람이라면 합치기를 쓰세요.`
         : '되돌릴 수 없습니다.',
@@ -255,7 +256,7 @@ export default function PersonDetailScreen() {
         onPick={(survivorId, survivorName) =>
           Alert.alert(
             '합치기',
-            `${person.name} 의 기록이 ${survivorName} 에게 전부 옮겨집니다. 되돌릴 수 없습니다.`,
+            `${displayName(person)} 의 기록 ${person.entry_count ?? 0}건이 ${survivorName} 에게 전부 옮겨집니다. 되돌릴 수 없습니다.`,
             [
               { text: '취소', style: 'cancel' },
               { text: '합치기', style: 'destructive', onPress: () => merge.mutate(survivorId) },

@@ -19,6 +19,8 @@ import {
 import { todayISO } from '../../../src/domain/title.ts';
 import { useLedgerId } from '../../../src/ledger/LedgerProvider';
 import { queryKeys } from '../../../src/lib/queryKeys';
+import { displayName } from '../../../src/domain/person.ts';
+import { listPeopleByIds } from '../../../src/repositories/people';
 import { listStatsRows, listTopPeopleByYear } from '../../../src/repositories/stats';
 import { useTokens } from '../../../src/theme/tokens';
 import { Chip } from '../../../src/ui/Chip';
@@ -58,6 +60,15 @@ export default function StatsScreen() {
     queryFn: () => listTopPeopleByYear(ledgerId, topYear),
     enabled: rows.length > 0,
   });
+
+  // RPC 결과에는 구분 라벨이 없다. 상위 몇 명의 라벨만 따로 받아 붙인다.
+  const topIds = (topPeople.data ?? []).map((p) => p.id);
+  const topLabels = useQuery({
+    queryKey: queryKeys.people.list(ledgerId, { ids: topIds }),
+    queryFn: () => listPeopleByIds(ledgerId, topIds),
+    enabled: topIds.length > 0,
+  });
+  const labelOf = new Map((topLabels.data ?? []).map((p) => [p.id as string, p.label]));
 
   const hasAnything = rows.length > 0;
 
@@ -179,7 +190,7 @@ export default function StatsScreen() {
                   })}
                 >
                   <Text style={{ color: colors.text, flex: 1, fontSize: font.body }} numberOfLines={1}>
-                    {p.name}
+                    {displayName({ name: p.name, label: labelOf.get(p.id) ?? null })}
                   </Text>
                   <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
                     준 {formatWonShort(p.given_total)} · 받은 {formatWonShort(p.received_total)}

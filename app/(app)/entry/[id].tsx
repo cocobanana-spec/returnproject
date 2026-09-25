@@ -9,8 +9,14 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { directionLabel, entrySubtitle } from '../../../src/domain/entry.ts';
-import { formatWon, parseAmountInput } from '../../../src/domain/money.ts';
+import {
+  amountFieldLabel,
+  directionLabel,
+  entrySubtitle,
+  validateEntryAmount,
+} from '../../../src/domain/entry.ts';
+import { formatWon } from '../../../src/domain/money.ts';
+import { displayName } from '../../../src/domain/person.ts';
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { useLedgerId } from '../../../src/ledger/LedgerProvider';
 import { queryKeys } from '../../../src/lib/queryKeys';
@@ -22,14 +28,12 @@ import { EmptyState } from '../../../src/ui/EmptyState';
 import { Field } from '../../../src/ui/Field';
 import { Screen } from '../../../src/ui/Screen';
 
-// 금액 해석은 parseAmountInput 하나로만 한다. Number()를 따로 쓰면 "12,000" 같은 입력에서
-// 힌트와 저장 결과가 어긋난다.
-function amountHint(text: string): string {
-  if (text.trim() === '') return '미확정으로 저장되어 합계에서 빠집니다.';
-  const amount = parseAmountInput(text);
-  if (amount === undefined) return '숫자로만 넣어 주세요.';
-  if (amount === null) return '미확정으로 저장되어 합계에서 빠집니다.';
-  return formatWon(amount);
+// 금액 해석과 방향별 규칙(준돈 필수·받은돈 미확정 허용)은 도메인 함수 하나로만 한다.
+function amountHint(text: string, isMine: boolean): string {
+  const checked = validateEntryAmount(text, isMine);
+  if (!checked.ok) return checked.error;
+  if (checked.amount === null) return '미확정으로 저장되어 합계에서 빠집니다.';
+  return formatWon(checked.amount);
 }
 
 export default function EntryDetailScreen() {
@@ -74,8 +78,10 @@ export default function EntryDetailScreen() {
 
   const save = useMutation({
     mutationFn: async () => {
-      const amount = parseAmountInput(amountText);
-      if (amount === undefined) throw new Error('금액은 숫자로만 넣어 주세요.');
+      // 준돈은 금액 필수, 받은돈은 빈 금액이 미확정이다. 방향은 소속 행사의 is_mine에서 온다.
+      const checked = validateEntryAmount(amountText, entry.data?.event?.is_mine ?? false);
+      if (!checked.ok) throw new Error(checked.error);
+      const amount = checked.amount;
       // 금액과 메모만 보낸다. 형태·참석·측·답례는 화면에 없으므로 저장돼 있는 값을 건드리지 않는다.
       return updateEntry(ledgerId, entryId, {
         amount,
@@ -145,7 +151,7 @@ export default function EntryDetailScreen() {
         <View style={{ backgroundColor: colors.bgSubtle, borderRadius: radius.lg, padding: space.lg }}>
           <View style={{ alignItems: 'center', flexDirection: 'row', gap: space.xs }}>
             <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }}>
-              {row.person?.name ?? '(이름 없음)'}
+              {displayName(row.person)}
             </Text>
             {row.co_person && (
               <View
@@ -157,7 +163,7 @@ export default function EntryDetailScreen() {
                 }}
               >
                 <Text style={{ color: colors.textMuted, fontSize: font.caption - 2 }}>
-                  공동 · {row.co_person.name}
+                  공동 · {displayName(row.co_person)}
                 </Text>
               </View>
             )}
@@ -180,11 +186,11 @@ export default function EntryDetailScreen() {
         </View>
 
         <Field
-          label="금액 (비워 두면 미확정)"
+          label={amountFieldLabel(isMine)}
           value={amountText}
           onChangeText={setAmountText}
           keyboardType="number-pad"
-          hint={amountHint(amountText)}
+          hint={amountHint(amountText, isMine)}
         />
 
         <Field label="메모" value={memo} onChangeText={setMemo} maxLength={500} multiline />

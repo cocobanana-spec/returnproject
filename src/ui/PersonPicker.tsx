@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { balanceHint, personSubtitle } from '../domain/person.ts';
+import { displayName, distinguishLine, duplicateNameKeys } from '../domain/person.ts';
 import { normalizeName, trimName } from '../domain/name.ts';
 import { queryKeys } from '../lib/queryKeys';
 import { listRecentPeople, searchPeopleByPrefix, type PersonBalance } from '../repositories/people';
@@ -72,6 +72,7 @@ export function PersonPicker({
   const rows = (prefix.length > 0 ? (suggestions.data ?? []) : (recent.data ?? [])).filter(
     (p) => p.id !== excludeId,
   );
+  const dupKeys = duplicateNameKeys(rows);
 
   if (picked) {
     return (
@@ -91,10 +92,10 @@ export function PersonPicker({
         >
           <View style={{ flex: 1 }}>
             <Text style={{ color: colors.text, fontSize: font.body, fontWeight: '600' }}>
-              {picked.name}
+              {displayName(picked)}
             </Text>
             <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: 2 }}>
-              {[personSubtitle(picked), balanceHint(picked)].filter(Boolean).join(' · ')}
+              {distinguishLine(picked)}
             </Text>
           </View>
           <Ionicons name="close-circle" size={20} color={colors.textMuted} />
@@ -135,7 +136,7 @@ export function PersonPicker({
           <Text style={{ color: colors.textMuted, fontSize: font.caption }}>최근 기록한 사람</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
             {rows.map((p) => (
-              <Chip key={p.id} label={p.name ?? ''} onPress={() => onPick(p)} />
+              <Chip key={p.id} label={displayName(p)} onPress={() => onPick(p)} />
             ))}
           </View>
         </>
@@ -163,9 +164,9 @@ export function PersonPicker({
                 opacity: pressed ? 0.6 : 1,
               })}
             >
-              <Text style={{ color: colors.text, fontSize: font.body }}>{p.name}</Text>
+              <Text style={{ color: colors.text, fontSize: font.body }}>{displayName(p)}</Text>
               <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: 2 }}>
-                {[personSubtitle(p), balanceHint(p)].filter(Boolean).join(' · ')}
+                {distinguishLine(p, dupKeys)}
               </Text>
             </Pressable>
           ))}

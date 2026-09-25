@@ -82,6 +82,14 @@ export async function findByNormalizedName(
   );
 }
 
+// id 목록으로 사람 요약을 받는다. 통계의 사람별 상위가 라벨을 붙일 때 쓴다(RPC 결과에는 라벨이 없다).
+export async function listPeopleByIds(ledgerId: string, ids: string[]): Promise<PersonBalance[]> {
+  if (ids.length === 0) return [];
+  return unwrap(
+    await db().from('person_balances').select('*').eq('ledger_id', ledgerId).in('id', ids),
+  );
+}
+
 export async function getPerson(ledgerId: string, personId: string): Promise<Person | null> {
   const { data, error } = await db()
     .from('people')

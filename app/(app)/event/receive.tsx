@@ -324,7 +324,7 @@ export default function ReceiveScreen() {
                 </Text>
                 <Pressable
                   onPress={() =>
-                    Alert.alert('이 기록을 지울까요', `${item.person?.name ?? ''} · ${formatWonShort(item.amount)}`, [
+                    Alert.alert('이 기록을 지울까요', `${entryRowName(item.person, item.co_person)} · ${formatWonShort(item.amount)}`, [
                       { text: '취소', style: 'cancel' },
                       { text: '지우기', style: 'destructive', onPress: () => removeEntry.mutate(item.id) },
                     ])

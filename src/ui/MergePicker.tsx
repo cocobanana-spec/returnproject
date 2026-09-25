@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, Text, View } from 'react-native';
 import { normalizeName } from '../domain/name.ts';
+import { displayName, duplicateNameKeys } from '../domain/person.ts';
 import { queryKeys } from '../lib/queryKeys';
 import { listPeople } from '../repositories/people';
 import { useTokens } from '../theme/tokens';
@@ -30,6 +31,7 @@ export function MergePicker({ visible, ledgerId, excludeId, onPick, onClose }: P
   });
 
   const rows = (query.data?.rows ?? []).filter((p) => p.id !== excludeId);
+  const dupKeys = duplicateNameKeys(rows);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -56,7 +58,7 @@ export function MergePicker({ visible, ledgerId, excludeId, onPick, onClose }: P
               </Text>
             }
             renderItem={({ item }) => (
-              <PersonRow person={item} onPress={() => onPick(item.id as string, item.name ?? '')} />
+              <PersonRow person={item} dupKeys={dupKeys} onPress={() => onPick(item.id as string, displayName(item))} />
             )}
           />
         )}
