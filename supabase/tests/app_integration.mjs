@@ -652,9 +652,14 @@ async function main() {
   const signedUp = await emailAuth.signUpWithEmail(fresh, mailPw, 'ppurin://auth/confirm');
   // 메일 발송 계통 실패는 우리 코드 결함이 아니다. 429(속도 제한)든 5xx(메일러 오류)든
   // 같은 원인(내장 SMTP)이라 SKIP으로 통일한다. 다만 원문을 남겨 다음 사람이 확인할 수 있게 한다.
+  // 가입 주소는 이 스크립트가 만든 고정 형식(@ppurin-test.kr)이라 형식이 틀릴 수 없다.
+  // 그런데 서버가 간헐적으로 400 email_address_invalid 를 돌려준다(2026-09-25 관찰, 곧바로
+  // 다시 돌리면 429로 돌아옴). 서버 쪽 판정이므로 이 절에서만 메일 경로 차단으로 취급한다.
   const mailPathBlocked =
     !signedUp.ok &&
-    (signedUp.error.kind === 'rate_limited' || (signedUp.error.detail?.status ?? 0) >= 500);
+    (signedUp.error.kind === 'rate_limited' ||
+      (signedUp.error.detail?.status ?? 0) >= 500 ||
+      signedUp.error.detail?.code === 'email_address_invalid');
   if (mailPathBlocked) {
     console.log('  SKIP  가입·재발송·재설정 — 메일 발송 계통이 막혔다(내장 SMTP, 커스텀 SMTP 필요)');
     console.log(`        서버 원문 ${JSON.stringify(signedUp.error.detail)}`);
