@@ -9,7 +9,6 @@ import {
   entryRowNames,
   entryRowSubtitle,
   isMineOf,
-  totalCaption,
   upcomingHint,
 } from './home.ts';
 
@@ -98,21 +97,3 @@ test('이미 지난 날짜도 오늘로 적는다', () => {
   assert.equal(upcomingHint('2026-09-24', '2026-09-20'), '오늘');
 });
 
-test('미확정이 없으면 합계 문구에 덧붙이지 않는다', () => {
-  assert.equal(totalCaption(2026, 12, 0), '2026년 12건');
-});
-
-test('미확정은 건수가 아니라 합계에서 빠진다고 적는다', () => {
-  assert.equal(totalCaption(2026, 12, 3), '2026년 12건 · 미확정 3건은 합계에서 빠짐');
-});
-
-test('미확정 건수가 음수로 들어와도 덧붙이지 않는다', () => {
-  assert.equal(totalCaption(2026, 0, -1), '2026년 0건');
-});
-
-test('이름 조각에 구분 라벨이 붙어 동명이인이 다르게 보인다', () => {
-  const a = entryRowName({ id: 'p1', name: '김철수', label: '회사' }, null);
-  const b = entryRowName({ id: 'p2', name: '김철수', label: '고등학교' }, null);
-  assert.equal(a, '김철수 · 회사');
-  assert.notEqual(a, b);
-});

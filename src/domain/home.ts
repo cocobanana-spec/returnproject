@@ -83,14 +83,3 @@ export function upcomingHint(today: string, date: string): string {
   if (days === 1) return '내일';
   return `${days}일 뒤`;
 }
-
-// 홈 상단 합계의 보조 문구.
-//
-// stats_by_year의 cnt는 미확정을 **포함**하고 total은 **제외**한다(0001_init.sql의 집계 정의).
-// 건수 바로 뒤에 "미확정 N건 제외"를 붙이면 사용자는 그 건수가 이미 뺀 값이라고 읽는다.
-// 무엇에서 빠졌는지를 분명히 적는다.
-export function totalCaption(year: number, count: number, unconfirmed: number): string {
-  const base = `${year}년 ${count}건`;
-  if (unconfirmed <= 0) return base;
-  return `${base} · 미확정 ${unconfirmed}건은 합계에서 빠짐`;
-}

@@ -14,7 +14,6 @@ import {
   DIRECTION_LABEL,
   entryRowSubtitle,
   isMineOf,
-  totalCaption,
   upcomingHint,
   type Direction,
 } from '../../../src/domain/home.ts';
@@ -65,13 +64,15 @@ export default function HomeScreen() {
 
   const rows = (list.data?.pages ?? []).flatMap((page) => page.rows);
   const total = direction === 'given' ? (stats.data?.givenTotal ?? 0) : (stats.data?.receivedTotal ?? 0);
-  const count = direction === 'given' ? (stats.data?.givenCount ?? 0) : (stats.data?.receivedCount ?? 0);
   const tone = direction === 'given' ? colors.given : colors.received;
+  const upcomingRows = direction === 'given' ? (upcoming.data ?? []) : [];
+  // 받은돈은 행사에 속한다. 받은돈 탭의 기록 버튼은 명부 입력(S09)으로 보낸다(2026-09-25 버그 수정).
+  const recordHref = direction === 'given' ? '/record' : '/event/receive';
+  const recordLabel = direction === 'given' ? '기록 남기기' : '명부 입력하기';
   const unconfirmed =
     direction === 'given'
       ? (stats.data?.givenUnconfirmed ?? 0)
       : (stats.data?.receivedUnconfirmed ?? 0);
-  const upcomingRows = direction === 'given' ? (upcoming.data ?? []) : [];
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -171,37 +172,19 @@ export default function HomeScreen() {
               <Text style={{ color: tone, fontSize: font.display, fontWeight: '700' }}>
                 {stats.isSuccess ? formatWon(total) : '—'}
               </Text>
-              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
-                {stats.isSuccess
-                  ? totalCaption(year, count, unconfirmed)
-                  : stats.isError
-                    ? '올해 합계를 불러오지 못했습니다'
-                    : '올해 합계를 세는 중입니다'}
-              </Text>
-            </View>
-
-            {/* 받은돈은 행사에 속해야만 기록된다. 명부 입력으로 가는 길을 여기서 연다. */}
-            {direction === 'received' && (
-              <Pressable
-                onPress={() => router.push('/events')}
-                style={({ pressed }) => ({
-                  alignItems: 'center',
-                  backgroundColor: colors.bgSubtle,
-                  borderRadius: radius.md,
-                  flexDirection: 'row',
-                  gap: space.sm,
-                  paddingHorizontal: space.md,
-                  paddingVertical: space.sm,
-                  opacity: pressed ? 0.6 : 1,
-                })}
-              >
-                <Ionicons name="calendar-outline" size={14} color={colors.textMuted} />
-                <Text style={{ color: colors.text, flex: 1, fontSize: font.caption }}>
-                  내 행사 만들기·명부 입력
+              {/* 사용자 요청(2026-09-25) — 연도·건수 표기를 빼고 총액만 남긴다 */}
+              {!stats.isSuccess && (
+                <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
+                  {stats.isError ? '합계를 불러오지 못했습니다' : '합계를 세는 중입니다'}
                 </Text>
-                <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
-              </Pressable>
-            )}
+              )}
+              {/* 연도·건수 표기는 뺐지만(사용자 요청) 총액이 왜 적은지는 남겨야 한다 */}
+              {stats.isSuccess && unconfirmed > 0 && (
+                <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
+                  미확정 {unconfirmed}건 제외
+                </Text>
+              )}
+            </View>
 
             {/* 다가오는 행사 띠 */}
             {upcomingRows.map((e) => (
@@ -240,15 +223,15 @@ export default function HomeScreen() {
             <EmptyState
               title="첫 기록을 남겨 보세요"
               hint={'경조사에 낸 돈을 기록하면\n사람별로 주고받은 내역이 쌓입니다.'}
-              actionLabel="기록 남기기"
-              onAction={() => router.push('/record')}
+              actionLabel={recordLabel}
+              onAction={() => router.push(recordHref)}
             />
           ) : (
             <EmptyState
               title="받은 기록이 아직 없습니다"
               hint={'결혼식·돌잔치 같은 내 행사를 만들면\n명부를 한 번에 입력할 수 있습니다.'}
-              actionLabel="내 행사 만들기"
-              onAction={() => router.push('/event/edit')}
+              actionLabel={recordLabel}
+              onAction={() => router.push(recordHref)}
             />
           )
         }
@@ -280,8 +263,8 @@ export default function HomeScreen() {
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="기록 남기기"
-          onPress={() => router.push('/record')}
+          accessibilityLabel={recordLabel}
+          onPress={() => router.push(recordHref)}
           style={({ pressed }) => ({
             alignItems: 'center',
             backgroundColor: colors.accent,
