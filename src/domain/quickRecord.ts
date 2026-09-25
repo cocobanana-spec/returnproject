@@ -14,7 +14,10 @@ export type QuickRecordDraft = {
   newPersonGroup: RelationGroup;
   // 같은 이름이 이미 있을 때만 쓰인다. 그때는 필수다(docs/02 §5 동명이인).
   newPersonLabel: string;
-  sameNameExists: boolean;
+  // 장부에 있는 같은 이름 후보 수. 0이면 새로 만들고, 1이면 그 사람에게 붙이고, 2 이상이면 골라야 한다.
+  sameNameCount: number;
+  // 사용자가 "새 사람으로 추가"를 눌렀는지. 이때만 구분할 말을 요구한다.
+  wantsNewPerson: boolean;
   type: EventType | null;
   amountText: string;
   amountUnit: AmountUnit;
@@ -28,7 +31,8 @@ export function emptyDraft(today: string): QuickRecordDraft {
     newPersonName: '',
     newPersonGroup: 'other',
     newPersonLabel: '',
-    sameNameExists: false,
+    sameNameCount: 0,
+    wantsNewPerson: false,
     type: null,
     amountText: '',
     amountUnit: 'won',
@@ -57,7 +61,7 @@ export function validateQuickRecord(draft: QuickRecordDraft): ValidationResult {
   }
 
   // 같은 이름이 이미 있는데 구분할 말이 없으면 나중에 두 사람을 가를 방법이 없다(S09와 같은 규칙).
-  const labelRule = newPersonLabelRule(hasExisting, draft.sameNameExists, draft.newPersonLabel);
+  const labelRule = newPersonLabelRule(hasExisting, draft.sameNameCount, draft.newPersonLabel, draft.wantsNewPerson);
   if (labelRule.error) errors.push(labelRule.error);
 
   if (!draft.type) errors.push('어떤 경조사인지 골라 주세요.');

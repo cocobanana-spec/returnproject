@@ -19,7 +19,12 @@ import {
 } from '../../../src/domain/constants.ts';
 import { entryRowName } from '../../../src/domain/home.ts';
 import { isValidName, normalizeName } from '../../../src/domain/name.ts';
-import { SAME_NAME_LABEL_ERROR } from '../../../src/domain/person.ts';
+import {
+  CHOOSE_SAME_NAME_ERROR,
+  SAME_NAME_LABEL_ERROR,
+  labelFieldNeeded,
+  resolveSameName,
+} from '../../../src/domain/person.ts';
 import { AMOUNT_PRESETS_WON, formatWon, formatWonShort } from '../../../src/domain/money.ts';
 import {
   carryOver,
@@ -88,6 +93,8 @@ export default function ReceiveScreen() {
   const [draft, setDraft] = useState<ReceivingDraft>(() => emptyReceivingDraft());
   const [picked, setPicked] = useState<PersonBalance | null>(null);
   const [nameText, setNameText] = useState('');
+  // "새 사람으로 추가"를 눌렀는지. 이때만 구분할 말을 묻는다.
+  const [wantsNew, setWantsNew] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
 
   // 이번 저장에서 새로 만든 사람. 재시도가 같은 이름을 또 만들지 않게 기억한다.
@@ -102,8 +109,9 @@ export default function ReceiveScreen() {
     setDraft((prev) => ({ ...prev, ...next }));
   }
 
-  // 같은 이름이 이 장부에 있는지는 서버에 정확 일치로 묻는다. S02와 같은 규칙이며,
-  // 명부는 연속 입력이라 구분 칸은 이름 아래 한 줄로만 나타나고 "저장하고 다음" 뒤에 사라진다.
+  // 같은 이름이 이 장부에 있는지는 서버에 정확 일치로 묻는다. S02와 같은 규칙이다.
+  // 같은 이름이 있다는 것만으로는 막지 않는다. 명부를 받아 적을 때 겹치는 이름은 정상이고
+  // 대개 같은 사람이다(2026-09-26). 구분 칸은 "새 사람으로 추가"를 누른 뒤에만 나온다.
   const nameKey = normalizeName(nameText);
   const sameName = useQuery({
     queryKey: queryKeys.people.search(ledgerId, `same:${nameKey}`),
@@ -111,12 +119,22 @@ export default function ReceiveScreen() {
     enabled: !picked && isValidName(nameText),
     gcTime: 60_000,
   });
-  const needsLabel = !picked && isValidName(nameText) && (sameName.data?.length ?? 0) > 0;
-  const draftForSave = (): ReceivingDraft => ({ ...draft, sameNameExists: needsLabel });
+  const sameCount = picked ? 0 : (sameName.data?.length ?? 0);
+  const needsLabel = labelFieldNeeded({
+    hasExisting: Boolean(picked),
+    sameNameCount: sameCount,
+    wantsNewPerson: wantsNew,
+  });
+  const draftForSave = (): ReceivingDraft => ({
+    ...draft,
+    sameNameCount: sameCount,
+    wantsNewPerson: wantsNew,
+  });
 
   function resetForNext(next: ReceivingDraft) {
     setDraft(next);
     setPicked(null);
+    setWantsNew(false);
     setNameText('');
     setErrors([]);
     created.current = { personId: null, name: null };
@@ -144,14 +162,24 @@ export default function ReceiveScreen() {
       if (!personId) {
         // 화면 판정이 실패했거나 아직 안 왔을 수 있다. 저장 직전에 서버로 한 번 더 확인한다.
         const same = await findByNormalizedName(ledgerId, normalizeName(newName as string));
-        if (same.length > 0 && !validation.plan.personLabel) throw new Error(SAME_NAME_LABEL_ERROR);
-        const madePerson = await createPerson(ledgerId, {
-          name: newName as string,
-          relation_group: draft.newPersonGroup,
-          label: validation.plan.personLabel,
-        });
-        personId = madePerson.id;
-        created.current = { personId: madePerson.id, name: newName };
+        const resolved = resolveSameName(
+          same.map((p) => ({ id: p.id as string, name: p.name, label: p.label })),
+          { wantsNewPerson: wantsNew, label: draft.newPersonLabel },
+        );
+        if (resolved.kind === 'needs_label') throw new Error(SAME_NAME_LABEL_ERROR);
+        if (resolved.kind === 'choose') throw new Error(CHOOSE_SAME_NAME_ERROR);
+        if (resolved.kind === 'attach') {
+          // 같은 이름이 한 명이면 그 사람이다. 명부를 받아 적을 때 가장 흔한 경우다.
+          personId = resolved.personId;
+        } else {
+          const madePerson = await createPerson(ledgerId, {
+            name: newName as string,
+            relation_group: draft.newPersonGroup,
+            label: validation.plan.personLabel,
+          });
+          personId = madePerson.id;
+          created.current = { personId: madePerson.id, name: newName };
+        }
       }
 
       // 형태는 입력에서 뺐다. 현금으로 저장한다(docs/02 §3.3, 2026-09-24).
@@ -298,14 +326,17 @@ export default function ReceiveScreen() {
           text={nameText}
           onChangeText={(next) => {
             setNameText(next);
+            setWantsNew(false);
             patch({ newPersonName: next, personId: null });
           }}
           onPick={(p) => {
             setPicked(p);
+            setWantsNew(false);
             patch({ personId: p.id as string, newPersonName: '' });
           }}
           onClear={() => {
             setPicked(null);
+            setWantsNew(false);
             setNameText('');
             // 다른 이름으로 바꾸는 길이라 앞 사람에게 적던 구분할 말은 같이 비운다.
             patch({ personId: null, newPersonName: '', newPersonLabel: '' });
@@ -313,6 +344,7 @@ export default function ReceiveScreen() {
           allowNew
           onUseNew={(name) => {
             setPicked(null);
+            setWantsNew(true);
             patch({ personId: null, newPersonName: name });
           }}
           autoFocus

@@ -56,22 +56,31 @@ test('초안은 이름·금액·메모와 새 사람 정보만 가진다', () =>
     'newPersonLabel',
     'newPersonName',
     'personId',
-    'sameNameExists',
+    'sameNameCount',
+    'wantsNewPerson',
   ]);
 });
 
-test('같은 이름이 있으면 구분할 말이 필수다', () => {
-  const r = validateReceiving(draft({ personId: null, newPersonName: '김철수', sameNameExists: true }));
+test('같은 이름이 하나 있어도 그냥 통과한다 — 명부에서 겹치는 이름은 정상이다', () => {
+  const r = validateReceiving(draft({ personId: null, newPersonName: '김철수', sameNameCount: 1 }));
+  assert.equal(r.ok, true);
+});
+
+test('"새 사람"을 고른 경우에만 구분할 말이 필수다', () => {
+  const r = validateReceiving(
+    draft({ personId: null, newPersonName: '김철수', sameNameCount: 1, wantsNewPerson: true }),
+  );
   assert.equal(r.ok, false);
   if (!r.ok) assert.ok(r.errors.some((e) => e.includes('구분할 말')));
 });
 
 test('구분할 말을 적으면 라벨로 저장되고 저장 후 다음에서 비워진다', () => {
-  const d = draft({ personId: null, newPersonName: '김철수', sameNameExists: true, newPersonLabel: '회사' });
+  const d = draft({ personId: null, newPersonName: '김철수', sameNameCount: 1, wantsNewPerson: true, newPersonLabel: '회사' });
   const r = validateReceiving(d);
   assert.equal(r.ok, true);
   if (r.ok) assert.equal(r.plan.personLabel, '회사');
   const next = carryOver(d);
   assert.equal(next.newPersonLabel, '');
-  assert.equal(next.sameNameExists, false);
+  assert.equal(next.sameNameCount, 0);
+  assert.equal(next.wantsNewPerson, false);
 });

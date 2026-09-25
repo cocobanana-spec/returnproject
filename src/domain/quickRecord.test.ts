@@ -63,20 +63,35 @@ test('초안은 다섯 필드와 새 사람 정보만 가진다', () => {
     'newPersonLabel',
     'newPersonName',
     'personId',
-    'sameNameExists',
+    'sameNameCount',
     'type',
+    'wantsNewPerson',
   ]);
 });
 
-test('같은 이름이 있으면 구분할 말이 필수다', () => {
-  const result = validateQuickRecord(draft({ newPersonName: '김철수', sameNameExists: true }));
+test('같은 이름이 하나 있어도 그냥 통과한다 — 대개 같은 사람이다', () => {
+  const result = validateQuickRecord(draft({ newPersonName: '김철수', sameNameCount: 1 }));
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.plan.personLabel, null);
+});
+
+test('"새 사람으로 추가"를 눌렀는데 구분할 말이 없으면 막는다', () => {
+  const result = validateQuickRecord(
+    draft({ newPersonName: '김철수', sameNameCount: 1, wantsNewPerson: true }),
+  );
   assert.equal(result.ok, false);
   if (!result.ok) assert.ok(result.errors.some((e) => e.includes('구분할 말')));
 });
 
+test('같은 이름이 둘 이상이면 누구인지 고르라고 한다', () => {
+  const result = validateQuickRecord(draft({ newPersonName: '김철수', sameNameCount: 2 }));
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.ok(result.errors.some((e) => e.includes('골라')));
+});
+
 test('구분할 말을 적으면 라벨로 저장된다', () => {
   const result = validateQuickRecord(
-    draft({ newPersonName: '김철수', sameNameExists: true, newPersonLabel: ' 회사 ' }),
+    draft({ newPersonName: '김철수', sameNameCount: 1, wantsNewPerson: true, newPersonLabel: ' 회사 ' }),
   );
   assert.equal(result.ok, true);
   if (result.ok) assert.equal(result.plan.personLabel, '회사');
@@ -95,7 +110,7 @@ test('같은 이름이 없으면 남아 있던 구분할 말은 버린다', () =
 });
 
 test('기존 사람을 골랐으면 동명 여부와 무관하게 통과한다', () => {
-  assert.equal(validateQuickRecord(draft({ personId: 'p1', sameNameExists: true })).ok, true);
+  assert.equal(validateQuickRecord(draft({ personId: 'p1', sameNameCount: 2 })).ok, true);
 });
 
 test('후보가 없으면 null', () => {
@@ -125,4 +140,11 @@ test('행사만 새로 만들었으면 행사를 지운다', () => {
 
 test('기존 사람·기존 행사면 기록만 지운다', () => {
   assert.deepEqual(undoPlan({ personId: null, eventId: null, entryId: 'n1' }), { kind: 'entry', id: 'n1' });
+});
+
+test('기존 사람에게 붙은 저장은 실행 취소가 사람을 지우지 않는다', () => {
+  // 자동 연결이면 이번 저장이 사람을 만들지 않았다. personId를 비워 두는 것이 그 표시다.
+  // 앞선 시도에서 만든 사람이 여기 남아 있으면 실행 취소가 엉뚱한 사람을 지운다(2026-09-26 QA).
+  assert.deepEqual(undoPlan({ personId: null, eventId: 'e1', entryId: 'x1' }), { kind: 'event', id: 'e1' });
+  assert.deepEqual(undoPlan({ personId: null, eventId: null, entryId: 'x1' }), { kind: 'entry', id: 'x1' });
 });
