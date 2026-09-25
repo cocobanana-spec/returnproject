@@ -1,8 +1,10 @@
-// 통계(S11) — 전체·준돈·받은돈 탭, 연도·종류 필터와 정렬, 종류별·관계별·사람별·행사별
+// 통계(S11) — 방향 탭과 연도만 항상 보이고, 숫자는 같은 열에 맞춰 눈으로 훑게 한다
 //
-// 2026-09-25 개편. 홈 받은돈 탭이 평평한 목록이 되면서 행사별 구분이 이 화면으로 옮겨왔다.
-// stats_by_year는 p_year 없이 한 번만 받아 도메인 함수가 연도·종류로 거르고 접는다.
-// 행사별은 event_totals RPC 한 번으로 받는다. 화면에는 계산을 두지 않는다.
+// 2026-09-25 2차. 빌드 10에서 "가독성이 너무 떨어진다"는 피드백을 받아 **덜어냈다.**
+// 뺀 것 — 막대 정렬 칩(금액순 고정), 행사별 정렬 칩(최신순 고정), 항상 펼쳐 있던 종류 필터(접었다),
+// '전체' 탭의 막대 블록 4개(방향이 정해져야 뜻이 있어 준돈·받은돈 탭으로 옮겼다).
+// 남긴 것 — 방향 탭, 연도 칩, 총계, 종류별·관계별 막대, 행사별, 사람별.
+// 숫자는 tabular-nums 고정폭으로 건수 열·금액 열을 맞춘다. 자릿수가 들쭉날쭉하면 훑을 수 없다.
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -10,25 +12,19 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { EVENT_TYPE_LABEL, type EventType } from '../../../src/domain/constants.ts';
-import { formatWon, formatWonShort } from '../../../src/domain/money.ts';
+import { formatBalance, formatWon } from '../../../src/domain/money.ts';
 import { displayName } from '../../../src/domain/person.ts';
 import {
-  BUCKET_SORT_LABEL,
-  EVENT_SORT_LABEL,
   STATS_DIRECTION_LABEL,
-  bucketsFor,
   defaultYear,
   filterEventTotals,
+  topPeopleScopeLabel,
   filterStatsRows,
   foldYearStats,
-  sortBuckets,
   sortEventTotals,
-  topPeopleScopeLabel,
   typesOf,
   yearsOf,
   type Bucket,
-  type BucketSort,
-  type EventSort,
   type StatsDirection,
 } from '../../../src/domain/stats.ts';
 import { formatEventDate, todayISO } from '../../../src/domain/title.ts';
@@ -42,8 +38,12 @@ import { EmptyState } from '../../../src/ui/EmptyState';
 import { LoadFailed } from '../../../src/ui/LoadFailed';
 
 const DIRECTIONS: StatsDirection[] = ['all', 'given', 'received'];
-const BUCKET_SORTS: BucketSort[] = ['amount', 'count'];
-const EVENT_SORTS: EventSort[] = ['date', 'amount', 'count'];
+
+// 숫자 열의 너비. 금액은 "1,000,000원"까지, 건수는 "999건"까지 들어간다.
+const COUNT_WIDTH = 52;
+// 최소폭이다. 고정폭으로 두면 억 단위 금액이 두 줄로 접혀 열이 깨진다.
+// 평소에는 이 폭으로 나란히 서고, 넘칠 때만 한 줄을 유지한 채 글자가 줄어든다.
+const AMOUNT_MIN_WIDTH = 112;
 
 export default function StatsScreen() {
   const ledgerId = useLedgerId();
@@ -55,8 +55,7 @@ export default function StatsScreen() {
   const [direction, setDirection] = useState<StatsDirection>('all');
   const [picked, setPicked] = useState<{ year: number | null } | null>(null);
   const [type, setType] = useState<string | null>(null);
-  const [bucketSort, setBucketSort] = useState<BucketSort>('amount');
-  const [eventSort, setEventSort] = useState<EventSort>('date');
+  const [typeOpen, setTypeOpen] = useState(false);
 
   const raw = useQuery({
     queryKey: queryKeys.stats.allYears(ledgerId),
@@ -69,7 +68,6 @@ export default function StatsScreen() {
 
   const rows = useMemo(() => raw.data ?? [], [raw.data]);
   const years = useMemo(() => yearsOf(rows), [rows]);
-  // 고른 적이 없거나 고른 연도가 사라졌으면 기본값으로 돌린다.
   const year =
     picked && (picked.year === null || years.includes(picked.year))
       ? picked.year
@@ -79,7 +77,6 @@ export default function StatsScreen() {
   const filtered = useMemo(() => filterStatsRows(rows, year, type), [rows, year, type]);
   const stats = useMemo(() => foldYearStats(filtered), [filtered]);
 
-  // 사람별 상위 — 연도 필터를 그대로 따른다(종류 필터는 RPC에 없어 적용하지 않는다).
   const topPeople = useQuery({
     queryKey: queryKeys.stats.topPeople(ledgerId, year),
     queryFn: () => listTopPeopleByYear(ledgerId, year),
@@ -96,8 +93,8 @@ export default function StatsScreen() {
   const eventRows = useMemo(() => {
     const all = events.data ?? [];
     const byYear = year === null ? all : all.filter((e) => Number(e.event_date.slice(0, 4)) === year);
-    return sortEventTotals(filterEventTotals(byYear, direction, type), eventSort);
-  }, [events.data, year, direction, type, eventSort]);
+    return sortEventTotals(filterEventTotals(byYear, direction, type));
+  }, [events.data, year, direction, type]);
 
   const unconfirmed =
     direction === 'given'
@@ -106,16 +103,20 @@ export default function StatsScreen() {
         ? stats.receivedUnconfirmed
         : stats.unconfirmedCount;
 
-  // 기록이 0건인 예정 행사만 있는 장부도 행사별 블록은 보여 줘야 한다(0006이 left join인 이유).
   const hasAnything = rows.length > 0 || (events.data?.length ?? 0) > 0;
   const showGiven = direction !== 'received';
   const showReceived = direction !== 'given';
+  // 막대는 방향이 정해져야 뜻이 있다. '전체' 탭에서는 총계·행사별·사람별만 보여 준다.
+  const showBars = direction !== 'all';
+  const byType = direction === 'given' ? stats.givenByType : stats.receivedByType;
+  const byGroup = direction === 'given' ? stats.givenByGroup : stats.receivedByGroup;
+  const tone = direction === 'received' ? colors.received : colors.given;
 
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.bg }}
       contentContainerStyle={{
-        gap: space.lg,
+        gap: space.xl,
         paddingBottom: insets.bottom + space.xxl,
         paddingHorizontal: space.xl,
         paddingTop: insets.top + space.md,
@@ -123,14 +124,7 @@ export default function StatsScreen() {
     >
       <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '700' }}>통계</Text>
 
-      {/* 방향 탭 */}
-      <View
-        style={{
-          borderBottomColor: colors.border,
-          borderBottomWidth: 1,
-          flexDirection: 'row',
-        }}
-      >
+      <View style={{ borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: 'row' }}>
         {DIRECTIONS.map((d) => {
           const selected = direction === d;
           return (
@@ -174,61 +168,75 @@ export default function StatsScreen() {
         />
       ) : (
         <>
-          {/* 연도 필터 */}
-          <FilterRow label="연도">
-            <Chip label="전체" selected={year === null} onPress={() => setPicked({ year: null })} />
-            {years.map((y) => (
-              <Chip key={y} label={`${y}년`} selected={year === y} onPress={() => setPicked({ year: y })} />
-            ))}
-          </FilterRow>
-
-          {/* 종류 필터 */}
-          <FilterRow label="경조사 종류">
-            <Chip label="전체" selected={type === null} onPress={() => setType(null)} />
-            {types.map((t) => (
-              <Chip
-                key={t}
-                label={EVENT_TYPE_LABEL[t as EventType] ?? t}
-                selected={type === t}
-                onPress={() => setType(type === t ? null : t)}
-              />
-            ))}
-          </FilterRow>
+          {/* 항상 보이는 조작은 연도 하나뿐이다 */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={{ flexDirection: 'row', gap: space.sm }}>
+              <Chip label="전체 기간" selected={year === null} onPress={() => setPicked({ year: null })} />
+              {years.map((y) => (
+                <Chip key={y} label={`${y}년`} selected={year === y} onPress={() => setPicked({ year: y })} />
+              ))}
+            </View>
+          </ScrollView>
 
           {/* 총계 */}
           <View
             style={{
               backgroundColor: colors.bgSubtle,
               borderRadius: radius.lg,
-              gap: space.md,
+              gap: space.sm,
               padding: space.lg,
             }}
           >
             {showGiven && (
-              <Line label="준 돈" amount={stats.givenTotal} count={stats.givenCount} color={colors.given} />
+              <NumberRow
+                label="준 돈"
+                count={stats.givenCount}
+                amount={stats.givenTotal}
+                color={colors.given}
+                strong
+              />
             )}
             {showReceived && (
-              <Line
+              <NumberRow
                 label="받은 돈"
-                amount={stats.receivedTotal}
                 count={stats.receivedCount}
+                amount={stats.receivedTotal}
                 color={colors.received}
+                strong
               />
             )}
             {direction === 'all' && (
-              <View style={{ borderTopColor: colors.border, borderTopWidth: 1, paddingTop: space.md }}>
-                <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
+              <View
+                style={{
+                  alignItems: 'center',
+                  borderTopColor: colors.border,
+                  borderTopWidth: 1,
+                  flexDirection: 'row',
+                  marginTop: space.xs,
+                  paddingTop: space.md,
+                }}
+              >
+                <Text style={{ color: colors.textMuted, flex: 1, fontSize: font.caption }}>
                   {stats.balance >= 0 ? '더 낸 금액' : '더 받은 금액'}
                 </Text>
                 <Text
-                  style={{ color: colors.text, fontSize: font.title, fontWeight: '700', marginTop: 2 }}
+                  style={{
+                    color: colors.text,
+                    fontSize: font.body,
+                    fontVariant: ['tabular-nums'],
+                    fontWeight: '700',
+                    marginLeft: space.sm,
+                    minWidth: AMOUNT_MIN_WIDTH,
+                    textAlign: 'right',
+                  }}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                  numberOfLines={1}
                 >
                   {formatWon(Math.abs(stats.balance))}
                 </Text>
               </View>
             )}
-            {/* 방향 탭이 고른 쪽의 미확정만 센다. 양방향 합을 찍으면 준돈 탭에서
-                있지도 않은 준돈 미확정을 찾아 헤매게 된다(§18.1의 교훈과 같은 함정) */}
             {unconfirmed > 0 && (
               <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
                 미확정 {unconfirmed}건은 합계에서 빠져 있습니다.
@@ -236,71 +244,62 @@ export default function StatsScreen() {
             )}
           </View>
 
-          {/* 막대 정렬 */}
-          <FilterRow label="정렬">
-            {BUCKET_SORTS.map((s) => (
-              <Chip
-                key={s}
-                label={BUCKET_SORT_LABEL[s]}
-                selected={bucketSort === s}
-                onPress={() => setBucketSort(s)}
-              />
-            ))}
-          </FilterRow>
-
-          {bucketsFor(stats, direction, 'type').map((b) => (
-            <Bars
-              key={b.label}
-              title={b.label}
-              buckets={sortBuckets(b.buckets, bucketSort)}
-              metric={bucketSort}
-              color={b.tone === 'given' ? colors.given : colors.received}
-            />
-          ))}
-          {bucketsFor(stats, direction, 'group').map((b) => (
-            <Bars
-              key={b.label}
-              title={b.label}
-              buckets={sortBuckets(b.buckets, bucketSort)}
-              metric={bucketSort}
-              color={b.tone === 'given' ? colors.given : colors.received}
-            />
-          ))}
-
-          {/* 행사별 — 홈에서 뺀 행사별 구분이 여기 있다 */}
+          {/* 종류 필터는 접어 둔다. 기본값(전체)으로 대부분 충분하다 */}
           <View style={{ gap: space.sm }}>
-            <View style={{ gap: 2 }}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setTypeOpen((prev) => !prev)}
+              style={({ pressed }) => ({
+                alignItems: 'center',
+                flexDirection: 'row',
+                gap: space.xs,
+                opacity: pressed ? 0.6 : 1,
+              })}
+            >
+              <Ionicons
+                name={typeOpen ? 'chevron-down' : 'chevron-forward'}
+                size={14}
+                color={colors.textMuted}
+              />
               <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
-                행사별 ({[
-                  topPeopleScopeLabel(year),
-                  STATS_DIRECTION_LABEL[direction],
-                  type === null ? null : (EVENT_TYPE_LABEL[type as EventType] ?? type),
-                ]
-                  .filter(Boolean)
-                  .join(' · ')})
+                {type === null
+                  ? '경조사 종류 고르기'
+                  : `${EVENT_TYPE_LABEL[type as EventType] ?? type}만 보는 중`}
               </Text>
-              <Text style={{ color: colors.textMuted, fontSize: font.caption - 1 }}>
-                행을 누르면 그 행사의 기록으로 갑니다.
-              </Text>
-            </View>
-            <FilterRow label="">
-              {EVENT_SORTS.map((s) => (
-                <Chip
-                  key={s}
-                  label={EVENT_SORT_LABEL[s]}
-                  selected={eventSort === s}
-                  onPress={() => setEventSort(s)}
-                />
-              ))}
-            </FilterRow>
+              {type !== null && (
+                <Pressable onPress={() => setType(null)} hitSlop={8}>
+                  <Text style={{ color: colors.given, fontSize: font.caption }}>지우기</Text>
+                </Pressable>
+              )}
+            </Pressable>
+            {typeOpen && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={{ flexDirection: 'row', gap: space.sm }}>
+                  <Chip label="전체" selected={type === null} onPress={() => setType(null)} />
+                  {types.map((t) => (
+                    <Chip
+                      key={t}
+                      label={EVENT_TYPE_LABEL[t as EventType] ?? t}
+                      selected={type === t}
+                      onPress={() => setType(type === t ? null : t)}
+                    />
+                  ))}
+                </View>
+              </ScrollView>
+            )}
+          </View>
+
+          {showBars && <Bars title="경조사 종류별" buckets={byType} color={tone} />}
+          {showBars && <Bars title="관계별" buckets={byGroup} color={tone} />}
+
+          {/* 행사별 — 홈에서 뺀 행사별 구분이 여기 있다. 최신순 고정 */}
+          <Section title="행사별">
             {events.isError ? (
               <LoadFailed title="행사를 불러오지 못했습니다" onRetry={() => void events.refetch()} />
             ) : events.isLoading ? (
               <ActivityIndicator color={colors.textMuted} style={{ marginVertical: space.md }} />
             ) : eventRows.length === 0 ? (
-              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
-                조건에 맞는 행사가 없습니다.
-              </Text>
+              <Empty text="조건에 맞는 행사가 없습니다." />
             ) : (
               eventRows.map((e) => (
                 <Pressable
@@ -311,168 +310,213 @@ export default function StatsScreen() {
                     borderBottomColor: colors.border,
                     borderBottomWidth: 1,
                     flexDirection: 'row',
-                    gap: space.md,
                     paddingVertical: space.md,
                     opacity: pressed ? 0.6 : 1,
                   })}
                 >
-                  <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1, paddingRight: space.sm }}>
                     <Text style={{ color: colors.text, fontSize: font.body }} numberOfLines={1}>
                       {e.title}
                     </Text>
                     <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: 2 }}>
-                      {formatEventDate(e.event_date, 'day')} · {EVENT_TYPE_LABEL[e.type as EventType] ?? e.type} ·{' '}
-                      {e.cnt}건{e.unconfirmed > 0 ? ` (미확정 ${e.unconfirmed})` : ''}
+                      {formatEventDate(e.event_date, 'day')}
                     </Text>
                   </View>
                   <Text
                     style={{
-                      color: e.is_mine ? colors.received : colors.given,
-                      fontSize: font.body,
-                      fontWeight: '700',
+                      color: colors.textMuted,
+                      fontSize: font.caption,
+                      fontVariant: ['tabular-nums'],
+                      textAlign: 'right',
+                      width: COUNT_WIDTH,
                     }}
                   >
-                    {formatWonShort(e.total)}
+                    {e.cnt}건
                   </Text>
-                  <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+                  <Text
+                    style={{
+                      color: e.is_mine ? colors.received : colors.given,
+                      fontSize: font.body,
+                      fontVariant: ['tabular-nums'],
+                      fontWeight: '600',
+                      marginLeft: space.sm,
+                      minWidth: AMOUNT_MIN_WIDTH,
+                      textAlign: 'right',
+                    }}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}
+                    numberOfLines={1}
+                  >
+                    {formatWon(e.total)}
+                  </Text>
                 </Pressable>
               ))
             )}
-          </View>
+          </Section>
 
-          {/* 사람별 상위 */}
-          <View style={{ gap: space.sm }}>
-            <View style={{ gap: 2 }}>
-              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
-                차액이 큰 사람 ({topPeopleScopeLabel(year)})
-              </Text>
-              <Text style={{ color: colors.textMuted, fontSize: font.caption - 1 }}>
-                공동 부조는 두 사람 모두에게 계산됩니다.
-                {type !== null ? ' 경조사 종류 필터는 이 블록에 적용되지 않습니다.' : ''}
-              </Text>
-            </View>
+          {/* 사람별 — 숫자를 하나만 보여 준다(차액). 두 숫자를 한 줄에 적으면 훑기 어렵다 */}
+          <Section title="차액이 큰 사람">
             {topPeople.isError ? (
               <LoadFailed title="사람을 불러오지 못했습니다" onRetry={() => void topPeople.refetch()} />
             ) : topPeople.isLoading ? (
               <ActivityIndicator color={colors.textMuted} style={{ marginVertical: space.md }} />
             ) : (topPeople.data ?? []).length === 0 ? (
-              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
-                {year === null ? '아직 표시할 사람이 없습니다.' : `${year}년에는 기록된 사람이 없습니다.`}
-              </Text>
+              <Empty text={year === null ? '아직 표시할 사람이 없습니다.' : `${year}년에는 기록된 사람이 없습니다.`} />
             ) : (
-              (topPeople.data ?? []).map((p) => (
-                <Pressable
-                  key={p.id}
-                  onPress={() => router.push(`/person/${p.id}`)}
-                  style={({ pressed }) => ({
-                    alignItems: 'center',
-                    borderBottomColor: colors.border,
-                    borderBottomWidth: 1,
-                    flexDirection: 'row',
-                    gap: space.md,
-                    paddingVertical: space.md,
-                    opacity: pressed ? 0.6 : 1,
-                  })}
-                >
-                  <Text style={{ color: colors.text, flex: 1, fontSize: font.body }} numberOfLines={1}>
-                    {displayName({ name: p.name, label: labelOf.get(p.id) ?? null })}
-                  </Text>
-                  <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
-                    준 {formatWonShort(p.given_total)} · 받은 {formatWonShort(p.received_total)}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
-                </Pressable>
-              ))
+              (topPeople.data ?? []).map((p) => {
+                const balance = formatBalance(p.balance);
+                return (
+                  <Pressable
+                    key={p.id}
+                    onPress={() => router.push(`/person/${p.id}`)}
+                    style={({ pressed }) => ({
+                      alignItems: 'center',
+                      borderBottomColor: colors.border,
+                      borderBottomWidth: 1,
+                      flexDirection: 'row',
+                      paddingVertical: space.md,
+                      opacity: pressed ? 0.6 : 1,
+                    })}
+                  >
+                    <Text
+                      style={{ color: colors.text, flex: 1, fontSize: font.body, paddingRight: space.sm }}
+                      numberOfLines={1}
+                    >
+                      {displayName({ name: p.name, label: labelOf.get(p.id) ?? null })}
+                    </Text>
+                    <Text
+                      style={{
+                        color:
+                          balance.direction === 'given'
+                            ? colors.given
+                            : balance.direction === 'received'
+                              ? colors.received
+                              : colors.textMuted,
+                        fontSize: font.caption,
+                        fontVariant: ['tabular-nums'],
+                        fontWeight: '600',
+                        textAlign: 'right',
+                      }}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.7}
+                      numberOfLines={1}
+                    >
+                      {balance.text}
+                    </Text>
+                  </Pressable>
+                );
+              })
             )}
-          </View>
+            <Text style={{ color: colors.textMuted, fontSize: font.caption - 1, marginTop: space.xs }}>
+              {topPeopleScopeLabel(year)} 기준입니다. 공동 부조는 두 사람 모두에게 계산됩니다.
+              {type !== null ? ' 경조사 종류 필터는 여기에 적용되지 않습니다.' : ''}
+            </Text>
+          </Section>
         </>
       )}
     </ScrollView>
   );
 }
 
-function FilterRow({ label, children }: { label: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   const { colors, space, font } = useTokens();
   return (
     <View style={{ gap: space.xs }}>
-      {label.length > 0 && (
-        <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{label}</Text>
-      )}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={{ flexDirection: 'row', gap: space.sm }}>{children}</View>
-      </ScrollView>
+      <Text style={{ color: colors.text, fontSize: font.body, fontWeight: '700' }}>{title}</Text>
+      {children}
     </View>
   );
 }
 
-function Line({
+function Empty({ text }: { text: string }) {
+  const { colors, space, font } = useTokens();
+  return (
+    <Text style={{ color: colors.textMuted, fontSize: font.caption, paddingVertical: space.sm }}>
+      {text}
+    </Text>
+  );
+}
+
+// 이름·건수·금액이 각각 같은 열에 놓인다. 금액은 고정폭 숫자라 자릿수가 세로로 맞는다.
+function NumberRow({
   label,
-  amount,
   count,
+  amount,
   color,
+  strong = false,
 }: {
   label: string;
-  amount: number;
   count: number;
+  amount: number;
   color: string;
+  strong?: boolean;
 }) {
   const { colors, space, font } = useTokens();
   return (
-    <View style={{ alignItems: 'baseline', flexDirection: 'row', gap: space.sm }}>
-      <Text style={{ color: colors.textMuted, fontSize: font.caption, width: 56 }}>{label}</Text>
-      <Text style={{ color, flex: 1, fontSize: font.title, fontWeight: '700' }}>
+    <View style={{ alignItems: 'center', flexDirection: 'row' }}>
+      <Text
+        style={{ color: colors.textMuted, flex: 1, fontSize: font.caption, paddingRight: space.sm }}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+      <Text
+        style={{
+          color: colors.textMuted,
+          fontSize: font.caption,
+          fontVariant: ['tabular-nums'],
+          textAlign: 'right',
+          width: COUNT_WIDTH,
+        }}
+        numberOfLines={1}
+      >
+        {count}건
+      </Text>
+      <Text
+        style={{
+          color,
+          fontSize: strong ? font.title : font.body,
+          fontVariant: ['tabular-nums'],
+          fontWeight: '700',
+          marginLeft: space.sm,
+          minWidth: AMOUNT_MIN_WIDTH,
+          textAlign: 'right',
+        }}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+        numberOfLines={1}
+      >
         {formatWon(amount)}
       </Text>
-      <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{count}건</Text>
     </View>
   );
 }
 
-// 막대 길이는 그 블록 안에서 가장 큰 값을 기준으로 잡는다. 블록끼리는 축이 다르므로
-// 준돈 막대와 받은돈 막대의 길이를 서로 비교하면 안 된다. 금액·건수는 옆에 그대로 적는다.
-// 값이 0인 항목(전부 미확정)은 막대를 그리지 않는다. 짧은 막대는 "조금 있다"로 읽힌다.
-function Bars({
-  title,
-  buckets,
-  color,
-  metric,
-}: {
-  title: string;
-  buckets: Bucket[];
-  color: string;
-  metric: BucketSort;
-}) {
-  const { colors, space, font, radius } = useTokens();
+// 막대 길이는 그 블록 안에서 가장 큰 금액을 기준으로 잡는다. 정렬은 언제나 금액 내림차순이라
+// (foldYearStats가 그렇게 접는다) 길이와 순서가 어긋나지 않는다.
+// 금액이 0인 항목(전부 미확정)은 막대를 그리지 않는다. 짧은 막대는 "조금 있다"로 읽힌다.
+function Bars({ title, buckets, color }: { title: string; buckets: Bucket[]; color: string }) {
+  const { colors, space, radius } = useTokens();
   if (buckets.length === 0) return null;
-  // 막대 길이의 기준은 정렬 기준과 같아야 한다. 어긋나면 위 항목의 막대가 더 짧아 보인다.
-  const value = (b: Bucket) => (metric === 'count' ? b.cnt : b.total);
-  const max = Math.max(...buckets.map(value), 1);
+  const max = Math.max(...buckets.map((b) => b.total), 1);
 
   return (
-    <View style={{ gap: space.sm }}>
-      <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{title}</Text>
+    <Section title={title}>
       {buckets.map((b) => (
-        <View key={b.key} style={{ gap: 4 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Text style={{ color: colors.text, fontSize: font.caption }}>
-              {b.label} · {b.cnt}건
-            </Text>
-            <Text style={{ color: colors.text, fontSize: font.caption, fontWeight: '600' }}>
-              {formatWon(b.total)}
-            </Text>
-          </View>
+        <View key={b.key} style={{ gap: 4, paddingVertical: space.xs }}>
+          <NumberRow label={b.label} count={b.cnt} amount={b.total} color={colors.text} />
           <View style={{ backgroundColor: colors.bgSubtle, borderRadius: radius.sm, height: 6 }}>
             <View
               style={{
                 backgroundColor: color,
                 borderRadius: radius.sm,
                 height: 6,
-                width: value(b) === 0 ? 0 : `${Math.max(2, Math.round((value(b) / max) * 100))}%`,
+                width: b.total === 0 ? 0 : `${Math.max(2, Math.round((b.total / max) * 100))}%`,
               }}
             />
           </View>
         </View>
       ))}
-    </View>
+    </Section>
   );
 }

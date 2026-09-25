@@ -5,11 +5,9 @@ import {
   foldEventSummary,
   foldYearStats,
   foldYearStatsFor,
-  bucketsFor,
   defaultYear,
   filterEventTotals,
   filterStatsRows,
-  sortBuckets,
   sortEventTotals,
   topPeopleScopeLabel,
   typesOf,
@@ -183,25 +181,6 @@ test('연도와 종류로 함께 거른다', () => {
   assert.equal(filterStatsRows(mixed, null, null).length, 4);
 });
 
-test('막대는 금액순·건수순으로 다르게 정렬된다', () => {
-  const stats = foldYearStats(filterStatsRows(mixed, 2026, null));
-  const byAmount = sortBuckets(stats.givenByType, 'amount');
-  const byCount = sortBuckets(stats.givenByType, 'count');
-  assert.equal(byAmount[0]?.key, 'funeral');
-  assert.equal(byCount[0]?.key, 'wedding');
-  // 원본을 건드리지 않는다
-  assert.equal(stats.givenByType.length, 2);
-});
-
-test('방향 탭이 보여 줄 블록을 고른다 — 전체는 둘 다', () => {
-  const stats = foldYearStats(mixed);
-  assert.equal(bucketsFor(stats, 'all', 'type').length, 2);
-  assert.equal(bucketsFor(stats, 'given', 'type').length, 1);
-  assert.equal(bucketsFor(stats, 'given', 'type')[0]?.tone, 'given');
-  assert.equal(bucketsFor(stats, 'received', 'group')[0]?.tone, 'received');
-  assert.ok(bucketsFor(stats, 'received', 'group')[0]?.label.includes('관계별'));
-});
-
 const eventRows: EventTotalRow[] = [
   { event_id: 'e1', title: '내 결혼식', type: 'wedding', is_mine: true, event_date: '2026-02-14', cnt: 3, total: 200000, unconfirmed: 1 },
   { event_id: 'e2', title: '김철수 결혼식', type: 'wedding', is_mine: false, event_date: '2026-05-18', cnt: 1, total: 100000, unconfirmed: 0 },
@@ -215,10 +194,21 @@ test('행사별은 방향과 종류로 걸러진다', () => {
   assert.deepEqual(filterEventTotals(eventRows, 'given', 'funeral').map((e) => e.event_id), ['e3']);
 });
 
-test('행사별 정렬은 최신순·금액순·건수순이다', () => {
-  assert.deepEqual(sortEventTotals(eventRows, 'date').map((e) => e.event_id), ['e2', 'e1', 'e3']);
-  assert.deepEqual(sortEventTotals(eventRows, 'amount').map((e) => e.event_id), ['e1', 'e2', 'e3']);
-  assert.deepEqual(sortEventTotals(eventRows, 'count').map((e) => e.event_id), ['e3', 'e1', 'e2']);
-  // 원본을 건드리지 않는다
+test('행사별은 최신순으로 정렬되고 원본을 건드리지 않는다', () => {
+  assert.deepEqual(sortEventTotals(eventRows).map((e) => e.event_id), ['e2', 'e1', 'e3']);
   assert.equal(eventRows[0]?.event_id, 'e1');
+});
+
+test('같은 날 행사는 제목 순으로 고정된다', () => {
+  const same: EventTotalRow[] = [
+    { event_id: 'b', title: '나 행사', type: 'wedding', is_mine: true, event_date: '2026-02-14', cnt: 1, total: 1, unconfirmed: 0 },
+    { event_id: 'a', title: '가 행사', type: 'wedding', is_mine: true, event_date: '2026-02-14', cnt: 1, total: 1, unconfirmed: 0 },
+  ];
+  assert.deepEqual(sortEventTotals(same).map((e) => e.event_id), ['a', 'b']);
+});
+
+test('종류별·관계별 버킷은 접는 시점에 이미 금액 내림차순이다', () => {
+  const stats = foldYearStats(filterStatsRows(mixed, 2026, null));
+  assert.deepEqual(stats.givenByType.map((b) => b.key), ['funeral', 'wedding']);
+  assert.ok((stats.givenByType[0]?.total ?? 0) >= (stats.givenByType[1]?.total ?? 0));
 });

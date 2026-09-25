@@ -226,13 +226,6 @@ export const STATS_DIRECTION_LABEL: Record<StatsDirection, string> = {
   received: '받은 돈',
 };
 
-export type BucketSort = 'amount' | 'count';
-
-export const BUCKET_SORT_LABEL: Record<BucketSort, string> = {
-  amount: '금액순',
-  count: '건수순',
-};
-
 // 필터에 쓸 수 있는 경조사 종류. 기록이 있는 것만 보여 준다(없는 칩을 눌러 0을 보게 하지 않는다).
 export function typesOf(rows: StatsRow[]): string[] {
   const order = new Map(EVENT_TYPES.map((t, i) => [t as string, i]));
@@ -249,28 +242,6 @@ export function filterStatsRows(
   return rows.filter((row) => (year === null || row.year === year) && (type === null || row.type === type));
 }
 
-export function sortBuckets(buckets: Bucket[], sort: BucketSort): Bucket[] {
-  return [...buckets].sort((a, b) =>
-    sort === 'count' ? b.cnt - a.cnt || b.total - a.total : b.total - a.total || b.cnt - a.cnt,
-  );
-}
-
-// 방향 탭이 고른 쪽의 버킷. '전체'는 준돈·받은돈을 나눠 그대로 보여 준다(합치면 나간 돈과
-// 들어온 돈이 한 숫자에 섞여 뜻을 잃는다).
-export function bucketsFor(
-  stats: YearStats,
-  direction: StatsDirection,
-  axis: 'type' | 'group',
-): { label: string; buckets: Bucket[]; tone: 'given' | 'received' }[] {
-  const given = axis === 'type' ? stats.givenByType : stats.givenByGroup;
-  const received = axis === 'type' ? stats.receivedByType : stats.receivedByGroup;
-  const axisLabel = axis === 'type' ? '경조사 종류별' : '관계별';
-  const out: { label: string; buckets: Bucket[]; tone: 'given' | 'received' }[] = [];
-  if (direction !== 'received') out.push({ label: `준 돈 — ${axisLabel}`, buckets: given, tone: 'given' });
-  if (direction !== 'given') out.push({ label: `받은 돈 — ${axisLabel}`, buckets: received, tone: 'received' });
-  return out;
-}
-
 // ---------------------------------------------------------------- 행사별
 // event_totals RPC 한 행. 화면이 이 모양을 그대로 그린다.
 export type EventTotalRow = {
@@ -282,14 +253,6 @@ export type EventTotalRow = {
   cnt: number;
   total: number;
   unconfirmed: number;
-};
-
-export type EventSort = 'date' | 'amount' | 'count';
-
-export const EVENT_SORT_LABEL: Record<EventSort, string> = {
-  date: '최신순',
-  amount: '금액순',
-  count: '건수순',
 };
 
 export function filterEventTotals(
@@ -304,11 +267,10 @@ export function filterEventTotals(
   );
 }
 
-export function sortEventTotals(rows: EventTotalRow[], sort: EventSort): EventTotalRow[] {
-  return [...rows].sort((a, b) => {
-    if (sort === 'amount') return b.total - a.total || b.cnt - a.cnt;
-    if (sort === 'count') return b.cnt - a.cnt || b.total - a.total;
-    // 최신순. 같은 날이면 제목으로 고정해 순서가 흔들리지 않게 한다.
-    return b.event_date.localeCompare(a.event_date) || a.title.localeCompare(b.title);
-  });
+// 최신순 고정. 정렬 칩은 화면에서 뺐다(2026-09-25 가독성 정리).
+// 같은 날이면 제목으로 순서를 고정해 목록이 흔들리지 않게 한다.
+export function sortEventTotals(rows: EventTotalRow[]): EventTotalRow[] {
+  return [...rows].sort(
+    (a, b) => b.event_date.localeCompare(a.event_date) || a.title.localeCompare(b.title),
+  );
 }
