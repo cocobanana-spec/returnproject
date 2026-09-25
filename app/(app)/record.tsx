@@ -24,6 +24,10 @@ import {
   distinguishLine,
   duplicateNameKeys,
   sameNameCandidates,
+  labelFieldNeeded,
+  resolveSameName,
+  SAME_NAME_LABEL_ERROR,
+  CHOOSE_SAME_NAME_ERROR,
 } from '../../src/domain/person.ts';
 import {
   emptyDraft,
@@ -51,6 +55,8 @@ import { Field } from '../../src/ui/Field';
 import { Screen } from '../../src/ui/Screen';
 import { useToast } from '../../src/ui/ToastProvider';
 
+type SaveVars = { existingEventId: string | null; personId: string | null };
+
 export default function RecordScreen() {
   const ledgerId = useLedgerId();
   const router = useRouter();
@@ -61,6 +67,8 @@ export default function RecordScreen() {
   const [draft, setDraft] = useState<QuickRecordDraft>(() => emptyDraft(todayISO()));
   const [picked, setPicked] = useState<PersonBalance | null>(null);
   const [nameText, setNameText] = useState('');
+  // "새 사람으로 추가"를 눌렀는지. 이름을 다시 치면 풀린다.
+  const [wantsNew, setWantsNew] = useState(false);
   const [showDate, setShowDate] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   // 저장 판정(기존 행사 조회) 중에도 버튼을 잠근다. 두 번 누르면 기록이 두 건 생긴다.
@@ -90,27 +98,39 @@ export default function RecordScreen() {
 
   function choosePerson(person: PersonBalance) {
     setPicked(person);
+    setWantsNew(false);
     patch({ personId: person.id as string, newPersonName: '' });
     setErrors([]);
   }
 
   function clearPerson() {
     setPicked(null);
+    setWantsNew(false);
     setNameText('');
     patch({ personId: null, newPersonName: '', newPersonLabel: '' });
   }
 
   function useAsNewPerson() {
     setPicked(null);
+    setWantsNew(true);
     patch({ personId: null, newPersonName: nameText });
   }
 
-  // 입력한 이름과 정규화가 같은 사람이 이미 있으면 새 사람에게 구분할 말이 필요하다.
+  // 같은 이름이 있다는 것만으로는 아무것도 요구하지 않는다. 대개 같은 사람이기 때문이다.
+  // 구분할 말은 사용자가 "새 사람으로 추가"를 누른 뒤에만 묻는다(docs/02 §5, 2026-09-26).
   // 자동완성 결과가 실패했거나 아직 안 왔으면 같은 이름이 있는지 모르는 상태다. 그때는 저장 직전
-  // 서버 재확인(mutationFn)이 막아 준다.
+  // 서버 재확인(mutationFn)이 판단한다.
   const sameName = sameNameCandidates(suggestions.data ?? [], nameText);
-  const needsLabel = !picked && trimName(nameText).length > 0 && sameName.length > 0;
-  const draftForSave = (): QuickRecordDraft => ({ ...draft, sameNameExists: needsLabel });
+  const needsLabel = labelFieldNeeded({
+    hasExisting: Boolean(picked),
+    sameNameCount: sameName.length,
+    wantsNewPerson: wantsNew,
+  });
+  const draftForSave = (): QuickRecordDraft => ({
+    ...draft,
+    sameNameCount: picked ? 0 : sameName.length,
+    wantsNewPerson: wantsNew,
+  });
 
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ['people'] });
@@ -121,7 +141,7 @@ export default function RecordScreen() {
 
   // 사람 → 행사 → 기록 순차 저장. existingEventId가 있으면 행사를 새로 만들지 않는다.
   const save = useMutation({
-    mutationFn: async (existingEventId: string | null) => {
+    mutationFn: async ({ existingEventId, personId: decided }: SaveVars) => {
       const validation = validateQuickRecord(draftForSave());
       if (!validation.ok) throw new Error(validation.errors.join('\n'));
 
@@ -130,14 +150,16 @@ export default function RecordScreen() {
         created.current.personId !== null && created.current.personName === newName
           ? created.current.personId
           : null;
-      let personId = draft.personId ?? reusable;
+      // onSave가 서버에 물어 이미 정한 사람이 있으면 그걸 쓴다. 두 번 묻지 않는다.
+      if (decided && created.current.personId && created.current.personId !== decided) {
+        // 앞선 시도에서 만든 사람·행사는 이 저장과 무관하다. 그대로 두면 실행 취소가 그 사람을
+        // 지우고, 기록이 그 사람이 당사자인 행사에 달린다.
+        created.current = { personId: null, personName: null, eventId: null };
+      }
+      let personId = draft.personId ?? decided ?? reusable;
       if (!personId) {
         // 화면의 자동완성은 8건 상한이고 실패할 수도 있다. 서버에 한 번 더 물어 같은 이름이
         // 있는데 구분할 말이 없으면 막는다. 라벨 없는 동명이인이 조용히 생기는 것을 막는 마지막 문이다.
-        const same = await findByNormalizedName(ledgerId, normalizeName(newName as string));
-        if (same.length > 0 && !validation.plan.personLabel) {
-          throw new Error('같은 이름이 이미 있어요. 구분할 말을 적어 주세요(예: 회사, 고등학교).');
-        }
         const madePerson = await createPerson(ledgerId, {
           name: newName as string,
           relation_group: draft.newPersonGroup,
@@ -214,6 +236,9 @@ export default function RecordScreen() {
   }
 
   // 저장 전에 같은 당사자·같은 종류·±7일 행사가 있는지 본다. 기록이 0건인 예정 행사도 잡힌다.
+  //
+  // **당사자를 먼저 정해야 이 확인이 돈다.** 이름만 쳐서 기존 사람에게 자동 연결되는 흔한 경우에
+  // 당사자가 정해지지 않으면 확인이 통째로 건너뛰어져 같은 행사가 하나 더 생긴다(2026-09-26 QA).
   async function onSave() {
     if (checking || save.isPending) return;
     setErrors([]);
@@ -223,33 +248,56 @@ export default function RecordScreen() {
       return;
     }
 
-    // 이미 이번 저장에서 행사를 만들었으면 다시 묻지 않는다(중간 실패 후 재시도).
-    if (draft.personId && draft.type && !created.current.eventId) {
-      setChecking(true);
-      try {
+    setChecking(true);
+    let hostId = draft.personId;
+    try {
+      if (!hostId) {
+        // 화면의 자동완성은 8건 상한이고 실패할 수도 있다. 저장 직전에 서버에 한 번 더 묻고
+        // 같은 규칙(resolveSameName)으로 판정한다. 이것이 마지막 문이다.
+        const typed = trimName(draft.newPersonName);
+        const same = await findByNormalizedName(ledgerId, normalizeName(typed));
+        const resolved = resolveSameName(
+          same.map((p) => ({ id: p.id as string, name: p.name, label: p.label })),
+          { wantsNewPerson: wantsNew, label: draft.newPersonLabel },
+        );
+        if (resolved.kind === 'needs_label') {
+          setErrors([SAME_NAME_LABEL_ERROR]);
+          return;
+        }
+        if (resolved.kind === 'choose') {
+          setErrors([CHOOSE_SAME_NAME_ERROR]);
+          return;
+        }
+        // 같은 이름이 한 명이면 그 사람이다. 새로 만들면 같은 사람의 수지가 둘로 갈린다.
+        if (resolved.kind === 'attach') hostId = resolved.personId;
+      }
+
+      // 이미 이번 저장에서 행사를 만들었으면 다시 묻지 않는다(중간 실패 후 재시도).
+      if (hostId && draft.type && !created.current.eventId) {
         const matches = await findMatchingEvent(ledgerId, {
-          hostPersonId: draft.personId,
+          hostPersonId: hostId,
           type: draft.type,
           date: draft.date,
         });
         const best = pickClosestEvent(matches, draft.date);
         if (best) {
+          const decided = hostId;
           Alert.alert('이미 있는 행사예요', `"${best.title}"에 이 기록을 추가할까요?`, [
             { text: '취소', style: 'cancel' },
-            { text: '새 행사로', onPress: () => save.mutate(null) },
-            { text: '기존에 추가', onPress: () => save.mutate(best.id) },
+            { text: '새 행사로', onPress: () => save.mutate({ existingEventId: null, personId: decided }) },
+            { text: '기존에 추가', onPress: () => save.mutate({ existingEventId: best.id, personId: decided }) },
           ]);
           return;
         }
-      } catch (error) {
-        // 조회가 실패했는데 그냥 진행하면 같은 행사를 하나 더 만든다. 멈추고 알린다.
-        setErrors([`기존 행사를 확인하지 못했습니다. 다시 시도해 주세요.\n${(error as Error).message}`]);
-        return;
-      } finally {
-        setChecking(false);
       }
+    } catch (error) {
+      // 조회가 실패했는데 그냥 진행하면 같은 사람·같은 행사를 하나 더 만든다. 멈추고 알린다.
+      setErrors([`기존 사람·행사를 확인하지 못했습니다. 다시 시도해 주세요.\n${(error as Error).message}`]);
+      return;
+    } finally {
+      setChecking(false);
     }
-    save.mutate(null);
+    save.mutate({ existingEventId: null, personId: hostId });
   }
 
   function NewPersonRow() {
@@ -328,6 +376,7 @@ export default function RecordScreen() {
                 value={nameText}
                 onChangeText={(next) => {
                   setNameText(next);
+                  setWantsNew(false);
                   patch({ newPersonName: next, personId: null });
                 }}
                 placeholder="이름"
