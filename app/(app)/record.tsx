@@ -78,11 +78,14 @@ export default function RecordScreen() {
   // 무엇을 만들었는지 기억해 두어야 (1) 재시도가 같은 사람을 또 만들지 않고
   // (2) 실행 취소가 새로 만든 것까지 정확히 지운다.
   // 이름도 함께 기억한다. 중간 실패 뒤 이름을 고쳐 다시 저장하면 앞 사람에게 돈이 붙는다.
-  const created = useRef<{ personId: string | null; personName: string | null; eventId: string | null }>({
-    personId: null,
-    personName: null,
-    eventId: null,
-  });
+  // 행사의 종류·날짜도 함께 기억한다. 그 둘을 고쳐 재시도하면 앞서 만든 행사는 다른 행사다.
+  const created = useRef<{
+    personId: string | null;
+    personName: string | null;
+    eventId: string | null;
+    eventType: string | null;
+    eventDate: string | null;
+  }>({ personId: null, personName: null, eventId: null, eventType: null, eventDate: null });
 
   function patch(next: Partial<QuickRecordDraft>) {
     setDraft((prev) => ({ ...prev, ...next }));
@@ -151,15 +154,24 @@ export default function RecordScreen() {
           ? created.current.personId
           : null;
       // onSave가 서버에 물어 이미 정한 사람이 있으면 그걸 쓴다. 두 번 묻지 않는다.
-      if (decided && created.current.personId && created.current.personId !== decided) {
-        // 앞선 시도에서 만든 사람·행사는 이 저장과 무관하다. 그대로 두면 실행 취소가 그 사람을
-        // 지우고, 기록이 그 사람이 당사자인 행사에 달린다.
-        created.current = { personId: null, personName: null, eventId: null };
-      }
       let personId = draft.personId ?? decided ?? reusable;
+      // 앞선 시도에서 만든 사람·행사는 **같은 사람일 때만** 유효하다.
+      // decided가 있을 때만 정리하면, 장부에 없는 이름으로 고쳐 재시도할 때(decided === null)
+      // 앞선 행사 참조가 살아남아 기록이 앞 사람이 당사자인 행사에 붙는다.
+      if (created.current.personId !== null && created.current.personId !== personId) {
+        created.current = { personId: null, personName: null, eventId: null, eventType: null, eventDate: null };
+      }
+      // 종류·날짜를 고쳐 재시도하면 앞서 만든 행사는 다른 행사다. 그 참조도 버린다.
+      if (
+        created.current.eventId !== null &&
+        (created.current.eventType !== draft.type || created.current.eventDate !== draft.date)
+      ) {
+        created.current.eventId = null;
+        created.current.eventType = null;
+        created.current.eventDate = null;
+      }
       if (!personId) {
-        // 화면의 자동완성은 8건 상한이고 실패할 수도 있다. 서버에 한 번 더 물어 같은 이름이
-        // 있는데 구분할 말이 없으면 막는다. 라벨 없는 동명이인이 조용히 생기는 것을 막는 마지막 문이다.
+        // 같은 이름 판정은 onSave에서 이미 끝났다(마지막 문은 거기다). 여기서는 만들기만 한다.
         const madePerson = await createPerson(ledgerId, {
           name: newName as string,
           relation_group: draft.newPersonGroup,
@@ -189,6 +201,8 @@ export default function RecordScreen() {
         });
         eventId = madeEvent.id;
         created.current.eventId = madeEvent.id;
+        created.current.eventType = draft.type;
+        created.current.eventDate = draft.date;
       } else {
         eventTitle = (await getEvent(ledgerId, eventId))?.title ?? '';
       }
@@ -211,7 +225,7 @@ export default function RecordScreen() {
     onSuccess: ({ refs, amount, eventTitle }) => {
       invalidate();
       const step = undoPlan(refs);
-      created.current = { personId: null, personName: null, eventId: null };
+      created.current = { personId: null, personName: null, eventId: null, eventType: null, eventDate: null };
       toast.show({
         message: `${eventTitle} · ${formatWonShort(amount)} 저장했습니다`,
         actionLabel: '실행 취소',
@@ -249,7 +263,14 @@ export default function RecordScreen() {
     }
 
     setChecking(true);
-    let hostId = draft.personId;
+    // 중간 실패 뒤 그대로 재시도하는 경우, 이번 저장에서 이미 만든 사람이 서버 조회에 후보로
+    // 잡혀 "구분할 말을 적어 주세요"로 막힌다. 그런데 화면은 아직 그 사람을 몰라 칸도 뜨지 않는다.
+    // 내가 만든 사람이면 그 사람으로 확정하고 다시 묻지 않는다(S09와 같은 순서).
+    const madeThisRound =
+      created.current.personId !== null && created.current.personName === trimName(draft.newPersonName)
+        ? created.current.personId
+        : null;
+    let hostId = draft.personId ?? madeThisRound;
     try {
       if (!hostId) {
         // 화면의 자동완성은 8건 상한이고 실패할 수도 있다. 저장 직전에 서버에 한 번 더 묻고
