@@ -8,6 +8,13 @@ import {
   guessMapping,
   mapEventType,
   mappingErrors,
+  applyDupChoice,
+  attachedDisplayName,
+  chooseExisting,
+  chooseNewPerson,
+  refreshFileDuplicates,
+  rowLabelNeeded,
+  issueLabel,
   markSameNames,
   parseImportedDate,
   planSave,
@@ -117,13 +124,84 @@ test('명부 가져오기는 구분 열이 행사 종류와 다르면 경고만 
   assert.deepEqual(rows[1]?.issues, []);
 });
 
-test('장부에 같은 이름이 있으면 구분할 말이나 기존 사람 선택이 필요하다', () => {
-  const rows = markSameNames(rowsOf(sample), new Map([['홍길동', ['p1']]]));
+test('장부에 같은 이름이 한 명이면 그 사람에게 자동 연결되고 그대로 저장된다', () => {
+  // 명부를 가져오면 이름이 겹치는 것이 정상이고 대개 같은 사람이다. 막지 않는다.
+  const rows = markSameNames(rowsOf(sample), new Map([['홍길동', [{ id: 'p1', name: '홍길동' }]]]));
   const hong = rows[0] as ImportRow;
   assert.ok(hong.issues.includes('same_name_in_ledger'));
+  assert.equal(hong.attachTo, 'p1');
+  assert.equal(rowStatus(hong), 'ok');
+  assert.equal(attachedDisplayName(hong), '홍길동');
+  // 조용히 붙이지 않는다. 미리보기 문구로 알린다.
+  assert.equal(issueLabel(hong, 'same_name_in_ledger'), '기존 "홍길동"에 연결');
+  // 저장 계획도 기존 사람 키로 묶인다 — 사람이 새로 생기지 않는다
+  const plan = planSave([hong], 'given');
+  assert.equal(plan[0]?.attachTo, 'p1');
+  assert.equal(plan[0]?.personKey, 'id:p1');
+});
+
+test('장부에 같은 이름이 둘 이상이면 그때만 골라야 한다', () => {
+  const rows = markSameNames(
+    rowsOf(sample),
+    new Map([['홍길동', [{ id: 'p1', name: '홍길동', label: '회사' }, { id: 'p2', name: '홍길동' }]]]),
+  );
+  const hong = rows[0] as ImportRow;
+  assert.equal(hong.attachTo, null);
   assert.equal(rowStatus(hong), 'fix');
-  assert.equal(rowStatus({ ...hong, label: '회사' }), 'ok');
-  assert.equal(rowStatus({ ...hong, attachTo: 'p1' }), 'ok');
+  assert.ok(issueLabel(hong, 'same_name_in_ledger').includes('2명'));
+  assert.equal(rowStatus({ ...hong, attachTo: 'p2' }), 'ok');
+});
+
+test('"다른 사람이에요"로 바꾼 경우에만 구분할 말을 요구한다', () => {
+  const rows = markSameNames(rowsOf(sample), new Map([['홍길동', [{ id: 'p1', name: '홍길동' }]]]));
+  const hong = rows[0] as ImportRow;
+  const asNew = { ...hong, attachTo: null, wantsNew: true };
+  assert.equal(rowStatus(asNew), 'fix');
+  assert.equal(issueLabel(asNew, 'same_name_in_ledger'), '새 사람으로 만들려면 구분할 말이 필요합니다');
+  assert.equal(rowStatus({ ...asNew, label: '회사' }), 'ok');
+  // 새 사람이면 기존 사람 키로 묶이지 않는다
+  const plan = planSave([{ ...asNew, label: '회사' }], 'given');
+  assert.equal(plan[0]?.attachTo, null);
+  assert.equal(plan[0]?.label, '회사');
+});
+
+test('같은 이름이 장부에 없으면 아무것도 묻지 않는다', () => {
+  const rows = markSameNames(rowsOf(sample), new Map());
+  const hong = rows[0] as ImportRow;
+  assert.equal(hong.issues.includes('same_name_in_ledger'), false);
+  assert.equal(hong.attachTo, null);
+  assert.equal(rowStatus(hong), 'ok');
+});
+
+test('파일 안에 같은 이름이 둘이면 장부 후보가 하나여도 자동 연결하지 않는다', () => {
+  // 그 둘이 같은 사람인지 모르는 채 둘 다 기존 한 사람에게 붙이면 남의 기록이 섞인다.
+  const table = [['이름', '금액', '구분'], ['홍길동', 50000, '결혼식'], ['홍길동', 30000, '결혼식']];
+  const rows = markSameNames(rowsOf(table), new Map([['홍길동', [{ id: 'p1', name: '홍길동' }]]]));
+  const first = rows[0] as ImportRow;
+  assert.equal(first.attachTo, null);
+  assert.equal(rowStatus(first), 'fix');
+
+  assert.equal(
+    issueLabel(first, 'same_name_in_ledger'),
+    '장부에도 같은 이름이 있음 — 같은 사람으로 정하면 그 사람에게 연결됩니다',
+  );
+
+  // "같은 사람"이라고 하면 그제야 장부의 한 명에게 연결된다
+  const same = applyDupChoice(rows, '홍길동', 'same');
+  assert.equal((same[0] as ImportRow).attachTo, 'p1');
+  assert.equal((same[1] as ImportRow).attachTo, 'p1');
+  assert.equal(rowStatus(same[0] as ImportRow), 'ok');
+  const plan = planSave(same, 'given');
+  assert.equal(plan[0]?.personKey, plan[1]?.personKey);
+  assert.equal(plan[0]?.personKey, 'id:p1');
+
+  // "다른 사람"이면 각자 구분할 말이 필요하고 서로 다른 사람으로 저장된다
+  const diff = applyDupChoice(rows, '홍길동', 'different');
+  assert.equal(rowStatus(diff[0] as ImportRow), 'fix');
+  const labelled = diff.map((r, i) => ({ ...r, label: i === 0 ? '회사' : '학교' }));
+  assert.equal(rowStatus(labelled[0] as ImportRow), 'ok');
+  const plan2 = planSave(labelled, 'given');
+  assert.notEqual(plan2[0]?.personKey, plan2[1]?.personKey);
 });
 
 test('파일 안 중복은 같은 사람인지 다른 사람인지 골라야 한다', () => {
@@ -149,4 +227,118 @@ test('요약은 저장·건너뜀·수정 필요를 세고 수정 필요가 0이
   assert.deepEqual(summarize(fixed), { save: 2, skip: 1, fix: 0, total: 3, totalAmount: 80000 });
   assert.equal(canSave(fixed), true);
   assert.equal(planSave(fixed, 'given').length, 2);
+});
+
+// ------------------------------------------------- 막다른 길이 생기지 않는지
+// "저장은 막히는데 고칠 칸이 없는" 조합이 있으면 사용자는 건너뛰기밖에 못 한다.
+test('저장이 막히는 모든 행은 고칠 길이 있다 — 라벨 칸이 뜨거나 고를 후보가 있다', () => {
+  const base = markSameNames(rowsOf(sample), new Map())[0] as ImportRow;
+  const two = [{ id: 'p1', name: '홍길동' }, { id: 'p2', name: '홍길동' }];
+  const cases: ImportRow[] = [];
+  for (const people of [[], [{ id: 'p1', name: '홍길동' }], two]) {
+    for (const inFile of [false, true]) {
+      for (const dup of [null, 'same', 'different'] as const) {
+        for (const wantsNew of [false, true]) {
+          for (const attachTo of [null, 'p1']) {
+            cases.push({
+              ...base,
+              existingPeople: people,
+              issues: inFile ? ['same_name_in_file'] : [],
+              dupChoice: inFile ? dup : null,
+              wantsNew,
+              attachTo,
+              label: '',
+            });
+          }
+        }
+      }
+    }
+  }
+  for (const row of cases) {
+    if (rowStatus(row) !== 'fix') continue;
+    const fixable =
+      rowLabelNeeded(row) || // 구분할 말 칸이 뜬다
+      row.existingPeople.length > 1 || // 후보 칩에서 고를 수 있다
+      (row.issues.includes('same_name_in_file') && row.dupChoice === null); // 같은 사람/다른 사람 칩
+    assert.ok(fixable, `막다른 길: ${JSON.stringify(row)}`);
+  }
+});
+
+test('파일 안 중복을 다른 사람으로 나누면 장부에 같은 이름이 없어도 구분 칸이 뜬다', () => {
+  // 빈 장부에 첫 명부를 넣는 흔한 경로다. 예전에는 칸이 안 떠서 저장이 영구히 막혔다.
+  const table = [['이름', '금액', '구분'], ['홍길동', 50000, '결혼식'], ['홍길동', 30000, '결혼식']];
+  const rows = applyDupChoice(markSameNames(rowsOf(table), new Map()), '홍길동', 'different');
+  const first = rows[0] as ImportRow;
+  assert.equal(first.existingPeople.length, 0);
+  assert.equal(rowStatus(first), 'fix');
+  assert.equal(rowLabelNeeded(first), true);
+  assert.equal(rowStatus({ ...first, label: '회사' }), 'ok');
+});
+
+test('파일 안 중복을 다른 사람으로 나눈 뒤 기존 사람에게 붙이면 라벨은 필요 없다', () => {
+  const table = [['이름', '금액', '구분'], ['홍길동', 50000, '결혼식'], ['홍길동', 30000, '결혼식']];
+  const rows = applyDupChoice(
+    markSameNames(rowsOf(table), new Map([['홍길동', [{ id: 'p1', name: '홍길동' }]]])),
+    '홍길동',
+    'different',
+  );
+  const attached = chooseExisting(rows[0] as ImportRow, 'p1');
+  assert.equal(rowLabelNeeded(attached), false);
+  assert.equal(rowStatus(attached), 'ok');
+});
+
+test('후보 칩을 누르면 "새 사람" 의사와 적어 둔 라벨이 함께 정리된다', () => {
+  const rows = markSameNames(rowsOf(sample), new Map([['홍길동', [{ id: 'p1', name: '홍길동' }]]]));
+  const asNew = { ...chooseNewPerson(rows[0] as ImportRow), label: '회사' };
+  const back = chooseExisting(asNew, 'p1');
+  assert.equal(back.wantsNew, false);
+  assert.equal(back.label, '');
+  assert.equal(back.attachTo, 'p1');
+  assert.equal(rowStatus(back), 'ok');
+  // 저장 계획도 기존 사람 키로만 묶인다 — wantsNew가 남아 각자 갈라지면 안 된다
+  assert.equal(planSave([back], 'given')[0]?.personKey, 'id:p1');
+  assert.equal(planSave([back], 'given')[0]?.label, null);
+});
+
+test('같은 사람으로 되돌리면 다른 사람일 때 적어 둔 라벨을 버린다', () => {
+  const table = [['이름', '금액', '구분'], ['홍길동', 50000, '결혼식'], ['홍길동', 30000, '결혼식']];
+  const rows = markSameNames(rowsOf(table), new Map([['홍길동', [{ id: 'p1', name: '홍길동' }]]]));
+  const diff = applyDupChoice(rows, '홍길동', 'different').map((r) => ({ ...r, label: '회사' }));
+  const same = applyDupChoice(diff, '홍길동', 'same');
+  assert.equal((same[0] as ImportRow).label, '');
+  assert.equal((same[0] as ImportRow).attachTo, 'p1');
+});
+
+test('같은 사람인데 장부 후보가 둘이면 여전히 골라야 한다', () => {
+  const table = [['이름', '금액', '구분'], ['홍길동', 50000, '결혼식'], ['홍길동', 30000, '결혼식']];
+  const rows = markSameNames(
+    rowsOf(table),
+    new Map([['홍길동', [{ id: 'p1', name: '홍길동' }, { id: 'p2', name: '홍길동' }]]]),
+  );
+  const same = applyDupChoice(rows, '홍길동', 'same');
+  assert.equal((same[0] as ImportRow).attachTo, null);
+  assert.equal(rowStatus(same[0] as ImportRow), 'fix');
+});
+
+test('짝을 건너뛰면 남은 한 행은 더 묻지 않고 장부 후보에 자동 연결된다', () => {
+  const table = [['이름', '금액', '구분'], ['홍길동', 50000, '결혼식'], ['홍길동', 30000, '결혼식']];
+  const rows = markSameNames(rowsOf(table), new Map([['홍길동', [{ id: 'p1', name: '홍길동' }]]]));
+  const after = refreshFileDuplicates(rows.map((r, i) => (i === 1 ? { ...r, skip: true } : r)));
+  const left = after[0] as ImportRow;
+  assert.equal(left.issues.includes('same_name_in_file'), false);
+  assert.equal(left.attachTo, 'p1');
+  assert.equal(rowStatus(left), 'ok');
+});
+
+test('건너뛰기는 다른 모든 문제보다 앞선다', () => {
+  const base = markSameNames(rowsOf(sample), new Map())[0] as ImportRow;
+  const broken: ImportRow = {
+    ...base,
+    issues: ['empty_name', 'bad_amount', 'same_name_in_file'],
+    existingPeople: [{ id: 'p1', name: '홍길동' }],
+    wantsNew: true,
+  };
+  assert.equal(rowStatus(broken), 'fix');
+  assert.equal(rowStatus({ ...broken, skip: true }), 'skip');
+  assert.equal(rowLabelNeeded({ ...broken, skip: true }), false);
 });

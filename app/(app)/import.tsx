@@ -28,7 +28,12 @@ import {
   guessMapping,
   issueLabel,
   mappingErrors,
+  applyDupChoice,
+  chooseExisting,
+  chooseNewPerson,
   markSameNames,
+  refreshFileDuplicates,
+  rowLabelNeeded,
   planSave,
   rowStatus,
   summarize,
@@ -162,9 +167,15 @@ export default function ImportScreen() {
         const key = p.name_normalized ?? '';
         byKey.set(key, [...(byKey.get(key) ?? []), p]);
       }
-      const ids = new Map<string, string[]>([...byKey.entries()].map(([k, v]) => [k, v.map((p) => p.id as string)]));
+      // 후보의 id와 이름을 함께 넘긴다. 미리보기 문구("기존 ○○○에 연결")를 도메인이 만든다.
+      const cands = new Map(
+        [...byKey.entries()].map(([k, v]) => [
+          k,
+          v.map((p) => ({ id: p.id as string, name: p.name, label: p.label })),
+        ]),
+      );
       setCandidates(byKey);
-      setRows(markSameNames(built, ids));
+      setRows(markSameNames(built, cands));
       state.current = emptyImportState();
       setStep('preview');
     } catch (e) {
@@ -174,13 +185,19 @@ export default function ImportScreen() {
     }
   }
 
+  // 건너뛰기가 파일 안 중복 계산을 바꾸므로 판정을 매번 다시 접는다(판정은 도메인이 한다).
   function patchRow(index: number, next: Partial<ImportRow>) {
-    setRows((prev) => prev.map((r) => (r.index === index ? { ...r, ...next } : r)));
+    setRows((prev) => refreshFileDuplicates(prev.map((r) => (r.index === index ? { ...r, ...next } : r))));
+  }
+
+  function patchRowWith(index: number, fn: (row: ImportRow) => ImportRow) {
+    setRows((prev) => refreshFileDuplicates(prev.map((r) => (r.index === index ? fn(r) : r))));
   }
 
   // 파일 안 중복은 같은 이름 행 전부에 같은 선택을 적용한다. 행마다 따로 고르게 하면 어긋난다.
+  // 판정은 도메인이 한다(같은 사람이면 장부 후보 한 명에게 연결하는 것까지).
   function chooseDup(nameKey: string, choice: 'same' | 'different') {
-    setRows((prev) => prev.map((r) => (r.nameKey === nameKey ? { ...r, dupChoice: choice } : r)));
+    setRows((prev) => refreshFileDuplicates(applyDupChoice(prev, nameKey, choice)));
   }
 
   const summary = useMemo(() => summarize(rows), [rows]);
@@ -396,6 +413,7 @@ export default function ImportScreen() {
               row={item}
               candidates={candidates.get(item.nameKey) ?? []}
               onPatch={(next) => patchRow(item.index, next)}
+              onPatchWith={(fn) => patchRowWith(item.index, fn)}
               onChooseDup={(choice) => chooseDup(item.nameKey, choice)}
             />
           )}
@@ -499,11 +517,13 @@ function PreviewRow({
   row,
   candidates,
   onPatch,
+  onPatchWith,
   onChooseDup,
 }: {
   row: ImportRow;
   candidates: PersonBalance[];
   onPatch: (next: Partial<ImportRow>) => void;
+  onPatchWith: (fn: (row: ImportRow) => ImportRow) => void;
   onChooseDup: (choice: 'same' | 'different') => void;
 }) {
   const { colors, space, font, radius } = useTokens();
@@ -511,7 +531,8 @@ function PreviewRow({
   const tone = status === 'fix' ? colors.danger : status === 'warn' ? colors.received : colors.textMuted;
   const inLedger = row.issues.includes('same_name_in_ledger');
   const inFile = row.issues.includes('same_name_in_file');
-  const needsLabelField = !row.skip && ((inLedger && row.attachTo === null) || (inFile && row.dupChoice === 'different'));
+  // 칸을 띄울 조건은 도메인이 정한다. 화면이 따로 조립하면 rowStatus와 갈려 막다른 길이 생긴다.
+  const needsLabelField = rowLabelNeeded(row);
 
   return (
     <View
@@ -554,10 +575,10 @@ function PreviewRow({
               key={c.id as string}
               label={`기존 ${displayName(c)}`}
               selected={row.attachTo === c.id}
-              onPress={() => onPatch({ attachTo: row.attachTo === c.id ? null : (c.id as string) })}
+              onPress={() => onPatchWith((r) => chooseExisting(r, c.id as string))}
             />
           ))}
-          <Chip label="새 사람" selected={row.attachTo === null} onPress={() => onPatch({ attachTo: null })} />
+          <Chip label="다른 사람이에요" selected={row.wantsNew} onPress={() => onPatchWith(chooseNewPerson)} />
         </View>
       )}
       {!row.skip && inFile && (

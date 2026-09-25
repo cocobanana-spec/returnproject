@@ -4,6 +4,7 @@
 import { EVENT_TYPE_LABEL, type EventType } from './constants.ts';
 import { AMOUNT_ERROR_LABEL, parseImportedAmount } from './importAmount.ts';
 import { isValidName, normalizeName, trimName } from './name.ts';
+import { displayName, resolveSameName, type SameNameCandidate } from './person.ts';
 
 export type ImportTarget = 'given' | 'received';
 
@@ -180,8 +181,12 @@ export type ImportRow = {
   // 사용자 수정
   skip: boolean;
   label: string;
-  // 장부에 같은 이름이 있을 때 — 기존 사람에게 붙일지(id) 새 사람으로 만들지(null)
+  // 장부에 있는 같은 이름 후보. 미리보기가 칩으로 보여 주고 판정도 이걸로 한다.
+  existingPeople: SameNameCandidate[];
+  // 기존 사람에게 붙일 때 그 사람의 id. 후보가 딱 한 명이면 자동으로 채워진다.
   attachTo: string | null;
+  // 사용자가 "새 사람"을 고른 경우에만 true. 이때만 구분할 말을 요구한다.
+  wantsNew: boolean;
   // 파일 안 중복 — 같은 사람('same') / 다른 사람('different') / 미결(null)
   dupChoice: 'same' | 'different' | null;
 };
@@ -235,22 +240,118 @@ export function buildRows(table: Table, mapping: Mapping, opts: BuildOptions): I
       issues,
       skip: false,
       label: '',
+      existingPeople: [],
       attachTo: null,
+      wantsNew: false,
       dupChoice: null,
     };
   });
 }
 
-// 장부에 있는 같은 이름과 파일 안 중복을 표시한다. existing은 정규화 이름 → 후보 id 목록.
-export function markSameNames(rows: ImportRow[], existing: Map<string, string[]>): ImportRow[] {
+// 장부에 있는 같은 이름과 파일 안 중복을 표시한다. existing은 정규화 이름 → 후보 목록.
+//
+// **후보가 딱 한 명이면 그 사람에게 자동으로 연결한다.** 명부를 가져올 때 이름이 겹치는 것은
+// 정상이고 대개 같은 사람이다(2026-09-26 사용자 피드백). 다만 조용히 붙이지는 않는다.
+// 미리보기 행에 "기존 ○○○에 연결"이라고 남겨 사용자가 알아보고 바꿀 수 있게 한다.
+//
+// 파일 안에 같은 이름이 둘 이상이면 자동 연결하지 않는다. 그 둘이 같은 사람인지 다른 사람인지
+// 모르는 채로 둘 다 기존 한 사람에게 붙이면 남의 기록이 섞인다. 먼저 물어야 한다.
+export function markSameNames(
+  rows: ImportRow[],
+  existing: Map<string, SameNameCandidate[]>,
+): ImportRow[] {
   const counts = new Map<string, number>();
   for (const row of rows) if (row.nameKey) counts.set(row.nameKey, (counts.get(row.nameKey) ?? 0) + 1);
   return rows.map((row) => {
     const issues: RowIssue[] = row.issues.filter((i) => i !== 'same_name_in_ledger' && i !== 'same_name_in_file');
-    if (row.nameKey && (existing.get(row.nameKey)?.length ?? 0) > 0) issues.push('same_name_in_ledger');
-    if (row.nameKey && (counts.get(row.nameKey) ?? 0) > 1) issues.push('same_name_in_file');
-    return { ...row, issues };
+    const candidates = row.nameKey ? (existing.get(row.nameKey) ?? []) : [];
+    const inFile = row.nameKey ? (counts.get(row.nameKey) ?? 0) > 1 : false;
+    if (candidates.length > 0) issues.push('same_name_in_ledger');
+    if (inFile) issues.push('same_name_in_file');
+    const auto =
+      !inFile && candidates.length === 1 ? ((candidates[0] as SameNameCandidate).id as string) : null;
+    return { ...row, issues, existingPeople: candidates, attachTo: auto, wantsNew: false };
   });
+}
+
+// 파일 안 중복 선택을 같은 이름 행 전부에 적용한다. "같은 사람"이면 장부 후보가 한 명일 때
+// 거기에 연결한다(파일 안 모호함이 풀렸으므로 자동 연결의 조건이 갖춰진다).
+export function applyDupChoice(
+  rows: ImportRow[],
+  nameKey: string,
+  choice: 'same' | 'different',
+): ImportRow[] {
+  return rows.map((row) => {
+    if (row.nameKey !== nameKey) return row;
+    if (choice === 'different') return { ...row, dupChoice: choice, attachTo: null, wantsNew: true };
+    const only = row.existingPeople.length === 1 ? (row.existingPeople[0] as SameNameCandidate) : null;
+    // 같은 사람으로 되돌리면 "다른 사람"일 때 적어 둔 구분할 말은 버린다. 남으면 엉뚱한 라벨이 붙는다.
+    return {
+      ...row,
+      dupChoice: choice,
+      attachTo: row.attachTo ?? (only ? (only.id as string) : null),
+      wantsNew: false,
+      label: '',
+    };
+  });
+}
+
+// 이 행이 장부의 같은 이름을 어떻게 처리할지. 상태 판정과 문구가 같은 곳을 본다.
+export function rowSameName(row: ImportRow) {
+  return resolveSameName(row.existingPeople, { wantsNewPerson: row.wantsNew, label: row.label });
+}
+
+// 구분할 말 칸을 띄워야 하는지. **화면이 이 조건을 따로 조립하면 안 된다.**
+// rowStatus가 라벨을 요구하는 조건과 정확히 같아야 한다. 갈리면 "저장은 막히는데 고칠 칸이 없는"
+// 막다른 길이 생긴다(2026-09-26 QA). 라벨을 이미 적었어도 true다 — 타이핑 중에 칸이 사라지면 안 된다.
+export function rowLabelNeeded(row: ImportRow): boolean {
+  if (row.skip) return false;
+  // 파일 안 동명이인을 다른 사람으로 나눴으면, 장부에 같은 이름이 없더라도 구분할 말이 있어야
+  // 나중에 둘을 가를 수 있다. 기존 사람에게 붙인 행은 그 사람이므로 필요 없다.
+  if (row.issues.includes('same_name_in_file') && row.dupChoice === 'different' && row.attachTo === null) {
+    return true;
+  }
+  // 장부에 같은 이름이 있는데 "다른 사람이에요"를 고른 경우.
+  return row.attachTo === null && row.wantsNew && row.existingPeople.length > 0;
+}
+
+// 미리보기에서 기존 사람 칩을 눌렀을 때. 이 행이 그 사람이라고 정한 것이므로
+// "새 사람" 의사와 적어 둔 구분할 말은 의미를 잃는다. 함께 정리하지 않으면 모순된 상태가 남는다.
+export function chooseExisting(row: ImportRow, personId: string): ImportRow {
+  return { ...row, attachTo: personId, wantsNew: false, label: '' };
+}
+
+// "다른 사람이에요"를 눌렀을 때.
+export function chooseNewPerson(row: ImportRow): ImportRow {
+  return { ...row, attachTo: null, wantsNew: true };
+}
+
+// 건너뛴 행은 파일 안 중복 계산에서 뺀다. 짝을 건너뛰면 남은 한 행은 더 물을 것이 없고,
+// 모호함이 사라졌으니 장부 후보가 한 명이면 그때 자동 연결된다.
+export function refreshFileDuplicates(rows: ImportRow[]): ImportRow[] {
+  const counts = new Map<string, number>();
+  for (const r of rows) {
+    if (!r.skip && r.nameKey) counts.set(r.nameKey, (counts.get(r.nameKey) ?? 0) + 1);
+  }
+  return rows.map((r) => {
+    const dup = !r.skip && r.nameKey ? (counts.get(r.nameKey) ?? 0) > 1 : false;
+    const had = r.issues.includes('same_name_in_file');
+    if (dup === had) return r;
+    const issues = dup
+      ? [...r.issues, 'same_name_in_file' as RowIssue]
+      : r.issues.filter((i) => i !== 'same_name_in_file');
+    if (dup) return { ...r, issues, attachTo: null };
+    const only = r.existingPeople.length === 1 ? (r.existingPeople[0] as SameNameCandidate) : null;
+    const attachTo = r.attachTo ?? (!r.wantsNew && only ? (only.id as string) : null);
+    return { ...r, issues, dupChoice: null, attachTo };
+  });
+}
+
+// 자동 연결된(또는 사용자가 고른) 기존 사람의 표시 이름.
+export function attachedDisplayName(row: ImportRow): string | null {
+  if (row.attachTo === null) return null;
+  const found = row.existingPeople.find((p) => p.id === row.attachTo);
+  return found ? displayName(found) : null;
 }
 
 export type RowStatus = 'ok' | 'warn' | 'fix' | 'skip';
@@ -259,11 +360,14 @@ export type RowStatus = 'ok' | 'warn' | 'fix' | 'skip';
 export function rowStatus(row: ImportRow): RowStatus {
   if (row.skip) return 'skip';
   if (row.issues.includes('empty_name') || row.issues.includes('bad_amount')) return 'fix';
-  if (row.issues.includes('same_name_in_ledger') && row.attachTo === null && row.label.trim().length === 0) return 'fix';
-  if (row.issues.includes('same_name_in_file')) {
-    if (row.dupChoice === null) return 'fix';
-    if (row.dupChoice === 'different' && row.label.trim().length === 0) return 'fix';
+  // 파일 안 중복이 먼저다. 같은 사람인지 다른 사람인지 정해야 장부 연결을 판단할 수 있다.
+  // 기존 사람에게 붙인 행은 그것으로 정해진 것이므로 더 묻지 않는다.
+  if (row.attachTo === null && row.issues.includes('same_name_in_file') && row.dupChoice === null) {
+    return 'fix';
   }
+  // 라벨을 요구하는 조건은 rowLabelNeeded 하나만 본다. 화면이 띄우는 칸과 같은 조건이다.
+  if (rowLabelNeeded(row) && row.label.trim().length === 0) return 'fix';
+  if (row.attachTo === null && rowSameName(row).kind === 'choose') return 'fix';
   if (row.issues.includes('unitless_amount') || row.issues.includes('unknown_type') || row.issues.includes('type_mismatch')) {
     return 'warn';
   }
@@ -284,10 +388,18 @@ export function issueLabel(row: ImportRow, issue: RowIssue): string {
       return row.typeText ? `종류 미확인 "${row.typeText}" — 기타로 둠` : '종류 없음 — 기타로 둠';
     case 'type_mismatch':
       return `행사 종류와 다름 "${row.typeText}"`;
-    case 'same_name_in_ledger':
-      return '장부에 같은 이름이 있음';
+    case 'same_name_in_ledger': {
+      const attached = attachedDisplayName(row);
+      if (attached) return `기존 "${attached}"에 연결`;
+      const resolved = rowSameName(row);
+      if (resolved.kind === 'choose') return `장부에 같은 이름이 ${resolved.count}명 있음 — 누구인지 골라 주세요`;
+      if (resolved.kind === 'needs_label') return '새 사람으로 만들려면 구분할 말이 필요합니다';
+      // 남은 경우는 파일 안 중복 때문에 아직 연결을 미뤄 둔 행뿐이다. 무엇을 하면 되는지 말해 준다.
+      return '장부에도 같은 이름이 있음 — 같은 사람으로 정하면 그 사람에게 연결됩니다';
+    }
     case 'same_name_in_file':
-      return '파일 안에 같은 이름이 둘 이상';
+      if (row.attachTo !== null || row.dupChoice !== null) return '파일 안에 같은 이름이 둘 이상';
+      return '파일 안에 같은 이름이 둘 이상 — 같은 사람인지 골라 주세요';
   }
 }
 
@@ -334,7 +446,7 @@ export function planSave(rows: ImportRow[], target: ImportTarget): SaveItem[] {
     const status = rowStatus(row);
     if (status === 'skip' || status === 'fix' || row.amount === null) continue;
     const label = row.label.trim() || null;
-    const different = row.dupChoice === 'different';
+    const different = row.dupChoice === 'different' || row.wantsNew;
     // 다른 사람이면 행 번호까지 키에 넣어 각자 만든다. 같은 사람이면 이름 키로 묶인다.
     const personKey = row.attachTo ? `id:${row.attachTo}` : different ? `${row.nameKey}#${row.index}` : row.nameKey;
     items.push({
