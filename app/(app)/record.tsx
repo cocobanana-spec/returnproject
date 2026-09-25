@@ -7,7 +7,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
   EVENT_TYPES,
@@ -41,7 +41,6 @@ import {
   createPerson,
   deletePerson,
   findByNormalizedName,
-  listRecentPeople,
   searchPeopleByPrefix,
   type PersonBalance,
 } from '../../src/repositories/people';
@@ -87,12 +86,6 @@ export default function RecordScreen() {
     queryKey: queryKeys.people.search(ledgerId, prefix),
     queryFn: () => searchPeopleByPrefix(ledgerId, prefix),
     enabled: !picked && prefix.length > 0,
-  });
-
-  const recent = useQuery({
-    queryKey: queryKeys.people.recent(ledgerId),
-    queryFn: () => listRecentPeople(ledgerId, 5),
-    enabled: !picked && prefix.length === 0,
   });
 
   function choosePerson(person: PersonBalance) {
@@ -277,7 +270,8 @@ export default function RecordScreen() {
   }
 
   const showSuggestions = !picked;
-  const list = prefix.length > 0 ? (suggestions.data ?? []) : (recent.data ?? []);
+  // 최근 기록한 사람 칩은 사용자 요청(2026-09-25)으로 뺐다. 입력에 따른 자동완성만 남긴다.
+  const list = prefix.length > 0 ? (suggestions.data ?? []) : [];
   const dupKeys = duplicateNameKeys(list);
 
   return (
@@ -287,6 +281,16 @@ export default function RecordScreen() {
           headerLeft: () => (
             <Pressable onPress={() => router.back()} hitSlop={8}>
               <Text style={{ color: colors.text, fontSize: font.body }}>취소</Text>
+            </Pressable>
+          ),
+          headerRight: () => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="가져오기"
+              hitSlop={8}
+              onPress={() => router.push('/import?target=given')}
+            >
+              <Ionicons name="cloud-upload-outline" size={22} color={colors.text} />
             </Pressable>
           ),
         }}
@@ -342,20 +346,9 @@ export default function RecordScreen() {
                 }}
               />
 
-              {showSuggestions && (
+              {showSuggestions && prefix.length > 0 && (
                 <View style={{ gap: space.xs }}>
-                  {prefix.length === 0 && list.length > 0 && (
-                    <Text style={{ color: colors.textMuted, fontSize: font.caption }}>최근 기록한 사람</Text>
-                  )}
-                  {prefix.length === 0 ? (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                      <View style={{ flexDirection: 'row', gap: space.sm }}>
-                        {list.map((p) => (
-                          <Chip key={p.id} label={displayName(p)} onPress={() => choosePerson(p)} />
-                        ))}
-                      </View>
-                    </ScrollView>
-                  ) : suggestions.isError ? (
+                  {suggestions.isError ? (
                     // 조회 실패를 "그런 사람 없음"으로 읽으면 이미 있는 사람을 또 만들게 된다.
                     <Text style={{ color: colors.danger, fontSize: font.caption }}>
                       이름을 확인하지 못했습니다. 연결을 확인하고 다시 시도해 주세요.
