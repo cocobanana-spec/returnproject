@@ -46,6 +46,8 @@ export const queryKeys = {
       ['stats', 'byYear', { ledgerId, year }] as const,
     // 통계 화면은 연도 세그먼트를 만들려고 전체 연도를 한 번에 받는다.
     allYears: (ledgerId: string) => ['stats', 'allYears', { ledgerId }] as const,
+    // 행사별 집계. 통계의 행사별 블록이 쓴다.
+    eventTotals: (ledgerId: string) => ['stats', 'eventTotals', { ledgerId }] as const,
     // 사람별 상위. 연도가 키에 들어가야 전체 기간과 연도별 결과가 섞이지 않는다.
     topPeople: (ledgerId: string, year: number | null) =>
       ['stats', 'topPeople', { ledgerId, year }] as const,

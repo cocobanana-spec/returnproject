@@ -1,6 +1,12 @@
 // 통계 리포지토리. 서버 RPC가 연도·방향·종류·그룹으로 쪼갠 행을 도메인 함수가 접는다
 import { db } from '../lib/supabaseClient.ts';
-import { foldYearStats, type PersonStatsRow, type StatsRow, type YearStats } from '../domain/stats.ts';
+import {
+  foldYearStats,
+  type EventTotalRow,
+  type PersonStatsRow,
+  type StatsRow,
+  type YearStats,
+} from '../domain/stats.ts';
 import { toRepositoryError } from './types.ts';
 
 export async function getYearStats(
@@ -37,4 +43,19 @@ export async function listTopPeopleByYear(
     .limit(limit);
   if (error) throw toRepositoryError(error);
   return (data ?? []) as PersonStatsRow[];
+}
+
+// 행사별 집계(S11). year·isMine을 생략하면 전체다(마이그레이션 0006).
+// 행사마다 event_summary를 부르지 않기 위한 함수다.
+export async function listEventTotals(
+  ledgerId: string,
+  opts?: { year?: number | null; isMine?: boolean | null },
+): Promise<EventTotalRow[]> {
+  const { data, error } = await db().rpc('event_totals', {
+    p_ledger_id: ledgerId,
+    ...(opts?.year === null || opts?.year === undefined ? {} : { p_year: opts.year }),
+    ...(opts?.isMine === null || opts?.isMine === undefined ? {} : { p_is_mine: opts.isMine }),
+  });
+  if (error) throw toRepositoryError(error);
+  return (data ?? []) as EventTotalRow[];
 }

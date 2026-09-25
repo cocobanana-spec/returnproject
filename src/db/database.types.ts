@@ -348,6 +348,19 @@ export type Database = {
           unconfirmed: number
         }[]
       }
+      event_totals: {
+        Args: { p_is_mine?: boolean; p_ledger_id: string; p_year?: number }
+        Returns: {
+          cnt: number
+          event_date: string
+          event_id: string
+          is_mine: boolean
+          title: string
+          total: number
+          type: string
+          unconfirmed: number
+        }[]
+      }
       is_ledger_member: { Args: { l: string }; Returns: boolean }
       is_ledger_owner: { Args: { l: string }; Returns: boolean }
       join_ledger: { Args: { p_code: string }; Returns: string }
