@@ -9,6 +9,7 @@ import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import { RELATION_GROUPS, RELATION_GROUP_LABEL, type RelationGroup } from '../../src/domain/constants.ts';
 import { normalizeName } from '../../src/domain/name.ts';
+import { duplicateNameKeys, needsLabel } from '../../src/domain/person.ts';
 import { useLedgerId } from '../../src/ledger/LedgerProvider';
 import { queryKeys } from '../../src/lib/queryKeys';
 import { listPeople, type PeopleSort } from '../../src/repositories/people';
@@ -47,6 +48,8 @@ export default function PeopleScreen() {
   });
 
   const rows = (query.data?.pages ?? []).flatMap((page) => page.rows);
+  // 라벨 없는 동명이인에게 "구분 없음"을 붙여 편집(S05)으로 유도한다. 자동 라벨은 만들지 않는다.
+  const dupKeys = duplicateNameKeys(rows);
   const filtering = prefix.length > 0 || group !== null;
 
   return (
@@ -137,6 +140,7 @@ export default function PeopleScreen() {
             <PersonRow
               person={item}
               showBalance
+              flag={needsLabel(item, dupKeys) ? '구분 없음' : undefined}
               onPress={() => router.push(`/person/${item.id}`)}
             />
           )}
