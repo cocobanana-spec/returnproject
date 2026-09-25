@@ -342,3 +342,23 @@ test('건너뛰기는 다른 모든 문제보다 앞선다', () => {
   assert.equal(rowStatus({ ...broken, skip: true }), 'skip');
   assert.equal(rowLabelNeeded({ ...broken, skip: true }), false);
 });
+
+// 2026-09-26 QA가 찾은 경로 — '같은 사람'이라고 답한 뒤 짝을 건너뛰었다 되살리면
+// 연결만 풀리고 선택은 남아, 상태는 정상인데 한 사람이 둘로 갈렸다.
+test("중복이 되살아나면 앞선 '같은 사람' 선택도 함께 되돌아간다", () => {
+  const table = [
+    ['이름', '금액', '구분'],
+    ['홍길동', 50000, '결혼식'],
+    ['홍길동', 30000, '결혼식'],
+    ['홍길동', 20000, '결혼식'],
+  ];
+  let rows = markSameNames(rowsOf(table), new Map([['홍길동', [{ id: 'p1', name: '홍길동' }]]]));
+  rows = refreshFileDuplicates(rows.map((r, i) => (i === 2 ? { ...r, skip: true } : r)));
+  rows = applyDupChoice(rows, '홍길동', 'same');
+  // 건너뛴 행을 되살린다. 세 행이 다시 중복이므로 앞선 선택은 무효다.
+  rows = refreshFileDuplicates(rows.map((r, i) => (i === 2 ? { ...r, skip: false } : r)));
+  for (const r of rows) {
+    assert.equal(r.dupChoice, null, '되살아난 중복에는 앞선 선택이 남으면 안 된다');
+    assert.equal(rowStatus(r), 'fix', '다시 물어야 하므로 수정 필요다');
+  }
+});

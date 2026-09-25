@@ -333,14 +333,28 @@ export function refreshFileDuplicates(rows: ImportRow[]): ImportRow[] {
   for (const r of rows) {
     if (!r.skip && r.nameKey) counts.set(r.nameKey, (counts.get(r.nameKey) ?? 0) + 1);
   }
+  // 무리의 구성이 바뀌면 그 무리 전체가 앞선 답을 잃는다.
+  //
+  // 답("같은 사람"/"다른 사람")은 그때의 무리에 대해 한 것이다. 행 하나가 빠지거나 되살아나면
+  // 무엇에 대한 답이었는지가 달라진다. 바뀐 행만 되돌리면 한 무리 안에서 답이 갈려,
+  // 어떤 행은 기존 사람에게 붙고 어떤 행은 새 사람을 만들어 한 사람이 조용히 둘로 나뉜다
+  // (2026-09-26 QA). 무리째 되돌려 한 번 더 묻는 편이 예측 가능하다.
+  const changed = new Set<string>();
+  for (const r of rows) {
+    const dup = !r.skip && r.nameKey ? (counts.get(r.nameKey) ?? 0) > 1 : false;
+    if (r.nameKey && dup !== r.issues.includes('same_name_in_file')) changed.add(r.nameKey);
+  }
   return rows.map((r) => {
     const dup = !r.skip && r.nameKey ? (counts.get(r.nameKey) ?? 0) > 1 : false;
     const had = r.issues.includes('same_name_in_file');
-    if (dup === had) return r;
+    const groupChanged = r.nameKey !== null && changed.has(r.nameKey);
+    if (dup === had && !groupChanged) return r;
     const issues = dup
-      ? [...r.issues, 'same_name_in_file' as RowIssue]
+      ? had
+        ? r.issues
+        : [...r.issues, 'same_name_in_file' as RowIssue]
       : r.issues.filter((i) => i !== 'same_name_in_file');
-    if (dup) return { ...r, issues, attachTo: null };
+    if (dup) return { ...r, issues, attachTo: null, dupChoice: null };
     const only = r.existingPeople.length === 1 ? (r.existingPeople[0] as SameNameCandidate) : null;
     const attachTo = r.attachTo ?? (!r.wantsNew && only ? (only.id as string) : null);
     return { ...r, issues, dupChoice: null, attachTo };
