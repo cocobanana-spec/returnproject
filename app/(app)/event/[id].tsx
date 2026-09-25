@@ -221,6 +221,13 @@ export default function EventDetailScreen() {
               />
             )}
             <View style={{ flexDirection: 'row', gap: space.sm }}>
+              {e.is_mine && (
+                <Action
+                  icon="cloud-upload-outline"
+                  label="명부 가져오기"
+                  onPress={() => router.push(`/import?target=received&eventId=${eventId}`)}
+                />
+              )}
               <Action icon="create-outline" label="편집" onPress={() => router.push(`/event/edit?id=${eventId}`)} />
               <Action icon="trash-outline" label="삭제" danger onPress={confirmDelete} />
             </View>

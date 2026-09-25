@@ -81,6 +81,12 @@ export default function MoreScreen() {
           hint="내 행사 만들기, 명부 입력, 행사별 정산"
           onPress={() => router.push('/events')}
         />
+        <Row
+          icon="cloud-upload-outline"
+          label="가져오기"
+          hint="엑셀·CSV 파일로 준돈 기록이나 내 행사 명부를 한 번에"
+          onPress={() => router.push('/import')}
+        />
       </Section>
 
       <Section title="장부">
