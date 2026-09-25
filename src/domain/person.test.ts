@@ -8,6 +8,9 @@ import {
   duplicateNameKeys,
   needsLabel,
   newPersonLabelRule,
+  sameNameDecision,
+  resolveSameName,
+  labelFieldNeeded,
   personSubtitle,
   sameNameCandidates,
 } from './person.ts';
@@ -105,11 +108,45 @@ test('목록에서 두 번 이상 나오는 이름만 중복 키가 된다', () 
   assert.equal(needsLabel({ name: '이영희' }, keys), false);
 });
 
-test('같은 이름이 있으면 라벨이 필수이고 없으면 남은 값을 버린다', () => {
-  assert.equal(newPersonLabelRule(false, true, '').error !== null, true);
-  assert.deepEqual(newPersonLabelRule(false, true, ' 회사 '), { error: null, label: '회사' });
-  assert.deepEqual(newPersonLabelRule(false, false, '회사'), { error: null, label: null });
-  assert.deepEqual(newPersonLabelRule(true, true, ''), { error: null, label: null });
+test('같은 이름이 있어도 "새 사람"이라고 하지 않았으면 막지 않는다', () => {
+  // 기본은 "이 사람이 그 사람이다". 같은 이름이 하나 있으면 그 사람에게 붙는다.
+  assert.deepEqual(newPersonLabelRule(false, 1, '', false), { error: null, label: null });
+  assert.equal(sameNameDecision(1, { wantsNewPerson: false, label: '' }), 'attach');
+});
+
+test('"새 사람"을 고른 경우에만 구분할 말이 필수다', () => {
+  assert.equal(newPersonLabelRule(false, 1, '', true).error !== null, true);
+  assert.deepEqual(newPersonLabelRule(false, 1, ' 회사 ', true), { error: null, label: '회사' });
+  assert.equal(sameNameDecision(1, { wantsNewPerson: true, label: '' }), 'needs_label');
+  assert.equal(sameNameDecision(1, { wantsNewPerson: true, label: '회사' }), 'new');
+});
+
+test('같은 이름이 둘 이상이면 누구인지 골라야 한다', () => {
+  assert.equal(sameNameDecision(2, { wantsNewPerson: false, label: '' }), 'choose');
+  assert.ok(newPersonLabelRule(false, 2, '', false).error?.includes('골라'));
+  // 여럿이어도 "새 사람"이라고 했으면 구분할 말만 있으면 된다
+  assert.equal(sameNameDecision(2, { wantsNewPerson: true, label: '회사' }), 'new');
+});
+
+test('같은 이름이 없으면 남은 구분할 말을 버리고, 기존 사람을 골랐으면 아무것도 묻지 않는다', () => {
+  assert.deepEqual(newPersonLabelRule(false, 0, '회사', false), { error: null, label: null });
+  assert.deepEqual(newPersonLabelRule(true, 2, '', false), { error: null, label: null });
+  assert.equal(sameNameDecision(0, { wantsNewPerson: true, label: '' }), 'new');
+});
+
+test('후보 목록이 있으면 붙일 사람과 표시 이름까지 알려 준다', () => {
+  const one = [{ id: 'p1', name: '김철수', label: '회사' }];
+  assert.deepEqual(resolveSameName(one, { wantsNewPerson: false, label: '' }), {
+    kind: 'attach',
+    personId: 'p1',
+    display: '김철수 · 회사',
+  });
+  assert.deepEqual(resolveSameName(one, { wantsNewPerson: true, label: '' }), { kind: 'needs_label' });
+  assert.deepEqual(
+    resolveSameName([...one, { id: 'p2', name: '김철수', label: null }], { wantsNewPerson: false, label: '' }),
+    { kind: 'choose', count: 2 },
+  );
+  assert.deepEqual(resolveSameName([], { wantsNewPerson: false, label: '' }), { kind: 'new' });
 });
 
 test('라벨 없는 동명이인은 그룹이 같든 다르든, 끝·가운데 공백이 있든 전부 구분 없음 대상이다', () => {
@@ -133,4 +170,11 @@ test('한쪽에만 라벨이 있으면 라벨 없는 쪽만 구분 없음 대상
   const keys = duplicateNameKeys([noLabel, withLabel]);
   assert.equal(needsLabel(noLabel, keys), true);
   assert.equal(needsLabel(withLabel, keys), false);
+});
+
+test('구분 칸은 "새 사람"을 고른 뒤에만 뜨고, 라벨을 적는 중에도 사라지지 않는다', () => {
+  assert.equal(labelFieldNeeded({ hasExisting: false, sameNameCount: 1, wantsNewPerson: false }), false);
+  assert.equal(labelFieldNeeded({ hasExisting: false, sameNameCount: 1, wantsNewPerson: true }), true);
+  assert.equal(labelFieldNeeded({ hasExisting: false, sameNameCount: 0, wantsNewPerson: true }), false);
+  assert.equal(labelFieldNeeded({ hasExisting: true, sameNameCount: 2, wantsNewPerson: true }), false);
 });
