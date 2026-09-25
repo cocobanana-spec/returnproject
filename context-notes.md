@@ -532,3 +532,58 @@ OCR 결과는 바로 저장할 수 없다(손글씨 한글 정확도). 그래서
 ### 21.4 앱이 생략할 인자에는 서버 기본값
 0005의 교훈을 그대로 지켰다. `event_totals`의 `p_year`·`p_is_mine`에 `default null`을 주고, 원격 스모크 §11의 첫 검사를 **인자를 생략한 호출**로 두었다. 생략 호출을 검증하지 않으면 PostgREST가 404를 내는 것을 배포 뒤에야 안다.
 
+## 22. 릴리스 빌드로 재현하기, 통계 덜어내기 (2026-09-25, 빌드 10 뒤)
+
+### 22.1 개발 번들 통과는 근거가 아니다
+지난 라운드에 사람 화면 크래시를 "재현되지 않았다"고 보고했는데 **Expo Go(개발 번들)에서 본 것이었다.** 릴리스는 Hermes 바이트코드로 돌고 `__DEV__`가 false이며 오류 오버레이가 없어 예외가 프로세스를 죽인다. iOS 27 장면 수명주기 크래시가 시뮬레이터에서 안 잡힌 것과 같은 함정이다(docs/05).
+
+**이번에 쓴 방법** — 릴리스 구성으로 시뮬레이터에 빌드해 설치하고 콘솔을 붙여 본다.
+```
+xcodebuild -workspace ios/app.xcworkspace -scheme app -configuration Release \
+  -sdk iphonesimulator -destination 'platform=iOS Simulator,id=<udid>' \
+  -derivedDataPath /tmp/ppurin-simrel CODE_SIGNING_ALLOWED=NO build
+xcrun simctl install <udid> /tmp/ppurin-simrel/Build/Products/Release-iphonesimulator/app.app
+(xcrun simctl launch --console-pty <udid> com.cocobanana.ppurin > console.log 2>&1 &)
+```
+- 독립 앱의 AsyncStorage는 Expo Go와 경로가 다르다. `Documents/RCTAsyncLocalStorage_V1/manifest.json`(또는 `Library/Application Support/<bundle id>/RCTAsyncLocalStorage_V1`)에 세션을 써 넣으면 로그인 상태로 시작한다. 첫 쓰기 전까지 디렉터리가 없으므로 직접 만든다.
+- **`simctl openurl`로 딥링크를 보내면 iOS가 "…에서 열겠습니까?" 확인 대화상자를 띄우고, 탭 입력이 없으면 여기서 막힌다.** 화면 이동은 앱 안에 임시 `router.push`를 넣고 다시 빌드하는 편이 확실하다.
+
+### 22.2 크래시의 정체는 자바스크립트 예외다 (좌표자가 실기기 로그로 확정)
+좌표자가 실기기에서 `.ips`를 받아 분석했다. 앱 1.0.0 **빌드 9**, 2026-09-25 20:57:45, `EXC_CRASH (SIGABRT)` · `abort() called`. `lastExceptionBacktrace`가 결정적이다.
+
+```
+__exceptionPreprocess → objc_exception_throw → RCTGetFatalHandler
+→ -[RCTExceptionsManager reportFatal:stack:exceptionId:extraDataAsJSON:]
+→ -[RCTExceptionsManager reportException:]
+→ ObjCTurboModule::performVoidMethodInvocation
+```
+
+**처리되지 않은 JS 예외가 RN의 치명 오류 처리기를 타고 네이티브 abort로 이어졌다.** 네이티브 결함이 아니다. 개발 번들에서는 같은 예외가 빨간 화면으로 뜨고 프로세스는 살아 있다. 그래서 "재현 안 됨"으로 보일 수 있다. **개발에서 볼 때도 Metro 콘솔의 빨간 오류를 반드시 확인하라.** `.ips`(bug_type 309)에는 JS 예외 메시지가 없다. 메시지를 얻는 길은 릴리스로 재현해 콘솔을 잡는 것뿐이다.
+
+기기 크래시 로그를 받는 경로다.
+```
+xcrun devicectl device info files --device <udid> --domain-type systemCrashLogs
+xcrun devicectl device copy from --device <udid> --domain-type systemCrashLogs \
+  --source app-2026-09-25-205745.ips --destination <로컬경로>
+```
+
+### 22.3 그래도 릴리스에서 재현되지 않았다
+사람 목록과 사람 원장 둘 다 정상이었다. 프로세스 생존, 콘솔 예외 없음, 크래시 리포트 없음. 사용자의 "사람 누르면"이 목록 진입인지 사람 한 명을 누르는 것인지 몰라 **둘 다** 확인했다.
+
+여기서 멈추지 않고 **사용자 장부와 같은 형태의 데이터를 만들어** 다시 봤다. 실장부를 읽기 전용으로 살펴보니 137명이 전부 `relation_group='other'`, 라벨 없음, 준 돈만 있는 모양이었고(20:51에 가져오기로 들어왔고 20:57에 크래시가 났다) 같은 모양의 테스트 장부를 만들어 릴리스로 열었다. 137명 목록이 정상 렌더됐다. 임시로 `ErrorUtils.setGlobalHandler`를 걸어 비치명 예외까지 콘솔로 뽑았는데 **한 줄도 찍히지 않았다.**
+
+남은 차이는 기기 아키텍처(arm64)와 archive 빌드 절차, 그리고 **빌드 9의 코드**다. 이 저장소에는 git 이력이 없어 빌드 9 시점을 되짚을 수 없다. **추측으로 고치지 않는다.** 기기에 릴리스 빌드를 넣고 재현을 받아 콘솔에서 JS 예외 메시지를 잡는 것이 다음 수순이다.
+
+**배운 것** — 릴리스 재현 장비는 갖춰졌다. Hermes 바이트코드 확인(`file main.jsbundle` → `Hermes JavaScript bytecode, version 98`), 세션 주입, 콘솔 부착까지 된다. 독립 앱의 AsyncStorage는 **`Library/Application Support/<bundle id>/RCTAsyncLocalStorage_V1`**에 있다(Documents 아래가 아니다. 한 번 헛짚었다).
+
+### 22.4 통계는 더하지 않고 덜어냈다
+"가독성이 너무 떨어진다"는 말에 기능을 보태면 더 나빠진다. 뺀 것은 **조작 장치**다 — 항상 펼쳐 있던 필터 줄 4개를 연도 한 줄로 줄였다(종류는 접고, 정렬 칩 두 종류는 고정값으로 대체). 정렬을 고르게 하는 것은 공짜가 아니었다. 막대 길이 기준과 정렬 축이 갈리는 결함이 실제로 있었고(지난 QA 항목 4), 축을 하나로 고정하니 그 문제가 사라졌다. **선택지를 없애면 어긋날 수 있는 조합도 없어진다.**
+
+'전체' 탭에서 막대 4블록을 뺀 근거는 뜻이다. 나간 돈과 들어온 돈의 막대를 한 화면에 쌓아도 비교할 수 없다. 방향이 정해진 탭에서만 보여 준다.
+
+가독성의 핵심은 **숫자 열 정렬**이었다. `fontVariant: ['tabular-nums']`와 고정폭(건수 52, 금액 112)으로 자릿수가 세로로 맞는다. 사람별 상위는 "준 N · 받은 M"을 차액 하나로 줄였다. 한 줄에 숫자가 둘이면 훑을 수 없다.
+
+### 22.5 덜어내다가 새로 만든 결함 둘 (QA가 잡았다)
+- **거짓 기간 표기.** 사람별 상위는 `person_stats_by_year`를 연도로 걸러 받는데, 안내 문구는 늘 "전체 기간 기준입니다"라고 했다. 이미 있던 `topPeopleScopeLabel(year)`를 쓰지 않은 탓이다. 순수 함수를 만들어 두고 화면이 문자열을 직접 쓰면 이렇게 갈라진다.
+- **금액 열 폭 넘침.** 고정폭 112로 두니 10억대 금액이 두 줄로 접혀 열이 깨졌다. 고정폭 대신 **최소폭 + `numberOfLines={1}` + `adjustsFontSizeToFit`**로 바꿨다. 그랬더니 이번엔 금액이 최소폭을 넘어 건수 열에 붙었다(`138건1,025,959,999원`). 열 사이 간격(`marginLeft`)을 명시해야 했다. **폭을 유연하게 만들면 간격을 따로 못 박아야 한다.**
+
