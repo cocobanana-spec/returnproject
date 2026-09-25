@@ -11,13 +11,12 @@ type Props = {
   right?: string;
   // 동명이인인데 라벨이 없을 때 "구분 없음" 같은 짧은 표시를 붙인다.
   flag?: string;
-  // 목록 안 중복 이름 키. 구별 줄이 라벨 없는 동명이인에게 "구분 없음"을 붙일 때 쓴다.
-  dupKeys?: Set<string>;
 };
 
-export function PersonRow({ person, onPress, showBalance = false, right, flag, dupKeys }: Props) {
+export function PersonRow({ person, onPress, showBalance = false, right, flag }: Props) {
   const { colors, space, font } = useTokens();
-  const subtitle = distinguishLine(person, dupKeys);
+  // 목록에서는 "구분 없음"을 배지(flag)로 그린다. 구별 줄 끝에 붙이면 한 줄 잘림에 묻힌다.
+  const subtitle = distinguishLine(person);
   const balance = person.balance ?? 0;
   const formatted = formatBalance(balance);
 

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, Text, View } from 'react-native';
 import { normalizeName } from '../domain/name.ts';
-import { displayName, duplicateNameKeys } from '../domain/person.ts';
+import { displayName, duplicateNameKeys, needsLabel } from '../domain/person.ts';
 import { queryKeys } from '../lib/queryKeys';
 import { listPeople } from '../repositories/people';
 import { useTokens } from '../theme/tokens';
@@ -58,7 +58,11 @@ export function MergePicker({ visible, ledgerId, excludeId, onPick, onClose }: P
               </Text>
             }
             renderItem={({ item }) => (
-              <PersonRow person={item} dupKeys={dupKeys} onPress={() => onPick(item.id as string, displayName(item))} />
+              <PersonRow
+                person={item}
+                flag={needsLabel(item, dupKeys) ? '구분 없음' : undefined}
+                onPress={() => onPick(item.id as string, displayName(item))}
+              />
             )}
           />
         )}

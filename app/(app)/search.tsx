@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Text, View } from 'react-native';
 import { normalizeName } from '../../src/domain/name.ts';
-import { duplicateNameKeys } from '../../src/domain/person.ts';
+import { duplicateNameKeys, needsLabel } from '../../src/domain/person.ts';
 import { useLedgerId } from '../../src/ledger/LedgerProvider';
 import { queryKeys } from '../../src/lib/queryKeys';
 import { listPeople } from '../../src/repositories/people';
@@ -81,7 +81,12 @@ export default function SearchScreen() {
             <EmptyState title="찾는 사람이 없습니다" hint="이름 일부만 넣어 보세요." />
           }
           renderItem={({ item }) => (
-            <PersonRow person={item} dupKeys={dupKeys} showBalance onPress={() => router.push(`/person/${item.id}`)} />
+            <PersonRow
+              person={item}
+              showBalance
+              flag={needsLabel(item, dupKeys) ? '구분 없음' : undefined}
+              onPress={() => router.push(`/person/${item.id}`)}
+            />
           )}
         />
       )}
