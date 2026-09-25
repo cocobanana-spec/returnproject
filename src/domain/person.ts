@@ -86,3 +86,19 @@ export function duplicateNameKeys(list: { name?: string | null }[]): Set<string>
 export function needsLabel(p: { name?: string | null; label?: string | null }, dupKeys: Set<string>): boolean {
   return !p.label?.trim() && dupKeys.has(normalizeName(p.name ?? ''));
 }
+
+// 새 사람을 만들 때 구분 라벨이 필요한지와 채택할 라벨. S02·S09가 같은 규칙을 쓴다.
+// 같은 이름이 있으면 라벨이 필수이고, 같은 이름이 없으면 남아 있는 값도 채택하지 않는다
+// (칸이 보이지 않았으므로 사용자가 확인한 값이 아니다).
+export const SAME_NAME_LABEL_ERROR = '같은 이름이 이미 있어요. 구분할 말을 적어 주세요(예: 회사, 고등학교).';
+
+export function newPersonLabelRule(
+  hasExisting: boolean,
+  sameNameExists: boolean,
+  labelText: string,
+): { error: string | null; label: string | null } {
+  if (hasExisting) return { error: null, label: null };
+  const label = labelText.trim();
+  if (sameNameExists && label.length === 0) return { error: SAME_NAME_LABEL_ERROR, label: null };
+  return { error: null, label: sameNameExists && label.length > 0 ? label : null };
+}

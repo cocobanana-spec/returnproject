@@ -53,7 +53,25 @@ test('초안은 이름·금액·메모와 새 사람 정보만 가진다', () =>
     'amountUnit',
     'memo',
     'newPersonGroup',
+    'newPersonLabel',
     'newPersonName',
     'personId',
+    'sameNameExists',
   ]);
+});
+
+test('같은 이름이 있으면 구분할 말이 필수다', () => {
+  const r = validateReceiving(draft({ personId: null, newPersonName: '김철수', sameNameExists: true }));
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.ok(r.errors.some((e) => e.includes('구분할 말')));
+});
+
+test('구분할 말을 적으면 라벨로 저장되고 저장 후 다음에서 비워진다', () => {
+  const d = draft({ personId: null, newPersonName: '김철수', sameNameExists: true, newPersonLabel: '회사' });
+  const r = validateReceiving(d);
+  assert.equal(r.ok, true);
+  if (r.ok) assert.equal(r.plan.personLabel, '회사');
+  const next = carryOver(d);
+  assert.equal(next.newPersonLabel, '');
+  assert.equal(next.sameNameExists, false);
 });

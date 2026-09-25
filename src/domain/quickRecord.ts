@@ -4,6 +4,7 @@
 // 장소는 초안에서 뺐다. 컬럼은 남아 있고 저장 시 기본값(형태는 현금)으로 들어간다.
 import { parseAmountInput, type AmountUnit } from './money.ts';
 import { isValidName, trimName } from './name.ts';
+import { newPersonLabelRule } from './person.ts';
 import type { EventType, RelationGroup } from './constants.ts';
 
 export type QuickRecordDraft = {
@@ -55,11 +56,9 @@ export function validateQuickRecord(draft: QuickRecordDraft): ValidationResult {
     errors.push('누구에게 냈는지 이름을 넣어 주세요.');
   }
 
-  // 같은 이름이 이미 있는데 구분할 말이 없으면 나중에 두 사람을 가를 방법이 없다.
-  const label = draft.newPersonLabel.trim();
-  if (!hasExisting && draft.sameNameExists && label.length === 0) {
-    errors.push('같은 이름이 이미 있어요. 구분할 말을 적어 주세요(예: 회사, 고등학교).');
-  }
+  // 같은 이름이 이미 있는데 구분할 말이 없으면 나중에 두 사람을 가를 방법이 없다(S09와 같은 규칙).
+  const labelRule = newPersonLabelRule(hasExisting, draft.sameNameExists, draft.newPersonLabel);
+  if (labelRule.error) errors.push(labelRule.error);
 
   if (!draft.type) errors.push('어떤 경조사인지 골라 주세요.');
 
@@ -75,8 +74,7 @@ export function validateQuickRecord(draft: QuickRecordDraft): ValidationResult {
     plan: {
       amount: amount as number | null,
       personName: hasExisting ? null : trimmed,
-      // 같은 이름이 없으면 칸이 보이지 않았으므로 남아 있는 값은 채택하지 않는다.
-      personLabel: !hasExisting && draft.sameNameExists && label.length > 0 ? label : null,
+      personLabel: labelRule.label,
     },
   };
 }

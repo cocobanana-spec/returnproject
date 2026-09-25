@@ -4,12 +4,16 @@
 // 측·형태·공동 부조자는 초안에서 뺐다. 컬럼은 남아 있고 저장 시 기본값으로 들어간다.
 import { parseAmountInput, type AmountUnit } from './money.ts';
 import { isValidName, trimName } from './name.ts';
+import { newPersonLabelRule } from './person.ts';
 import type { RelationGroup } from './constants.ts';
 
 export type ReceivingDraft = {
   personId: string | null;
   newPersonName: string;
   newPersonGroup: RelationGroup;
+  // 같은 이름이 이 장부에 있을 때만 쓰인다. 그때는 필수다(S02와 같은 규칙, docs/02 §5).
+  newPersonLabel: string;
+  sameNameExists: boolean;
   amountText: string;
   amountUnit: AmountUnit;
   memo: string;
@@ -20,13 +24,19 @@ export function emptyReceivingDraft(): ReceivingDraft {
     personId: null,
     newPersonName: '',
     newPersonGroup: 'other',
+    newPersonLabel: '',
+    sameNameExists: false,
     amountText: '',
     amountUnit: 'won',
     memo: '',
   };
 }
 
-export type ReceivingPlan = { amount: number | null; personName: string | null };
+export type ReceivingPlan = {
+  amount: number | null;
+  personName: string | null;
+  personLabel: string | null;
+};
 
 export type ReceivingValidation =
   | { ok: true; plan: ReceivingPlan }
@@ -43,13 +53,20 @@ export function validateReceiving(draft: ReceivingDraft): ReceivingValidation {
     errors.push('이름을 넣어 주세요.');
   }
 
+  const labelRule = newPersonLabelRule(hasExisting, draft.sameNameExists, draft.newPersonLabel);
+  if (labelRule.error) errors.push(labelRule.error);
+
   const amount = parseAmountInput(draft.amountText, draft.amountUnit);
   if (amount === undefined) errors.push('금액은 숫자로만 넣어 주세요.');
 
   if (errors.length > 0) return { ok: false, errors };
   return {
     ok: true,
-    plan: { amount: amount as number | null, personName: hasExisting ? null : trimmed },
+    plan: {
+      amount: amount as number | null,
+      personName: hasExisting ? null : trimmed,
+      personLabel: labelRule.label,
+    },
   };
 }
 

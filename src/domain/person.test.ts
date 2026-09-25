@@ -7,6 +7,7 @@ import {
   distinguishLine,
   duplicateNameKeys,
   needsLabel,
+  newPersonLabelRule,
   personSubtitle,
   sameNameCandidates,
 } from './person.ts';
@@ -102,4 +103,34 @@ test('목록에서 두 번 이상 나오는 이름만 중복 키가 된다', () 
   assert.equal(needsLabel({ name: '김철수' }, keys), true);
   assert.equal(needsLabel({ name: '김철수', label: '회사' }, keys), false);
   assert.equal(needsLabel({ name: '이영희' }, keys), false);
+});
+
+test('같은 이름이 있으면 라벨이 필수이고 없으면 남은 값을 버린다', () => {
+  assert.equal(newPersonLabelRule(false, true, '').error !== null, true);
+  assert.deepEqual(newPersonLabelRule(false, true, ' 회사 '), { error: null, label: '회사' });
+  assert.deepEqual(newPersonLabelRule(false, false, '회사'), { error: null, label: null });
+  assert.deepEqual(newPersonLabelRule(true, true, ''), { error: null, label: null });
+});
+
+test('라벨 없는 동명이인은 그룹이 같든 다르든, 끝·가운데 공백이 있든 전부 구분 없음 대상이다', () => {
+  const rows = [
+    { name: '박지민', relation_group: 'friend' }, { name: '박지민', relation_group: 'friend' },
+    { name: '이수진', relation_group: 'work' }, { name: '이수진', relation_group: 'friend' },
+    { name: '최민호', relation_group: 'other' }, { name: '최민호 ', relation_group: 'other' },
+    { name: '김철수', relation_group: 'work' }, { name: '김 철수', relation_group: 'work' },
+    { name: '이영희', relation_group: 'friend' },
+  ];
+  const keys = duplicateNameKeys(rows);
+  assert.deepEqual([...keys].sort(), ['김철수', '박지민', '이수진', '최민호']);
+  for (const r of rows) {
+    assert.equal(needsLabel(r, keys), r.name !== '이영희', r.name);
+  }
+});
+
+test('한쪽에만 라벨이 있으면 라벨 없는 쪽만 구분 없음 대상이다 (실계정 모양)', () => {
+  const noLabel = { name: '박태준', relation_group: 'friend' };
+  const withLabel = { name: '박태준', relation_group: 'friend', label: '회사' };
+  const keys = duplicateNameKeys([noLabel, withLabel]);
+  assert.equal(needsLabel(noLabel, keys), true);
+  assert.equal(needsLabel(withLabel, keys), false);
 });
