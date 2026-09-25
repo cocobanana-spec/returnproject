@@ -14,6 +14,8 @@ import {
   type RelationGroup,
 } from '../../../src/domain/constants.ts';
 import { entryRowName } from '../../../src/domain/home.ts';
+import { isValidName, normalizeName } from '../../../src/domain/name.ts';
+import { SAME_NAME_LABEL_ERROR } from '../../../src/domain/person.ts';
 import { AMOUNT_PRESETS_WON, formatWon, formatWonShort } from '../../../src/domain/money.ts';
 import {
   carryOver,
@@ -25,7 +27,7 @@ import { useLedgerId } from '../../../src/ledger/LedgerProvider';
 import { queryKeys } from '../../../src/lib/queryKeys';
 import { createEntry, deleteEntry, listEntriesByEvent } from '../../../src/repositories/entries';
 import { getEvent, getEventSummary } from '../../../src/repositories/events';
-import { createPerson, type PersonBalance } from '../../../src/repositories/people';
+import { createPerson, findByNormalizedName, type PersonBalance } from '../../../src/repositories/people';
 import { useTokens } from '../../../src/theme/tokens';
 import { Button } from '../../../src/ui/Button';
 import { Chip } from '../../../src/ui/Chip';
@@ -74,6 +76,18 @@ export default function ReceiveScreen() {
     setDraft((prev) => ({ ...prev, ...next }));
   }
 
+  // 같은 이름이 이 장부에 있는지는 서버에 정확 일치로 묻는다. S02와 같은 규칙이며,
+  // 명부는 연속 입력이라 구분 칸은 이름 아래 한 줄로만 나타나고 "저장하고 다음" 뒤에 사라진다.
+  const nameKey = normalizeName(nameText);
+  const sameName = useQuery({
+    queryKey: queryKeys.people.search(ledgerId, `same:${nameKey}`),
+    queryFn: () => findByNormalizedName(ledgerId, nameKey),
+    enabled: !picked && isValidName(nameText),
+    gcTime: 60_000,
+  });
+  const needsLabel = !picked && isValidName(nameText) && (sameName.data?.length ?? 0) > 0;
+  const draftForSave = (): ReceivingDraft => ({ ...draft, sameNameExists: needsLabel });
+
   function resetForNext(next: ReceivingDraft) {
     setDraft(next);
     setPicked(null);
@@ -91,7 +105,7 @@ export default function ReceiveScreen() {
 
   const save = useMutation({
     mutationFn: async () => {
-      const validation = validateReceiving(draft);
+      const validation = validateReceiving(draftForSave());
       if (!validation.ok) throw new Error(validation.errors.join('\n'));
 
       const newName = validation.plan.personName as string | null;
@@ -102,9 +116,13 @@ export default function ReceiveScreen() {
           : null;
       let personId = draft.personId ?? reusable;
       if (!personId) {
+        // 화면 판정이 실패했거나 아직 안 왔을 수 있다. 저장 직전에 서버로 한 번 더 확인한다.
+        const same = await findByNormalizedName(ledgerId, normalizeName(newName as string));
+        if (same.length > 0 && !validation.plan.personLabel) throw new Error(SAME_NAME_LABEL_ERROR);
         const madePerson = await createPerson(ledgerId, {
           name: newName as string,
           relation_group: draft.newPersonGroup,
+          label: validation.plan.personLabel,
         });
         personId = madePerson.id;
         created.current = { personId: madePerson.id, name: newName };
@@ -136,7 +154,7 @@ export default function ReceiveScreen() {
   function onSaveNext() {
     if (save.isPending) return;
     setErrors([]);
-    const validation = validateReceiving(draft);
+    const validation = validateReceiving(draftForSave());
     if (!validation.ok) {
       setErrors(validation.errors);
       return;
@@ -204,7 +222,8 @@ export default function ReceiveScreen() {
           onClear={() => {
             setPicked(null);
             setNameText('');
-            patch({ personId: null, newPersonName: '' });
+            // 다른 이름으로 바꾸는 길이라 앞 사람에게 적던 구분할 말은 같이 비운다.
+            patch({ personId: null, newPersonName: '', newPersonLabel: '' });
           }}
           allowNew
           onUseNew={(name) => {
@@ -213,6 +232,17 @@ export default function ReceiveScreen() {
           }}
           autoFocus
         />
+
+        {/* 같은 이름이 있을 때만 한 줄. 저장하고 다음 뒤에는 초안이 비워져 사라진다 */}
+        {needsLabel && (
+          <Field
+            label="같은 이름이 이미 있어요. 구분할 말을 적어 주세요(예: 회사, 고등학교)"
+            value={draft.newPersonLabel}
+            onChangeText={(next) => patch({ newPersonLabel: next })}
+            maxLength={30}
+            placeholder="회사"
+          />
+        )}
 
         {/* 새 사람이면 관계 그룹 */}
         {!picked && nameText.trim().length > 0 && (

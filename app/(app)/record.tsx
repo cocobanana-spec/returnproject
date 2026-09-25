@@ -104,7 +104,7 @@ export default function RecordScreen() {
   function clearPerson() {
     setPicked(null);
     setNameText('');
-    patch({ personId: null, newPersonName: '' });
+    patch({ personId: null, newPersonName: '', newPersonLabel: '' });
   }
 
   function useAsNewPerson() {
