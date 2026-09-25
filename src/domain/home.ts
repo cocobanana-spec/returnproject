@@ -4,6 +4,7 @@
 // 파생되므로(docs/03 결정 5), "탭 = is_mine 값"이라는 대응을 여기 한 곳에만 둔다.
 // 화면이 직접 boolean을 다루면 준돈/받은돈이 뒤집히는 실수가 조용히 난다.
 import type { DatePrecision } from './constants.ts';
+import { displayName } from './person.ts';
 import { formatEventDate } from './title.ts';
 
 export type Direction = 'given' | 'received';
@@ -47,19 +48,20 @@ export function entryRowSubtitle(event: {
 // 화면이 "김철수 (+이영희)"를 다시 쪼개 파싱하는 일이 없어야 한다.
 export type NamePart = { id: string | null; name: string; co: boolean };
 
+// 이름에는 구분 라벨이 붙는다("김철수 · 회사"). 동명이인이 목록에서 같은 글자로 보이면 안 된다.
 export function entryRowNames(
-  person: { id?: string | null; name?: string | null } | null,
-  coPerson: { id?: string | null; name?: string | null } | null,
+  person: { id?: string | null; name?: string | null; label?: string | null } | null,
+  coPerson: { id?: string | null; name?: string | null; label?: string | null } | null,
 ): NamePart[] {
-  const parts: NamePart[] = [{ id: person?.id ?? null, name: person?.name ?? '(이름 없음)', co: false }];
-  if (coPerson?.name) parts.push({ id: coPerson.id ?? null, name: coPerson.name, co: true });
+  const parts: NamePart[] = [{ id: person?.id ?? null, name: displayName(person), co: false }];
+  if (coPerson?.name) parts.push({ id: coPerson.id ?? null, name: displayName(coPerson), co: true });
   return parts;
 }
 
 // 접근성 라벨이나 한 줄 표시가 필요할 때만 문자열로 합친다.
 export function entryRowName(
-  person: { id?: string | null; name?: string | null } | null,
-  coPerson: { id?: string | null; name?: string | null } | null,
+  person: { id?: string | null; name?: string | null; label?: string | null } | null,
+  coPerson: { id?: string | null; name?: string | null; label?: string | null } | null,
 ): string {
   return entryRowNames(person, coPerson)
     .map((part) => (part.co ? `(+${part.name})` : part.name))
