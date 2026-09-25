@@ -22,6 +22,11 @@ import * as peopleRepo from '../../src/repositories/people.ts';
 import * as eventsRepo from '../../src/repositories/events.ts';
 import * as entriesRepo from '../../src/repositories/entries.ts';
 import * as statsRepo from '../../src/repositories/stats.ts';
+import fs from 'node:fs';
+import path from 'node:path';
+import { detectEncoding, readTable } from '../../src/domain/importFile.ts';
+import { buildRows, guessMapping, markSameNames, planSave, summarize, trimTable } from '../../src/domain/importPlan.ts';
+import { emptyImportState, runImport, defaultDeps } from '../../src/import/runner.ts';
 
 const URL = (process.env.SUPABASE_URL ?? '').replace(/\/$/, '');
 const ANON = process.env.SUPABASE_ANON_KEY ?? '';
@@ -59,6 +64,21 @@ function checkUnlessRateLimited(name, result, cond, detail = '') {
     return;
   }
   check(name, cond, detail);
+}
+
+// 메일 발송 계통이 막힌 결과인지 본다. 우리 코드 결함이 아니므로 실패가 아니라 건너뜀이다.
+//
+// 세 가지를 같은 원인으로 묶는다. 429(속도 제한), 5xx(메일러 오류), 그리고 400
+// email_address_invalid. 마지막 것은 이 스크립트가 만든 고정 형식 주소(@ppurin-test.kr)에
+// 대해 서버가 간헐적으로 돌려준다(2026-09-25 관찰. 곧바로 다시 돌리면 429로 돌아온다).
+// 한곳에서 판정해야 절마다 조건이 갈리지 않는다. 실제로 가입 절에만 있고 재설정 절에 없어
+// 같은 원인이 한쪽에서만 빨갛게 나왔다.
+function isMailPathBlocked(result) {
+  if (!result || result.ok !== false) return false;
+  const kind = result.error?.kind;
+  const status = result.error?.detail?.status ?? 0;
+  const code = result.error?.detail?.code ?? '';
+  return kind === 'rate_limited' || status >= 500 || code === 'email_address_invalid';
 }
 
 function eq(name, actual, expected) {
@@ -377,6 +397,94 @@ async function main() {
   eq('행사를 지우면 기록도 사라진다', (await entriesRepo.listEntriesByEvent(LA, ev2.id)).rows.length, 0);
   check('기존 사람은 남는다', (await peopleRepo.getPerson(LA, p1.id)) !== null, '사람이 같이 지워졌다');
 
+  // ------------------------------------------- 가져오기 — 20행, 중간 실패 주입 뒤 재시도
+  // fixture(sample-issues.csv)에는 장부 동명이인 2행·파일 안 중복 1쌍·금액 오류 2행·빈 이름 1행·종류 미확인·
+  // 단위 없는 금액이 들어 있다. 화면이 하는 것과 같은 순서로 도메인 함수를 부르고 runImport를 돌린다.
+  {
+    const fixture = new Uint8Array(fs.readFileSync(path.join(process.cwd(), 'supabase', 'tests', 'fixtures', 'sample-issues.csv')));
+    const table = trimTable(readTable(fixture, 'csv', detectEncoding(fixture)));
+    const mapping = guessMapping(table);
+    eq('가져오기 fixture 열 추정', JSON.stringify(mapping.roles), JSON.stringify(['ignore', 'name', 'amount', 'type']));
+    const built = buildRows(table, mapping, { target: 'given', defaultDate: '2026-06-06', eventType: null });
+    eq('가져오기 fixture 20행', built.length, 20);
+    // 장부의 같은 이름 — 김철수(p1 "김 철수")와 이영희를 만든다
+    const lee = await peopleRepo.createPerson(LA, { name: '이영희', relation_group: 'friend' });
+    const keys = [...new Set(built.map((r) => r.nameKey).filter(Boolean))];
+    const found = await peopleRepo.listPeopleByNormalizedNames(LA, keys);
+    const existing = new Map();
+    for (const p of found) existing.set(p.name_normalized, [...(existing.get(p.name_normalized) ?? []), p.id]);
+    let rows = markSameNames(built, existing);
+    const before = summarize(rows);
+    eq('수정 필요 행 수 — 동명이인 2 + 파일 중복 2 + 금액 오류 2 + 빈 이름 1', before.fix, 7);
+    // 화면에서 사용자가 하는 수정 — 김철수는 기존 사람에게, 이영희는 새 사람 라벨, 장보고는 다른 사람 라벨,
+    // 금액 오류 1행은 고치고 1행은 건너뜀, 빈 이름은 건너뜀
+    rows = rows.map((r) => {
+      if (r.name === '김철수') return { ...r, attachTo: p1.id };
+      if (r.name === '이영희') return { ...r, label: '회사' };
+      if (r.name === '장보고') return { ...r, dupChoice: 'different', label: r.index === 6 ? '고향' : '직장' };
+      if (r.name === '신사임당') return { ...r, amount: 70000, issues: r.issues.filter((i) => i !== 'bad_amount') };
+      if (r.name === '이순신' || r.name === '') return { ...r, skip: true };
+      return r;
+    });
+    const after = summarize(rows);
+    eq('수정 뒤 수정 필요 0', after.fix, 0);
+    eq('저장 18건 · 건너뜀 2건', `${after.save}/${after.skip}`, '18/2');
+    const items = planSave(rows, 'given');
+    eq('저장 계획 18건', items.length, 18);
+    const expectedTotal = items.reduce((a, it) => a + it.amount, 0);
+    eq('저장 계획 합계에 단위 없는 10원과 1만5천이 그대로 들어간다', expectedTotal, after.totalAmount);
+
+    const peopleBeforeRows = (await peopleRepo.listPeople(LA, { limit: 500 })).rows;
+    const peopleBefore = peopleBeforeRows.length;
+    const peopleBeforeIds = new Set(peopleBeforeRows.filter((p) => p.id !== lee.id).map((p) => p.id));
+    const eventsBefore = (await eventsRepo.listEvents(LA, { limit: 500 })).rows.length;
+
+    // 12번째 기록 INSERT에서 한 번 실패를 주입한다. 사람·행사는 이미 만들어진 뒤다.
+    let entryCalls = 0;
+    const flakyDeps = {
+      ...defaultDeps,
+      createEntry: async (ledgerId, input) => {
+        entryCalls += 1;
+        if (entryCalls === 12) throw new Error('주입한 실패');
+        return defaultDeps.createEntry(ledgerId, input);
+      },
+    };
+    const state = emptyImportState();
+    let failedAt = null;
+    try {
+      await runImport({ ledgerId: LA, target: 'given', eventId: null, items, state, deps: flakyDeps });
+    } catch (e) {
+      failedAt = e.rowIndex ?? null;
+    }
+    check('중간 실패가 행 번호와 함께 보고된다', failedAt !== null, String(failedAt));
+    eq('실패 전까지 11행이 끝났다', state.done.size, 11);
+    const progress = await runImport({ ledgerId: LA, target: 'given', eventId: null, items, state, deps: flakyDeps });
+    eq('재시도 뒤 18행 전부 끝난다', progress.done, 18);
+
+    const peopleAfter = (await peopleRepo.listPeople(LA, { limit: 500 })).rows;
+    const eventsAfter = (await eventsRepo.listEvents(LA, { limit: 500 })).rows;
+    // 새 사람 — 18건 중 김철수(기존)를 뺀 17건에서 장보고 2명(다른 사람) 포함, 이름이 겹치는 것 없음 → 17명
+    eq('새로 만든 사람 수 17 (기존 김철수 제외, 장보고는 두 사람)', peopleAfter.length - peopleBefore, 17);
+    eq('새로 만든 행사 수 18 (사람·종류가 다 달라 행마다 하나)', eventsAfter.length - eventsBefore, 18);
+    const importedEntries = await entriesRepo.listEntriesByDirection(LA, false, { limit: 500 });
+    const imported = importedEntries.rows.filter((r) => r.event?.date === '2026-06-06');
+    eq('기록 18건이 정확히 한 번씩만 생겼다', imported.length, 18);
+    eq('기록 합계가 저장 계획 합계와 같다', imported.reduce((a, r) => a + (r.amount ?? 0), 0), expectedTotal);
+    const leeRows = imported.filter((r) => r.person?.name === '이영희');
+    check('이영희는 라벨 있는 새 사람으로 생겼다', leeRows.length === 1 && leeRows[0].person?.label === '회사' && leeRows[0].person?.id !== lee.id, JSON.stringify(leeRows.map((r) => r.person)));
+    const kimRows = imported.filter((r) => r.person?.id === p1.id);
+    eq('김철수는 기존 사람(p1)에게 붙었다', kimRows.length, 1);
+    eq('createEntry는 실패 1회를 포함해 19번 불렸다', entryCalls, 19);
+
+    // 뒤 검사(페이지네이션 27명·병합 합계)가 LA의 사람·기록 수에 기대므로 만든 것을 되돌린다.
+    // 행사를 지우면 기록이 FK CASCADE로 따라간다. 사람은 새로 만든 것만 지운다.
+    const importedEventIds = new Set(imported.map((r) => r.event?.id).filter(Boolean));
+    for (const id of importedEventIds) await eventsRepo.deleteEvent(LA, id);
+    const newPeople = peopleAfter.filter((p) => !peopleBeforeIds.has(p.id));
+    for (const p of newPeople) await peopleRepo.deletePerson(LA, p.id);
+    eq('가져오기 정리 뒤 사람 수가 원래대로', (await peopleRepo.listPeople(LA, { limit: 500 })).rows.length, peopleBefore - 1);
+  }
+
   // --------------------------------------------------------------- 페이지네이션
   for (let i = 0; i < 7; i += 1) {
     await peopleRepo.createPerson(LA, { name: `페이지${i}` });
@@ -652,14 +760,7 @@ async function main() {
   const signedUp = await emailAuth.signUpWithEmail(fresh, mailPw, 'ppurin://auth/confirm');
   // 메일 발송 계통 실패는 우리 코드 결함이 아니다. 429(속도 제한)든 5xx(메일러 오류)든
   // 같은 원인(내장 SMTP)이라 SKIP으로 통일한다. 다만 원문을 남겨 다음 사람이 확인할 수 있게 한다.
-  // 가입 주소는 이 스크립트가 만든 고정 형식(@ppurin-test.kr)이라 형식이 틀릴 수 없다.
-  // 그런데 서버가 간헐적으로 400 email_address_invalid 를 돌려준다(2026-09-25 관찰, 곧바로
-  // 다시 돌리면 429로 돌아옴). 서버 쪽 판정이므로 이 절에서만 메일 경로 차단으로 취급한다.
-  const mailPathBlocked =
-    !signedUp.ok &&
-    (signedUp.error.kind === 'rate_limited' ||
-      (signedUp.error.detail?.status ?? 0) >= 500 ||
-      signedUp.error.detail?.code === 'email_address_invalid');
+  const mailPathBlocked = isMailPathBlocked(signedUp);
   if (mailPathBlocked) {
     console.log('  SKIP  가입·재발송·재설정 — 메일 발송 계통이 막혔다(내장 SMTP, 커스텀 SMTP 필요)');
     console.log(`        서버 원문 ${JSON.stringify(signedUp.error.detail)}`);
@@ -689,8 +790,8 @@ async function main() {
     // 확인 메일 재발송 — check-email 화면이 실제로 부르는 경로다.
     const resent = await emailAuth.resendConfirmation(fresh, 'ppurin://auth/confirm');
     check(
-      '확인 메일 재발송이 받아들여지거나 속도 제한으로 구분된다',
-      resent.ok === true || (resent.ok === false && resent.error.kind === 'rate_limited'),
+      '확인 메일 재발송이 받아들여지거나 메일 경로 차단으로 구분된다',
+      resent.ok === true || isMailPathBlocked(resent),
       JSON.stringify(resent),
     );
 
@@ -711,12 +812,12 @@ async function main() {
     confirmed.email,
     'ppurin://auth/reset',
   );
-  check(
-    '재설정 메일 요청이 받아들여지거나 속도 제한으로 구분된다',
-    resetRequested.ok === true ||
-      (resetRequested.ok === false && resetRequested.error.kind === 'rate_limited'),
-    JSON.stringify(resetRequested),
-  );
+  if (isMailPathBlocked(resetRequested)) {
+    console.log('  SKIP  재설정 메일 요청 — 메일 발송 계통이 막혔다(내장 SMTP, 커스텀 SMTP 필요)');
+    console.log(`        서버 원문 ${JSON.stringify(resetRequested.error.detail)}`);
+  } else {
+    check('재설정 메일 요청이 받아들여진다', resetRequested.ok === true, JSON.stringify(resetRequested));
+  }
 
   console.log(`\n== 요약  통과 ${pass} · 실패 ${fail} · 건너뜀 ${skipped}\n`);
   if (skipped > 0) {
