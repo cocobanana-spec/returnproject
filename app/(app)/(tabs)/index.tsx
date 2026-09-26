@@ -40,7 +40,6 @@ export default function HomeScreen() {
   const isMine = isMineOf(direction);
 
   const today = todayISO();
-  const year = Number(today.slice(0, 4));
 
   // 목록은 서버 기본 1000행에서 조용히 잘린다. 스크롤에 맞춰 이어서 받는다.
   const list = useInfiniteQuery({
@@ -50,9 +49,12 @@ export default function HomeScreen() {
     getNextPageParam: (last) => last.nextOffset,
   });
 
+  // 총액은 **전체 기간**이다. 올해로 묶으면 2020년 결혼식 축의금처럼 예전 기록이 통째로 빠져
+  // "총액 0원"으로 보인다(2026-09-26 사용자 보고. 받은돈 1,988만원이 전부 2020년 행사였다).
+  // 연도별로 보는 곳은 통계 탭이다.
   const stats = useQuery({
-    queryKey: queryKeys.stats.byYear(ledgerId, year),
-    queryFn: () => getYearStats(ledgerId, year),
+    queryKey: queryKeys.stats.byYear(ledgerId, null),
+    queryFn: () => getYearStats(ledgerId, null),
   });
 
   // 다가오는 행사는 알림을 넣지 않기로 한 결정 9의 대체물이라 준돈 탭에만 띠로 남긴다.
