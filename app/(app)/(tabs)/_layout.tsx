@@ -38,7 +38,11 @@ export default function TabsLayout() {
   }, [router]);
 
   // 탭을 옮길 때마다 기억한다. 탭 안에서 더 들어간 화면은 탭이 아니므로 건드리지 않는다.
+  // **되살리는 동안에는 저장하지 않는다.** 첫 마운트의 경로는 언제나 홈이라, 이 가드가 없으면
+  // 저장된 탭을 읽기도 전에 홈으로 덮어쓴다. 지금까지 통과한 것은 저장소 큐 순서 덕이었지
+  // 계약이 아니었다(2026-09-26 QA).
   useEffect(() => {
+    if (restoring.current) return;
     const route = tabRouteFromPath(pathname);
     if (route) AsyncStorage.setItem(LAST_TAB_KEY, route).catch(() => {});
   }, [pathname]);
