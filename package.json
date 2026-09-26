@@ -6,12 +6,13 @@
   "scripts": {
     "android": "expo run:android",
     "export": "expo export --platform ios --output-dir dist/ios",
-    "export:web": "expo export --platform web --output-dir dist/web && cp dist/web/index.html dist/web/404.html",
+    "export:web": "expo export --platform web --output-dir dist/web",
     "integration": "node supabase/tests/app_integration.mjs",
     "ios": "expo run:ios",
     "start": "expo start",
     "test": "node --test \"src/**/*.test.ts\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "deploy:web": "bash tools/deploy-web.sh"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.16",
