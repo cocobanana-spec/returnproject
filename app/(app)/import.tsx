@@ -88,6 +88,10 @@ export default function ImportScreen() {
   const presetTarget = params.target === 'received' || params.target === 'given' ? params.target : null;
   const [target, setTarget] = useState<ImportTarget | null>(presetTarget);
   const [eventId, setEventId] = useState<string | null>(params.eventId ?? null);
+  // 명부 가져오기의 대상. 기본은 **파일의 구분 열에 따라 종류별로 나눠 넣기**다. 이 길이 없으면
+  // 종류별 분배(importEvents.ts)에 닿을 수 없고, 사용자가 본 버그("장례식이라 적어도 결혼식으로
+  // 들어간다")가 그대로 남는다(2026-09-26 QA 치명). 행사 하나를 고르는 것은 두 번째 선택지다.
+  const [split, setSplit] = useState<boolean>(!params.eventId);
   const [step, setStep] = useState<Step>(presetTarget && (presetTarget === 'given' || params.eventId) ? 'file' : 'target');
 
   const [fileName, setFileName] = useState('');
@@ -166,6 +170,38 @@ export default function ImportScreen() {
   // ---------------------------------------------------------------- 미리보기
   async function toPreview() {
     if (!target) return;
+    // 행사 하나에 넣는 경우 그 행사의 종류를 알아야 구분 열을 비교한다. 아직 못 받았으면
+    // 전 행에 "종류 없음"이 붙는다. 오류·로딩·"내 행사가 아님"을 갈라서 알린다.
+    // 하나의 문구로 뭉치면 오류일 때 "불러오는 중"으로 영원히 멈춘다(QA 2026-09-26).
+    if (target === 'received' && eventId) {
+      if (chosenEvent.isError) {
+        setError('행사를 불러오지 못했습니다. 다시 시도해 주세요.');
+        void chosenEvent.refetch();
+        return;
+      }
+      if (!chosenEvent.isSuccess) {
+        setError('행사를 아직 불러오는 중입니다. 잠시 뒤 다시 눌러 주세요.');
+        return;
+      }
+      if (!chosenEvent.data) {
+        setError('내 행사가 아니거나 이미 지워진 행사입니다.');
+        return;
+      }
+    }
+    // 나눠 넣기는 내 행사 목록으로 기존 행사에 연결한다. 목록이 실패했거나 아직 안 왔는데
+    // 진행하면 후보가 없어 종류마다 새 행사를 만든다. 기존 행사가 있어도 그렇다.
+    // 위와 대칭으로 막는다.
+    if (target === 'received' && !eventId) {
+      if (myEvents.isError) {
+        setError('내 행사 목록을 불러오지 못했습니다. 다시 시도해 주세요.');
+        void myEvents.refetch();
+        return;
+      }
+      if (!myEvents.isSuccess) {
+        setError('내 행사 목록을 아직 불러오는 중입니다. 잠시 뒤 다시 눌러 주세요.');
+        return;
+      }
+    }
     setError(null);
     setBusy(true);
     try {
@@ -227,7 +263,9 @@ export default function ImportScreen() {
   // 건너뛰기·수정으로 저장 대상이 바뀌면 묶음의 건수와 합계도 따라 바뀐다.
   // 사용자가 고른 대상 행사는 유지한다.
   const shownGroups = useMemo(() => {
-    if (groups.length === 0) return [];
+    // 조건은 "나눠 넣기 모드인가"다. 초기 묶음이 비어 있었다는 이유로 계획을 영영 비우면
+    // 수정 필요 행을 고친 뒤 기존 내 행사를 무시하고 종류마다 새로 만든다(2026-09-26 QA).
+    if (target !== 'received' || eventId) return [];
     const options = (myEvents.data?.rows ?? []).map((e) => ({
       id: e.id as string,
       title: e.title,
@@ -235,7 +273,7 @@ export default function ImportScreen() {
       date: e.date,
     }));
     return carryOverTargets(groupRowsByType(rows, options, defaultDate), groups);
-  }, [rows, groups, myEvents.data, defaultDate]);
+  }, [rows, groups, myEvents.data, defaultDate, target, eventId]);
 
   // ---------------------------------------------------------------- 저장
   async function save() {
@@ -283,14 +321,29 @@ export default function ImportScreen() {
           />
           <Choice
             title="명부 가져오기"
-            hint="내 행사(결혼식·돌잔치 등)에 받은 돈. 내 행사 하나를 고른 뒤 이름·금액(·메모)을 읽습니다."
+            hint="내 행사(결혼식·돌잔치 등)에 받은 돈. 이름·금액·구분(·날짜·메모)을 읽습니다."
             selected={target === 'received'}
             onPress={() => setTarget('received')}
           />
           {target === 'received' && (
             <View style={{ gap: space.sm }}>
-              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>어느 행사의 명부인가요</Text>
-              {myEvents.isLoading ? (
+              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>어느 행사에 넣을까요</Text>
+              <Choice
+                title="파일의 구분에 따라 나눠 넣기"
+                hint="결혼식·장례식·돌잔치가 섞여 있어도 됩니다. 종류별로 내 행사를 찾고, 없으면 새로 만듭니다. 미리보기에서 확인합니다."
+                selected={split}
+                onPress={() => {
+                  setSplit(true);
+                  setEventId(null);
+                }}
+              />
+              <Choice
+                title="행사 하나에 넣기"
+                hint="파일 전체가 한 행사의 명부일 때. 구분 열이 있으면 그 행사의 종류와 다른 행에 경고합니다."
+                selected={!split}
+                onPress={() => setSplit(false)}
+              />
+              {!split && (myEvents.isLoading ? (
                 <ActivityIndicator color={colors.textMuted} />
               ) : myEvents.isError ? (
                 <LoadFailed title="행사를 불러오지 못했습니다" onRetry={() => void myEvents.refetch()} />
@@ -308,12 +361,12 @@ export default function ImportScreen() {
                     onPress={() => setEventId(e.id)}
                   />
                 ))
-              )}
+              ))}
             </View>
           )}
           <Button
             label="다음"
-            disabled={!target || (target === 'received' && !eventId)}
+            disabled={!target || (target === 'received' && !split && !eventId)}
             onPress={() => setStep('file')}
           />
         </View>
@@ -398,7 +451,9 @@ export default function ImportScreen() {
             </View>
           ))}
 
-          {target === 'given' && !mapping.roles.includes('date') && (
+          {/* 준돈은 행마다 행사 날짜가 필요하다. 나눠 넣기(받은돈, 행사 미정)도 새로 만드는
+              행사의 날짜가 필요하다. 행사 하나에 넣을 때만 그 행사의 날짜를 쓴다. */}
+          {(target === 'given' || (target === 'received' && !eventId)) && !mapping.roles.includes('date') && (
             <Field
               label="날짜 열이 없습니다. 전체에 적용할 날짜 (YYYY-MM-DD)"
               value={defaultDate}
@@ -415,7 +470,7 @@ export default function ImportScreen() {
           <Button
             label="미리보기"
             loading={busy}
-            disabled={busy || errors.length > 0 || (target === 'given' && !/^\d{4}-\d{2}-\d{2}$/.test(defaultDate))}
+            disabled={busy || errors.length > 0 || (!eventId && !/^\d{4}-\d{2}-\d{2}$/.test(defaultDate))}
             onPress={() => void toPreview()}
           />
           <Button label="다른 파일" variant="secondary" onPress={() => setStep('file')} />
@@ -470,13 +525,13 @@ export default function ImportScreen() {
                             key={o.id}
                             label={`${o.title} · ${formatEventDate(o.date, 'day')}`}
                             selected={g.attachTo === o.id}
-                            onPress={() => setGroups((prev) => setGroupTarget(prev, g.type, o.id))}
+                            onPress={() => setGroups(setGroupTarget(shownGroups, g.type, o.id))}
                           />
                         ))}
                         <Chip
                           label="새 행사로"
                           selected={g.attachTo === null}
-                          onPress={() => setGroups((prev) => setGroupTarget(prev, g.type, null))}
+                          onPress={() => setGroups(setGroupTarget(shownGroups, g.type, null))}
                         />
                       </View>
                     </View>

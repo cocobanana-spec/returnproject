@@ -97,6 +97,25 @@ export default function RecordsScreen() {
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </View>
         </Pressable>
+        {/* 가져오기 — 보고 있는 탭을 따른다. 받은돈이면 종류별로 나눠 넣는 길이 여기서 열린다.
+            docs/02는 이 진입로가 있다고 적어 두었는데 실제로는 없었다(2026-09-26 QA). */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="가져오기"
+          onPress={() => router.push(`/import?target=${direction}`)}
+          style={({ pressed }) => ({
+            alignItems: 'center',
+            backgroundColor: colors.bgSubtle,
+            borderRadius: radius.pill,
+            height: 40,
+            justifyContent: 'center',
+            marginRight: space.sm,
+            width: 40,
+            opacity: pressed ? 0.6 : 1,
+          })}
+        >
+          <Ionicons name="cloud-upload-outline" size={20} color={colors.text} />
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="사람 검색"
