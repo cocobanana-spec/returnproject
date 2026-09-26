@@ -4,7 +4,7 @@
 // 전부 도메인 순수 함수(importFile·importPlan·importAmount)가 하고, 저장은 import/runner가 한다.
 // 파일은 기기 안에서만 읽는다. 서버로 가는 것은 사람·행사·기록 행뿐이다.
 import * as DocumentPicker from 'expo-document-picker';
-import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
+import { readFileBytes } from '../../src/lib/readFileBytes.ts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
@@ -12,7 +12,6 @@ import { ActivityIndicator, FlatList, Pressable, ScrollView, Text, View } from '
 import type { EventType } from '../../src/domain/constants.ts';
 import {
   ENCODING_LABEL,
-  base64ToBytes,
   detectEncoding,
   encodingMismatch,
   fileKindOf,
@@ -141,8 +140,7 @@ export default function ImportScreen() {
         setError('xlsx·xls·csv 파일만 읽을 수 있습니다.');
         return;
       }
-      const base64 = await readAsStringAsync(asset.uri, { encoding: EncodingType.Base64 });
-      const data = base64ToBytes(base64);
+      const data = await readFileBytes(asset.uri);
       const enc = k === 'csv' ? detectEncoding(data) : 'utf8';
       applyFile(asset.name, data, k, enc);
       setStep('mapping');
