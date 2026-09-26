@@ -1300,6 +1300,94 @@ select tst.expect_ok('T15.14 상한 이하 금액은 저장된다',
               '77777777-0000-4000-8000-000000000001', 1000000000) $q$);
 
 -- ============================================================================
+-- T16. 장부 초기화(0007 reset_ledger)
+-- 되돌릴 수 없는 동작이다. **다른 장부가 함께 비워지지 않는지**가 핵심이다.
+-- ============================================================================
+
+-- 초기화 대상 장부(LG)에 사람·행사·기록을 만들어 둔다. 다른 장부(L3)에도 같이 만든다.
+select tst.expect_ok('T16.1 초기화 대상 장부에 사람을 만든다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ insert into public.people (id, ledger_id, name)
+      values ('99999999-0000-4000-8000-000000000011',
+              (select v from tst.fix where k='LG'), '초기화대상') $q$);
+
+select tst.expect_ok('T16.2 초기화 대상 장부에 행사를 만든다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ insert into public.events (id, ledger_id, title, type, date, is_mine)
+      values ('99999999-0000-4000-8000-000000000012',
+              (select v from tst.fix where k='LG'), '초기화대상 행사', 'wedding', '2026-01-01', true) $q$);
+
+select tst.expect_ok('T16.3 초기화 대상 장부에 기록을 만든다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ insert into public.entries (ledger_id, event_id, person_id, amount)
+      values ((select v from tst.fix where k='LG'),
+              '99999999-0000-4000-8000-000000000012',
+              '99999999-0000-4000-8000-000000000011', 50000) $q$);
+
+-- 다른 장부는 관리자 자격으로 만든다. 이 시점에 어떤 사용자의 장부가 살아 있는지에
+-- 기대지 않기 위해서다(앞 절이 장부를 지우기도 한다).
+select tst.expect_admin('T16.4 다른 장부를 하나 만든다',
+  $q$ with i as (
+        insert into public.ledgers (id, name)
+        values ('99999999-0000-4000-8000-0000000000ff', '건드리면 안 되는 장부')
+        returning 1)
+      select count(*)::text from i $q$, '1');
+
+select tst.expect_admin('T16.4b 다른 장부에 사람을 만든다',
+  $q$ with i as (
+        insert into public.people (id, ledger_id, name)
+        values ('99999999-0000-4000-8000-000000000021',
+                '99999999-0000-4000-8000-0000000000ff', '남의장부사람')
+        returning 1)
+      select count(*)::text from i $q$, '1');
+
+-- 구성원이 아니면 초기화할 수 없다. RLS 위에 함수가 한 번 더 막는다.
+select tst.expect_error('T16.5 구성원이 아닌 장부는 초기화할 수 없다',
+  'cccccccc-0000-4000-8000-000000000003',
+  $q$ select public.reset_ledger((select v from tst.fix where k='LG')) $q$,
+  'not_member');
+
+select tst.expect_admin('T16.6 막힌 뒤에도 대상 장부의 사람이 그대로다',
+  $q$ select count(*)::text from public.people
+       where ledger_id = (select v from tst.fix where k='LG')
+         and id = '99999999-0000-4000-8000-000000000011' $q$, '1');
+
+-- 구성원이 초기화하면 지운 건수를 돌려준다.
+-- 실제로 지운 건수를 돌려준다. 앞 절들이 만들어 둔 것까지 지우므로 정확한 수 대신
+-- "0보다 크다"를 본다. 정확한 수는 T16.13(두 번째 호출이 0)이 잡는다.
+select tst.expect_scalar('T16.7 초기화가 지운 사람 수를 돌려준다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ select (people_deleted > 0)::text from public.reset_ledger((select v from tst.fix where k='LG')) $q$,
+  'true');
+
+select tst.expect_admin('T16.8 대상 장부의 사람이 사라졌다',
+  $q$ select count(*)::text from public.people
+       where ledger_id = (select v from tst.fix where k='LG') $q$, '0');
+
+select tst.expect_admin('T16.9 대상 장부의 행사가 사라졌다',
+  $q$ select count(*)::text from public.events
+       where ledger_id = (select v from tst.fix where k='LG') $q$, '0');
+
+select tst.expect_admin('T16.10 대상 장부의 기록이 사라졌다',
+  $q$ select count(*)::text from public.entries
+       where ledger_id = (select v from tst.fix where k='LG') $q$, '0');
+
+-- 가장 중요한 검사 — 다른 장부는 건드리지 않는다.
+select tst.expect_admin('T16.11 다른 장부의 사람은 그대로다',
+  $q$ select count(*)::text from public.people
+       where id = '99999999-0000-4000-8000-000000000021' $q$, '1');
+
+select tst.expect_admin('T16.12 장부와 구성원은 남는다',
+  $q$ select count(*)::text from public.ledger_members
+       where ledger_id = (select v from tst.fix where k='LG') $q$, '1');
+
+-- 이미 빈 장부를 다시 초기화해도 오류가 아니다. 0건을 돌려준다.
+select tst.expect_scalar('T16.13 빈 장부를 초기화하면 0건이다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ select people_deleted::text from public.reset_ledger((select v from tst.fix where k='LG')) $q$,
+  '0');
+
+-- ============================================================================
 -- 결과 요약
 -- ============================================================================
 \echo ''
