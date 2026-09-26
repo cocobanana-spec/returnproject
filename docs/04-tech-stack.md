@@ -113,6 +113,31 @@
 - JSON 가져오기. 내보내기만 P1.
 - 모노레포, 디자인 시스템 패키지, 전역 상태 라이브러리.
 
+## 6.5 웹 (2026-09-26, 1차)
+
+사용자 요청 — "웹버전도 있었으면 좋겠는데 pc에서도 볼수 있게끔(굳이 앱 설치 안해도 웹으로만 동일한 데이터 활용 가능)".
+같은 Supabase를 쓰므로 앱에서 넣은 기록이 웹에서 그대로 보인다. **1차 목표는 "브라우저에서 로그인해 내 기록을 본다"까지다.**
+
+- 빌드 — `react-native-web` + `@expo/metro-runtime`. `npm run export:web`.
+- **`output: "single"`(SPA)** — GitHub Pages는 정적 호스팅이라 서버 라우팅이 없다. static 다중 페이지로 내면 새로고침에서 404가 난다.
+- **`experiments.baseUrl: "/returnproject/app"`** — gh-pages의 `/app/` 하위에 올린다. 번들 자산 경로와 인증 복귀 주소가 이 값을 따르고, 런타임에서는 `process.env.EXPO_BASE_URL`로 읽는다.
+- **SPA 폴백이 필요하다.** `/records` 같은 주소로 직접 들어오거나 새로고침하면 Pages가 그 파일을 못 찾는다. Pages는 없는 경로에 `404.html`을 주므로 `index.html`을 그대로 복사해 둔다. `export:web` 스크립트가 그 복사까지 한다. **이것이 빠지면 앱 안에서 탭을 누르는 것은 되는데 새로고침만 깨진다.**
+
+### 플랫폼 분기는 셋뿐이다 (`src/lib/platform.ts`)
+| 무엇 | 앱 | 웹 | 왜 |
+|---|---|---|---|
+| 인증 복귀 주소 (`src/auth/redirects.ts`) | `ppurin://auth/…` | `https://<host><baseUrl>/auth/…` | 웹에는 스킴이 없다 |
+| OAuth 복귀 처리 (`providers.ts`, `supabaseClient.ts`) | 딥링크를 받아 직접 교환 | 같은 탭에서 이동하고 `detectSessionInUrl`로 주소창 코드를 교환 | 웹에는 주소창이 있고 별도 브라우저 세션이 필요 없다 |
+| 파일 읽기 (`src/lib/readFileBytes.ts`) | expo-file-system base64 | `fetch(blobUrl).arrayBuffer()` | 웹의 DocumentPicker는 blob:/data: 주소를 준다 |
+
+세션 저장은 **분기하지 않는다.** `@react-native-async-storage/async-storage`의 웹 구현이 `localStorage`를 감싼 것이고 네이티브 구현은 `.native.js`로 따로 있어 번들러가 알아서 고른다. 도메인·리포지토리·화면은 그대로 공유한다.
+
+### 넓은 화면
+전화기 세로를 전제로 만든 화면들이다. **전면 재설계 대신 폭만 묶었다**(`src/ui/webLayout.ts`, 최대 720 가운데 정렬). 레이아웃 두 곳(`app/(app)/_layout.tsx`, `app/(auth)/_layout.tsx`)에만 넣어 모든 화면과 하단 탭이 같은 폭 안에 들어간다. 하단 탭은 데스크톱에서도 어색하지 않다 — 폭이 묶여 네 개가 화면 양끝까지 흩어지지 않기 때문이다. 사이드바로 바꾸는 것은 2차로 미룬다.
+
+### 아직 아닌 것
+소셜 로그인 웹 실제 왕복(Supabase Redirect URLs 등록 필요), 가져오기 웹 전체 흐름(파일 선택 대화상자), 반응형 재설계.
+
 ## 7. 결정 현황
 
 | 항목 | 상태 |
@@ -124,4 +149,5 @@
 | 공동 장부 | **확정** — 1단계 포함, 소유 축 `ledger_id` |
 | 로그인 수단 | **확정** — Apple + Google + 메일·비밀번호 (2026-09-24 변경. Kakao 제외) |
 | 첫 실행 | **확정** — 로그인 먼저 |
+| 웹 | **1차 완료(2026-09-26)** — react-native-web, SPA, `/returnproject/app` 하위. §6.5 |
 | 앱 잠금 등 | 사용자 확인 질문 4~10번 (docs/02 §8.2) |

@@ -304,6 +304,20 @@
 - [x] (경미) 고정 행사의 종류를 못 받았으면 미리보기로 넘어가지 않음, 초기화 알림을 바깥에서 닫아도 이동
 - [ ] **⛔ 0008 `db push` 필요.** 배포 전에는 통합 검증의 owner 전용 절이 건너뛴다
 
+### 웹 1차 — 브라우저에서 로그인해 내 기록 보기 (2026-09-26) — 완료
+사용자 원문 — "웹버전도 있었으면 좋겠는데 pc에서도 볼수 있게끔".
+검증 — `tsc` 0건 · `npm test` 262건 · `run.sh` 216건 · `npm run integration` 171건 · **헤드리스 크롬으로 실제 확인**.
+- [x] `react-native-web`·`@expo/metro-runtime`·`react-dom` 설치, `app.json` web 설정(`output: single`)
+- [x] `experiments.baseUrl: /returnproject/app` — 번들 자산 경로가 실제로 그 하위로 나오는 것 확인
+- [x] **SPA 폴백** — `export:web` 스크립트가 `index.html`을 `404.html`로 복사한다. 없으면 새로고침에서 404
+- [x] 인증 복귀 주소를 플랫폼별로 가름(`src/auth/redirects.ts`), 웹 OAuth는 같은 탭 이동 + `detectSessionInUrl`
+- [x] 세션 저장 — 웹 AsyncStorage가 `localStorage` 기반임을 패키지 구현으로 확인. 분기 없음
+- [x] 넓은 화면 — 최대 폭 720 가운데 정렬. 레이아웃 두 곳에만
+- [x] 웹 파일 읽기 — blob URL → `fetch` → `Uint8Array`. 파싱은 그대로 공유. 브라우저에서 왕복 확인
+- [x] iOS 회귀 — `expo export --platform ios` 정상, 네 검증 전부 통과
+- [ ] **⛔ Supabase Redirect URLs 등록 필요.** 등록 전에는 웹 소셜 로그인·메일 링크가 거부된다
+- [ ] 웹 소셜 로그인 실제 왕복, 가져오기 웹 전체 흐름 — 2차
+
 ## 6. P1 기능
 - [ ] S12 기록 검색/필터 (방향·종류·기간·금액·그룹, 하단 합계)
 - [ ] S11 통계 (연도 세그먼트, 총계, 종류별·그룹별 막대 — `stats_by_year`, 사람별 상위, 형태별)
