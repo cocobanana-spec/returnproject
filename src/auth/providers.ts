@@ -17,7 +17,7 @@ import { supabase } from '../lib/supabase';
 import { mapAuthError } from './errors.ts';
 import { parseAuthLink } from './links.ts';
 import { QUERY_CACHE_KEY, queryClient } from '../lib/queryClient';
-import { CURRENT_LEDGER_KEY } from '../ledger/storage';
+import { CURRENT_LEDGER_KEY, LAST_TAB_KEY } from '../ledger/storage';
 
 export const AUTH_PROVIDERS = ['apple', 'google'] as const;
 export type AuthProviderId = (typeof AUTH_PROVIDERS)[number];
@@ -79,5 +79,5 @@ export async function signInWith(provider: AuthProviderId): Promise<SignInResult
 export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
   queryClient.clear();
-  await AsyncStorage.multiRemove([QUERY_CACHE_KEY, CURRENT_LEDGER_KEY]).catch(() => {});
+  await AsyncStorage.multiRemove([QUERY_CACHE_KEY, CURRENT_LEDGER_KEY, LAST_TAB_KEY]).catch(() => {});
 }
