@@ -5,6 +5,7 @@ export const queryKeys = {
     mine: (userId: string) => ['ledgers', 'mine', { userId }] as const,
     detail: (ledgerId: string) => ['ledgers', 'detail', { ledgerId }] as const,
     members: (ledgerId: string) => ['ledgers', 'members', { ledgerId }] as const,
+    contents: (ledgerId: string) => ['ledgers', 'contents', { ledgerId }] as const,
   },
   people: {
     list: (ledgerId: string, params?: Record<string, unknown>) =>

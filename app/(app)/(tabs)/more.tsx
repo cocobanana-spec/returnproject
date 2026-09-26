@@ -96,6 +96,12 @@ export default function MoreScreen() {
           hint={`${current?.name ?? '내 장부'}${ledgers.length > 1 ? ` 외 ${ledgers.length - 1}권` : ''}`}
           onPress={() => router.push('/ledger')}
         />
+        <Row
+          icon="trash-outline"
+          label="장부 초기화"
+          hint="사람·행사·기록을 전부 지웁니다. 되돌릴 수 없습니다"
+          onPress={() => router.push('/ledger-reset')}
+        />
       </Section>
 
       <Section title="계정">

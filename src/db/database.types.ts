@@ -386,6 +386,14 @@ export type Database = {
         Args: { p_ledger_id: string; p_user_id: string }
         Returns: undefined
       }
+      reset_ledger: {
+        Args: { p_ledger_id: string }
+        Returns: {
+          entries_deleted: number
+          events_deleted: number
+          people_deleted: number
+        }[]
+      }
       stats_by_year: {
         Args: { p_ledger_id: string; p_year?: number }
         Returns: {
