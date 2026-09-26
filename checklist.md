@@ -315,7 +315,15 @@
 - [x] 넓은 화면 — 최대 폭 720 가운데 정렬. 레이아웃 두 곳에만
 - [x] 웹 파일 읽기 — blob URL → `fetch` → `Uint8Array`. 파싱은 그대로 공유. 브라우저에서 왕복 확인
 - [x] iOS 회귀 — `expo export --platform ios` 정상, 네 검증 전부 통과
-- [ ] **⛔ Supabase Redirect URLs 등록 필요.** 등록 전에는 웹 소셜 로그인·메일 링크가 거부된다
+- [ ] **⛔ Supabase Redirect URLs 등록 필요.** 등록 전에는 웹 소셜 로그인·메일 링크가 거부된다. 앱 주소 3종은 이미 등록돼 있고, 웹 주소 3종을 더한다
+
+  ```
+  https://cocobanana-spec.github.io/returnproject/app/auth/callback
+  https://cocobanana-spec.github.io/returnproject/app/auth/confirm
+  https://cocobanana-spec.github.io/returnproject/app/auth/reset
+  ```
+
+  Authentication → URL Configuration → Redirect URLs 에서 한 줄씩 더한다. **Site URL 은 바꾸지 않는다** — 바꾸면 허용 목록에 없는 주소로 온 요청이 웹으로 튕겨 앱의 메일 링크가 깨진다. 주소는 `experiments.baseUrl`(`/returnproject/app`)에서 나오므로 배포 경로를 옮기면 이 값도 같이 바뀐다
 - [ ] 웹 소셜 로그인 실제 왕복, 가져오기 웹 전체 흐름 — 2차
 
 #### QA 재검증에서 잡힌 것 (웹 1차, 빌드 20에 남아 있던 것)
