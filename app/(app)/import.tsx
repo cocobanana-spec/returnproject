@@ -66,6 +66,7 @@ import { Chip } from '../../src/ui/Chip';
 import { Field } from '../../src/ui/Field';
 import { LoadFailed } from '../../src/ui/LoadFailed';
 import { Screen } from '../../src/ui/Screen';
+import { SampleTable } from '../../src/ui/SampleTable';
 
 type Step = 'target' | 'file' | 'mapping' | 'preview' | 'saving' | 'done';
 
@@ -380,8 +381,9 @@ export default function ImportScreen() {
         <View style={{ gap: space.lg }}>
           <TargetLine target={target} eventTitle={chosenEvent.data?.title ?? null} />
           <Text style={{ color: colors.textMuted, fontSize: font.caption, lineHeight: 20 }}>
-            첫 행이 열 이름(이름·금액·구분 등)이면 자동으로 알아봅니다. 열 순서는 다음 단계에서 고칠 수 있습니다.
+            이런 모양이면 됩니다. 첫 행이 열 이름이면 자동으로 알아보고, 열은 다음 단계에서 고칠 수 있습니다.
           </Text>
+          <SampleTable />
           <Button label="파일 고르기" onPress={() => void pickFile()} loading={busy} disabled={busy} />
           {error && <Text style={{ color: colors.danger, fontSize: font.caption }}>{error}</Text>}
         </View>
