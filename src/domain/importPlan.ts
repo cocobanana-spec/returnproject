@@ -55,8 +55,19 @@ export function trimTable(raw: Table): Table {
   });
 }
 
+// 열 이름에 붙는 꼬리를 떼어 낸다. 실제 사용자 파일이 "금액(원)"이었고 괄호 때문에 금액 열을
+// 통째로 놓쳐 전 행이 저장 불가가 됐다(2026-09-26). "성함 ", "일자(음력)"도 같은 부류다.
+function headerCore(text: string): string {
+  return text
+    .replace(/[（(［\[{【].*$/u, '') // 괄호가 열리면 그 뒤는 설명으로 본다
+    .replace(/[\s_·・]+/gu, '')
+    .trim();
+}
+
 function roleOfHeader(text: string): ColumnRole | null {
-  for (const { role, re } of ROLE_PATTERNS) if (re.test(text)) return role;
+  const core = headerCore(text);
+  if (core.length === 0) return null;
+  for (const { role, re } of ROLE_PATTERNS) if (re.test(core)) return role;
   return null;
 }
 
@@ -149,13 +160,29 @@ export function parseImportedDate(cell: Cell | undefined): string | null {
     const ms = Math.round((cell - 25569) * 86_400_000);
     return new Date(ms).toISOString().slice(0, 10);
   }
-  const m = cell.trim().match(/^(\d{4})[.\-/년]\s*(\d{1,2})[.\-/월]\s*(\d{1,2})일?$/);
-  if (!m) return null;
-  const y = m[1] as string;
-  const mo = (m[2] as string).padStart(2, '0');
-  const d = (m[3] as string).padStart(2, '0');
-  const iso = `${y}-${mo}-${d}`;
-  return Number.isNaN(Date.parse(`${iso}T00:00:00Z`)) ? null : iso;
+  const text = cell.trim();
+  const ymd = text.match(/^(\d{4})[.\-/년]\s*(\d{1,2})[.\-/월]\s*(\d{1,2})일?$/);
+  if (ymd) return isoOf(ymd[1] as string, ymd[2] as string, ymd[3] as string);
+
+  // 엑셀이 흔히 쓰는 미국식 M/D/YY·M/D/YYYY. 실제 사용자 파일이 "11/15/22"였다.
+  // 두 자리 연도는 2000년대로 읽는다. 경조사 기록에 1900년대가 들어올 일은 없다.
+  const mdy = text.match(/^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2}|\d{4})$/);
+  if (mdy) {
+    const rawYear = mdy[3] as string;
+    const year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
+    return isoOf(year, mdy[1] as string, mdy[2] as string);
+  }
+  return null;
+}
+
+// 달·일이 실제로 존재하는 날짜인지까지 본다. 13월이나 2월 30일은 버린다.
+function isoOf(year: string, month: string, day: string): string | null {
+  const mo = month.padStart(2, '0');
+  const d = day.padStart(2, '0');
+  const iso = `${year}-${mo}-${d}`;
+  const parsed = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString().slice(0, 10) === iso ? iso : null;
 }
 
 export type RowIssue =

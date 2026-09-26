@@ -362,3 +362,37 @@ test("중복이 되살아나면 앞선 '같은 사람' 선택도 함께 되돌�
     assert.equal(rowStatus(r), 'fix', '다시 물어야 하므로 수정 필요다');
   }
 });
+
+// 2026-09-26 사용자가 보낸 실제 파일 모양. 열 이름에 단위가 붙고 날짜가 미국식이다.
+// 이 조합에서 금액 열을 통째로 놓쳐 전 행이 저장 불가였다.
+test('실제 사용자 파일 모양을 그대로 읽는다', () => {
+  const table = [
+    ['No', '성함', '금액(원)', '일자', '종류'],
+    [1, '김용우', '\u20a9100,000', '11/15/22', '할아버지 장례식'],
+    [2, '이민정(네이버)', '\u20a950,000', '11/15/22', '할아버지 장례식'],
+  ];
+  const m = guessMapping(table);
+  assert.equal(m.hasHeader, true);
+  assert.deepEqual(m.roles, ['ignore', 'name', 'amount', 'date', 'type']);
+
+  const rows = buildRows(table, m, { target: 'received', defaultDate: '2026-09-26', eventType: null });
+  assert.equal(rows.length, 2);
+  for (const r of rows) {
+    assert.deepEqual(r.issues, [], `이슈가 없어야 한다: ${JSON.stringify(r.issues)}`);
+    assert.equal(r.date, '2022-11-15', '미국식 날짜를 읽어야 한다');
+    assert.equal(r.type, 'funeral', '"할아버지 장례식"은 장례식이다');
+  }
+  assert.equal(rows[0]!.amount, 100000);
+  assert.equal(rows[1]!.amount, 50000);
+});
+
+test('열 이름의 괄호 꼬리를 떼고 맞춘다', () => {
+  assert.equal(guessMapping([['성함 ', '금액 (원)']]).roles[0], 'name');
+  assert.equal(guessMapping([['성함 ', '금액 (원)']]).roles[1], 'amount');
+});
+
+test('없는 날짜는 버린다', () => {
+  assert.equal(parseImportedDate('13/45/22'), null);
+  assert.equal(parseImportedDate('2/30/24'), null);
+  assert.equal(parseImportedDate('2/29/24'), '2024-02-29');
+});
