@@ -28,6 +28,8 @@ import { detectEncoding, readTable } from '../../src/domain/importFile.ts';
 import { buildRows, guessMapping, markSameNames, planSave, summarize, trimTable } from '../../src/domain/importPlan.ts';
 import { emptyImportState, runImport, defaultDeps } from '../../src/import/runner.ts';
 import { resolveSameName } from '../../src/domain/person.ts';
+import { groupRowsByType, planByType } from '../../src/domain/importEvents.ts';
+import { canResetLedger, resetWarningLine } from '../../src/domain/resetLedger.ts';
 import { pickClosestEvent } from '../../src/domain/quickRecord.ts';
 
 const URL = (process.env.SUPABASE_URL ?? '').replace(/\/$/, '');
@@ -597,6 +599,169 @@ async function main() {
     eq('겹치는 명부 정리 뒤 사람 수가 원래대로', (await peopleRepo.listPeople(LA, { limit: 500 })).rows.length, peopleCountBefore - overlapNames.length);
   }
 
+  // ------------------- 가져오기 — 종류가 섞인 명부를 종류별 내 행사에 나눠 담는다
+  // 2026-09-26 사용자 피드백의 핵심 — "장례식으로 종류를 지정해도 그냥 결혼식으로 입력된다".
+  // 받은돈은 행사에 속하고 종류는 행사가 가지므로, 한 파일에 종류가 섞이면 행사를 나눠야 한다.
+  {
+    const existing = await eventsRepo.createEvent(LA, {
+      type: 'wedding',
+      is_mine: true,
+      title: '내 결혼식(기존)',
+      date: '2020-05-05',
+    });
+    const table = [
+      ['이름', '금액', '구분'],
+      ['혼가', 50000, '결혼식'],
+      ['혼나', 100000, '결혼식'],
+      ['장가', 30000, '장례식'],
+      ['장나', 70000, '조의'],
+      ['돌가', 20000, '돌잔치'],
+    ];
+    const mapping = guessMapping(table);
+    // eventType이 null이다 — 행사가 정해지지 않은 받은돈 가져오기다.
+    const built = buildRows(table, mapping, { target: 'received', defaultDate: '2026-09-09', eventType: null });
+    eq('섞인 명부 5행', built.length, 5);
+    eq('구분 열이 종류가 된다', built.map((r) => r.type).join(','), 'wedding,wedding,funeral,funeral,first_birthday');
+
+    const keys = [...new Set(built.map((r) => r.nameKey).filter(Boolean))];
+    const found = await peopleRepo.listPeopleByNormalizedNames(LA, keys);
+    const existingMap = new Map();
+    for (const p of found) {
+      existingMap.set(p.name_normalized, [
+        ...(existingMap.get(p.name_normalized) ?? []),
+        { id: p.id, name: p.name, label: p.label },
+      ]);
+    }
+    const rows = markSameNames(built, existingMap);
+    eq('섞인 명부는 수정 필요가 없다', summarize(rows).fix, 0);
+
+    const myEvents = (await eventsRepo.listEvents(LA, { isMine: true, limit: 200 })).rows.map((e) => ({
+      id: e.id,
+      title: e.title,
+      type: e.type,
+      date: e.date,
+    }));
+    const groups = groupRowsByType(rows, myEvents, '2026-09-09');
+    eq('종류 묶음 3개', groups.length, 3);
+    const wedding = groups.find((g) => g.type === 'wedding');
+    eq('결혼식 2건은 기존 내 결혼식에 붙는다', wedding?.attachTo, existing.id);
+    const funeral = groups.find((g) => g.type === 'funeral');
+    eq('장례식 2건은 새 행사로 간다', funeral?.attachTo, null);
+    eq('"조의"도 장례식으로 읽힌다', funeral?.count, 2);
+
+    const beforeRows = (await eventsRepo.listEvents(LA, { limit: 500 })).rows;
+    const beforeIds = new Set(beforeRows.map((e) => e.id));
+    // 묶음마다 기록이 어디로 갈지 미리 정해 둔 대상의 현재 건수를 센다.
+    const countOf = async (id) => (await entriesRepo.listEntriesByEvent(LA, id, { limit: 500 })).rows.length;
+    const beforeCounts = new Map();
+    for (const g of groups) if (g.attachTo) beforeCounts.set(g.type, await countOf(g.attachTo));
+    const newGroups = groups.filter((g) => g.attachTo === null);
+    const items = planSave(rows, 'received');
+    await runImport({
+      ledgerId: LA,
+      target: 'received',
+      eventId: null,
+      myEventByType: planByType(groups),
+      items,
+      state: emptyImportState(),
+    });
+
+    const eventsAfter = (await eventsRepo.listEvents(LA, { limit: 500 })).rows;
+    const created = eventsAfter.filter((e) => !beforeIds.has(e.id));
+    // 대상이 없던 묶음 수만큼만 행사가 새로 생긴다. 있던 묶음은 그 행사를 다시 쓴다.
+    eq('새로 만든 내 행사 수가 대상 없던 묶음 수와 같다', created.length, newGroups.length);
+    check('새로 만든 행사는 전부 내 행사다', created.every((e) => e.is_mine), JSON.stringify(created.map((e) => [e.title, e.is_mine])));
+
+    // 묶음마다 제 종류의 행사에 제 건수가 들어갔는지 본다.
+    for (const g of groups) {
+      const target = g.attachTo ?? created.find((e) => e.type === g.type)?.id;
+      check(`${g.typeLabel} 묶음의 대상 행사가 있다`, Boolean(target), JSON.stringify(g));
+      const after = await countOf(target);
+      const delta = after - (beforeCounts.get(g.type) ?? 0);
+      eq(`${g.typeLabel} ${g.count}건이 제 종류의 행사에 들어갔다`, delta, g.count);
+      const ev = eventsAfter.find((e) => e.id === target);
+      eq(`${g.typeLabel} 대상 행사의 종류가 맞다`, ev?.type, g.type);
+    }
+    eq('결혼식은 새 행사를 만들지 않고 기존 내 결혼식을 다시 썼다', groups.find((g) => g.type === 'wedding')?.attachTo, existing.id);
+
+    // 뒤 검사가 사람·행사 수에 기대므로 만든 것을 되돌린다.
+    for (const ev of [existing.id, ...created.map((e) => e.id)]) await eventsRepo.deleteEvent(LA, ev);
+    const now = (await peopleRepo.listPeople(LA, { limit: 500 })).rows;
+    for (const p of now) if (['혼가', '혼나', '장가', '장나', '돌가'].includes(p.name)) await peopleRepo.deletePerson(LA, p.id);
+  }
+
+  // ------------------------------- 장부 초기화(0007)
+  // 되돌릴 수 없는 동작이다. **다른 장부가 함께 비워지지 않는지**가 핵심이다.
+  {
+    check('장부 이름을 그대로 쳐야 초기화가 켜진다', canResetLedger('초기화 장부', '초기화 장부'), 'true');
+    check('이름이 다르면 켜지지 않는다', canResetLedger('초기화 장부', '초기화') === false, 'false');
+    eq('지워질 건수를 문구로 읽는다', resetWarningLine({ people: 1, events: 2, entries: 3 }),
+       '사람 1명 · 행사 2건 · 기록 3건이 사라집니다.');
+
+    // 0007은 아직 배포 전일 수 있다(db push는 좌표자가 한다). 함수가 없으면 건너뛴다 —
+    // 우리 코드 결함이 아니고, 같은 원인이 FAIL로 보이면 검증 전체를 믿을 수 없게 된다.
+    // supabase-js는 오류를 던지지 않고 { error }로 돌려준다. 그것을 그대로 본다.
+    const probe = await db().rpc('reset_ledger', {
+      p_ledger_id: '00000000-0000-4000-8000-000000000000',
+    });
+    const deployed = !String(probe.error?.message ?? '').includes('Could not find the function');
+    if (!deployed) {
+      skipped += 1;
+      console.log('  SKIP  장부 초기화 — 0007 reset_ledger가 아직 배포되지 않았다(db push 필요)');
+    } else {
+
+    // 초기화는 **전용 계정의 장부**에서 한다. 공용 장부(LA)를 비우면 뒤에 오는 검사들이
+    // 쓰는 사람·행사·기록이 함께 사라져, 초기화와 무관한 검사가 엉뚱하게 실패한다(실제로 겪음).
+    const eraser = await makeUser('reset', '초기화');
+    await actAs(eraser);
+    const eraserLedgers = await ledgersRepo.listMyLedgers(eraser.id);
+    const LR = eraserLedgers[0].ledgerId;
+
+    // 다른 사용자의 장부(LC)에 데이터를 만들어 두고 LR을 초기화한다.
+    await actAs(carol);
+    const keepPerson = await peopleRepo.createPerson(LC, { name: '남는사람', relation_group: 'other' });
+    const keepBefore = await ledgersRepo.countLedgerContents(LC);
+    await actAs(eraser);
+    const goPerson = await peopleRepo.createPerson(LR, { name: '지워질사람', relation_group: 'other' });
+    const goEvent = await eventsRepo.createEvent(LR, {
+      type: 'wedding', is_mine: true, title: '지워질 행사', date: '2026-09-09',
+    });
+    await entriesRepo.createEntry(LR, { event_id: goEvent.id, person_id: goPerson.id, amount: 10000, method: 'cash' });
+
+    const before = await ledgersRepo.countLedgerContents(LR);
+    check('초기화 전 건수가 0보다 크다', before.people > 0 && before.events > 0 && before.entries > 0, JSON.stringify(before));
+
+    const done = await ledgersRepo.resetLedger(LR);
+    eq('지운 사람 수가 세어 둔 수와 같다', done.people, before.people);
+    eq('지운 행사 수가 세어 둔 수와 같다', done.events, before.events);
+    eq('지운 기록 수가 세어 둔 수와 같다', done.entries, before.entries);
+
+    const after = await ledgersRepo.countLedgerContents(LR);
+    eq('초기화 뒤 사람 0명', after.people, 0);
+    eq('초기화 뒤 행사 0건', after.events, 0);
+    eq('초기화 뒤 기록 0건', after.entries, 0);
+
+    // 가장 중요한 검사 — 다른 장부는 그대로다.
+    await actAs(carol);
+    const other = await ledgersRepo.countLedgerContents(LC);
+    eq('다른 장부의 사람 수가 그대로다', other.people, keepBefore.people);
+    const stillThere = await peopleRepo.getPerson(LC, keepPerson.id);
+    check('다른 장부의 그 사람이 그대로 있다', stillThere?.id === keepPerson.id, JSON.stringify(stillThere));
+    await peopleRepo.deletePerson(LC, keepPerson.id);
+    await actAs(eraser);
+
+    // 장부와 구성원은 남는다.
+    const mine = await ledgersRepo.listMyLedgers(eraser.id);
+    check('초기화한 장부가 그대로 남아 있다', mine.some((l) => l.ledgerId === LR), JSON.stringify(mine.map((l) => l.ledgerId)));
+
+    // 두 번째 초기화는 0건이다.
+    const again = await ledgersRepo.resetLedger(LR);
+    eq('빈 장부를 다시 초기화하면 0건이다', again.people + again.events + again.entries, 0);
+    // 뒤 검사들은 공용 계정으로 돌아가 이어진다.
+    await actAs(alice);
+    }
+  }
+
   // --------------------------------------------------------------- 페이지네이션
   for (let i = 0; i < 7; i += 1) {
     await peopleRepo.createPerson(LA, { name: `페이지${i}` });
@@ -933,7 +1098,7 @@ async function main() {
 
   console.log(`\n== 요약  통과 ${pass} · 실패 ${fail} · 건너뜀 ${skipped}\n`);
   if (skipped > 0) {
-    console.log('건너뛴 검사는 Supabase 속도 제한 때문이며 커스텀 SMTP를 붙이면 사라진다.\n');
+    console.log('건너뛴 검사는 메일 발송 계통(커스텀 SMTP 필요)이나 아직 배포되지 않은 마이그레이션 때문이다.\n');
   }
   if (failures.length) {
     console.log('실패 목록');
