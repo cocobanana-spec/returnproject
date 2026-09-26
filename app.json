@@ -34,6 +34,14 @@
       "expo-web-browser",
       "@react-native-community/datetimepicker",
       "./plugins/withIosSceneLifecycle"
-    ]
+    ],
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/icon.png"
+    },
+    "experiments": {
+      "baseUrl": "/returnproject/app"
+    }
   }
 }

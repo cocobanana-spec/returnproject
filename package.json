@@ -4,15 +4,17 @@
   "main": "expo-router/entry",
   "private": true,
   "scripts": {
-    "start": "expo start",
     "android": "expo run:android",
+    "export": "expo export --platform ios --output-dir dist/ios",
+    "export:web": "expo export --platform web --output-dir dist/web && cp dist/web/index.html dist/web/404.html",
+    "integration": "node supabase/tests/app_integration.mjs",
     "ios": "expo run:ios",
-    "typecheck": "tsc --noEmit",
+    "start": "expo start",
     "test": "node --test \"src/**/*.test.ts\"",
-    "export": "expo export --platform ios --output-dir dist",
-    "integration": "node supabase/tests/app_integration.mjs"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@expo/metro-runtime": "~57.0.16",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "9.1.0",
@@ -31,12 +33,14 @@
     "expo-status-bar": "~57.0.1",
     "expo-web-browser": "~57.0.3",
     "react": "19.2.3",
+    "react-dom": "19.2.3",
     "react-native": "0.86.3",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-url-polyfill": "^4.0.0",
+    "react-native-web": "^0.21.2",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
