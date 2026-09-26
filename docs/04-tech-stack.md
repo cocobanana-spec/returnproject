@@ -151,3 +151,15 @@
 | 첫 실행 | **확정** — 로그인 먼저 |
 | 웹 | **1차 완료(2026-09-26)** — react-native-web, SPA, `/returnproject/app` 하위. §6.5 |
 | 앱 잠금 등 | 사용자 확인 질문 4~10번 (docs/02 §8.2) |
+
+### 6.6 웹 배포 (2026-09-26)
+
+주소 — 앱 `https://cocobanana-spec.github.io/returnproject/app/`, 처리방침 `.../privacy.html`. 같은 `gh-pages` 브랜치 루트에 `privacy.html`·`index.html`·`404.html`을 두고 앱은 `app/` 하위에 둔다.
+
+배포는 `npm run export:web` 뒤 `dist/web`을 `gh-pages`의 `app/`으로 복사한다.
+
+**루트 `404.html`이 웹 앱이어야 한다.** 단일 페이지 앱이라 `/app/records` 같은 주소로 직접 들어오거나 새로고침하면 그 경로의 파일이 없다. GitHub Pages는 없는 경로에 **사이트 루트의** `404.html`을 준다. **하위 폴더의 `404.html`은 쓰지 않는다** — `app/404.html`만 두었더니 새로고침이 그대로 404였다. 그래서 배포 때 `app/index.html`을 루트 `404.html`로도 복사한다.
+
+앱 HTML이 자원을 `/returnproject/app/...` 절대 경로로 참조하므로, 어느 주소로 404가 떠도 자원은 정상적으로 불린다.
+
+응답 코드는 여전히 404다. 사용자에게는 앱이 정상으로 보이고 동작도 한다. 정적 호스팅에서 단일 페이지 앱을 쓰는 표준적인 방법이다.
