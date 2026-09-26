@@ -28,6 +28,7 @@ import { useTokens } from '../../../src/theme/tokens';
 import { EmptyState } from '../../../src/ui/EmptyState';
 import { EntryNames } from '../../../src/ui/EntryNames';
 import { LoadFailed } from '../../../src/ui/LoadFailed';
+import { ScrollFade } from '../../../src/ui/ScrollFade';
 
 export default function RecordsScreen() {
   const ledgerId = useLedgerId();
@@ -269,15 +270,12 @@ export default function RecordsScreen() {
       />
 
       {/* 기록 FAB — 사용자가 좋다고 한 부분이라 위치를 그대로 둔다.
-          **위쪽에 선이 있어야 한다.** 이 바는 불투명한데 목록이 그 아래로 지나간다. 선이 없으면
-          스크롤 도중 한 줄이 반쯤 가려진 모습이 "화면이 잘렸다"로 보인다(2026-09-26 사용자 지적).
-          선이 있으면 가려진 것이 아니라 바 뒤로 지나가는 것으로 읽힌다. */}
+          바로 위에 ScrollFade 를 둔다. 이 바는 불투명한데 목록이 그 아래로 지나가므로, 그냥 두면
+          스크롤 도중 한 줄이 글자 한가운데서 잘린다. 선을 긋는 것으로는 모자랐다(2026-09-26). */}
       <View
         pointerEvents="box-none"
         style={{
           backgroundColor: colors.bg,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
           bottom: 0,
           left: 0,
           paddingBottom: insets.bottom + space.lg,
@@ -287,6 +285,7 @@ export default function RecordsScreen() {
           right: 0,
         }}
       >
+        <ScrollFade />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={recordLabel}
