@@ -45,7 +45,9 @@ export default function EventEditScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { colors, space, font, radius } = useTokens();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  // next=receive — 만들고 나서 명부 입력으로 돌아간다. 명부 입력에서 "행사가 없어서"
+  // 흐름이 끊기지 않게 하는 길이다(2026-09-26 사용자 요청). 새 행사의 기본값은 이미 내 행사다.
+  const { id, next } = useLocalSearchParams<{ id?: string; next?: string }>();
   const editing = Boolean(id);
 
   const [draft, setDraft] = useState<EventDraft>(() => emptyEventDraft(todayISO()));
@@ -152,6 +154,7 @@ export default function EventEditScreen() {
       void queryClient.invalidateQueries({ queryKey: ['entries'] });
       void queryClient.invalidateQueries({ queryKey: ['stats'] });
       if (editing) router.back();
+      else if (next === 'receive') router.replace(`/event/receive?id=${saved.id}`);
       else router.replace(`/event/${saved.id}`);
     },
     onError: (e: Error) => setErrors(e.message.split('\n')),

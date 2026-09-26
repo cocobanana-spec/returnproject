@@ -64,7 +64,10 @@ export default function ReceiveScreen() {
   const myRows = myEvents.data?.rows ?? [];
   // 하나면 자동, 여럿이면 이미 치른 행사 중 최근 것이 기본값이다.
   const eventId = chosen ?? pickDefaultEvent(myRows, todayISO())?.id ?? '';
-  const picking = !id && myRows.length > 1;
+  // 내 행사가 하나뿐이어도 선택 줄을 보여 준다. 그래야 "+ 새 행사 만들기"에 닿는다.
+  // 전에는 둘 이상일 때만 떠서, 결혼식 하나만 있는 사용자는 돌잔치·장례식을 만들 길이 없었다
+  // (2026-09-26 사용자 피드백 — "그냥 내 결혼식으로만 지정된다").
+  const picking = !id && myRows.length >= 1;
 
   // 기본값이 정해지면 고정한다. 저장할 때마다 ['events']를 무효화하므로, 고정하지 않으면
   // 배우자가 다른 기기에서 새 내 행사를 만들었을 때 입력 도중 대상 행사가 조용히 바뀐다.
@@ -247,7 +250,7 @@ export default function ReceiveScreen() {
           <Text style={{ color: colors.textMuted, fontSize: font.body, lineHeight: 22 }}>
             받은 돈은 결혼식·돌잔치 같은 내 행사에 속합니다. 행사를 먼저 만들면 여기서 명부를 넣을 수 있습니다.
           </Text>
-          <Button label="내 행사 만들기" onPress={() => router.replace('/event/edit')} />
+          <Button label="내 행사 만들기" onPress={() => router.replace('/event/edit?next=receive')} />
         </View>
       </Screen>
     );
@@ -293,6 +296,13 @@ export default function ReceiveScreen() {
                     onPress={() => setChosen(ev.id)}
                   />
                 ))}
+                {/* 내 경조사는 결혼식만이 아니다. 돌잔치·장례식을 여기서 바로 만들 수 있어야
+                    종류를 못 고르는 막다른 길이 안 생긴다(2026-09-26 사용자 요청) */}
+                <Chip
+                  label="+ 새 행사 만들기"
+                  selected={false}
+                  onPress={() => router.push('/event/edit?next=receive')}
+                />
               </View>
             </ScrollView>
           </View>
