@@ -94,7 +94,15 @@ export default function RecordScreen() {
     eventDate: string | null;
   }>({ personId: null, personName: null, eventId: null, eventType: null, eventDate: null });
 
+  // 웹의 "이미 있는 행사예요" 선택지는 화면 안에 펼쳐진 채로 남는다(앱의 Alert 과 달리 화면을
+  // 막지 않는다). 그래서 선택지를 띄워 둔 채 이름·종류·날짜를 고칠 수 있는데, 선택지가 들고 있는
+  // 사람·행사는 **고치기 전 값의 판정 결과**다. 그대로 누르면 엉뚱한 사람의 엉뚱한 행사에
+  // 돈이 붙는다(2026-09-26 QA 중대). 판정의 근거가 바뀌면 선택지를 거둔다 — 다시 저장을 누르면
+  // 바뀐 값으로 새로 판정한다. 금액·메모는 판정에 쓰이지 않으므로 그대로 둔다.
+  const DECIDING_FIELDS = ['personId', 'newPersonName', 'type', 'date'] as const;
+
   function patch(next: Partial<QuickRecordDraft>) {
+    if (DECIDING_FIELDS.some((k) => k in next)) setEventChoice(null);
     setDraft((prev) => ({ ...prev, ...next }));
   }
 

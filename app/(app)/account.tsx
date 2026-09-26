@@ -2,7 +2,7 @@
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { confirmAction, notify } from '../../src/lib/confirm.ts';
+import { confirmAction } from '../../src/lib/confirm.ts';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { deleteAccount } from '../../src/auth/account.ts';
@@ -51,6 +51,8 @@ export default function AccountScreen() {
       title: '로그아웃',
       message: '이 기기에서 로그아웃합니다. 기록은 서버에 그대로 남습니다.',
       confirmLabel: '로그아웃',
+      // 되돌릴 수 없는 일은 아니지만 예전부터 빨간 버튼이었다. 눈에 띄어야 오작동이 줄어든다.
+      destructive: true,
     });
     if (!ok) return;
     setBusy('signout');

@@ -274,7 +274,7 @@ export default function PersonDetailScreen() {
         onPick={(survivorId, survivorName) => {
           void confirmAction({
             title: '합치기',
-            message: `${displayName(person)} 의 기록 ${person.entry_count ?? 0}건이 ${survivorName} 에게 전부 옮겨집니다.`,
+            message: `${displayName(person)} 의 기록 ${person.entry_count ?? 0}건이 ${survivorName} 에게 전부 옮겨집니다. 되돌릴 수 없습니다.`,
             confirmLabel: '합치기',
             destructive: true,
           }).then((ok) => {

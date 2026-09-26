@@ -1,8 +1,9 @@
 // 플랫폼 분기를 한 곳에 모은다. 화면과 도메인은 이 모듈만 보고 갈린다
 //
-// 분기를 여기저기 흩뿌리면 웹을 고칠 때마다 네이티브가 깨진다. 지금 갈리는 것은 셋뿐이다.
+// 분기를 여기저기 흩뿌리면 웹을 고칠 때마다 네이티브가 깨진다. 지금 갈리는 곳은 다음뿐이다.
 //   ① 인증 복귀 주소(딥링크 대 웹 주소) ② OAuth 복귀 처리(딥링크 파싱 대 주소창)
-//   ③ 파일 읽기(expo-file-system 대 fetch)
+//   ③ 파일 읽기(expo-file-system 대 fetch) ④ 확인·알림 창(Alert 대 브라우저 대화상자)
+//   ⑤ 화면 폭 묶기(src/ui/webLayout.ts) ⑥ 저장 공간(AsyncStorage 대 localStorage)
 // 그 밖의 도메인·리포지토리·화면은 전부 그대로 공유한다.
 import { Platform } from 'react-native';
 

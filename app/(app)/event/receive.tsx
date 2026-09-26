@@ -503,7 +503,7 @@ export default function ReceiveScreen() {
                   onPress={() => {
                     void confirmAction({
                       title: '이 기록을 지울까요',
-                      message: `${entryRowName(item.person, item.co_person)} · ${formatWonShort(item.amount)}`,
+                      message: `${entryRowName(item.person, item.co_person)} · ${formatWonShort(item.amount)}\n되돌릴 수 없습니다.`,
                       confirmLabel: '지우기',
                       destructive: true,
                     }).then((ok) => {

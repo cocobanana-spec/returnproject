@@ -32,18 +32,19 @@ export type ConfirmOptions = {
   message?: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  // 되돌릴 수 없는 동작. 앱에서는 빨간 글씨가 되고, 웹에서는 문구로 경고가 남는다.
+  // 되돌릴 수 없는 동작이면 버튼이 빨개진다. **경고 문장은 여기서 만들지 않는다** —
+  // "되돌릴 수 없습니다" 같은 말은 부르는 쪽이 message 에 직접 적는다. 그래야 웹과 앱에서
+  // 똑같이 보인다(웹 꼬리말로만 붙이면 앱에서는 그 말이 사라진다 — 2026-09-26 QA 중대).
   destructive?: boolean;
 };
 
 export function confirmAction(opts: ConfirmOptions): Promise<boolean> {
   if (isWeb) {
     // window.confirm 은 예/아니오뿐이라 버튼 이름을 보여 줄 수 없다. 그래서 무엇을 하는
-    // 확인인지 본문에 적어 준다. 파괴적 동작은 되돌릴 수 없다는 말이 반드시 보여야 한다.
+    // 확인인지 본문에 적어 준다. 버튼 이름이 "나가기", "삭제"처럼 명사라 조사를 붙이면
+    // 어색해진다. 따옴표로 묶고 "을(를) 진행합니다"로 두어 어떤 이름에도 맞게 한다.
     const label = opts.confirmLabel ?? '확인';
-    const tail = opts.destructive
-      ? `\n\n[확인]을 누르면 ${label} 합니다. 되돌릴 수 없습니다.`
-      : `\n\n[확인]을 누르면 ${label} 합니다.`;
+    const tail = `\n\n[확인]을 누르면 "${label}"을(를) 진행합니다.`;
     return Promise.resolve(window.confirm(joined(opts.title, opts.message) + tail));
   }
   return new Promise((resolve) => {

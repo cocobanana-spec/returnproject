@@ -110,7 +110,7 @@ export default function LedgerResetScreen() {
           onPress={() => {
             void confirmAction({
               title: '정말 지울까요',
-              message: resetWarningLine(counts.data ?? { people: 0, events: 0, entries: 0 }),
+              message: `${resetWarningLine(counts.data ?? { people: 0, events: 0, entries: 0 })}\n되돌릴 수 없습니다.`,
               confirmLabel: '전부 지우기',
               destructive: true,
             }).then((ok) => {

@@ -6,7 +6,9 @@
 // 길이를 넘지 않는 값이다. 하단 탭도 같은 폭 안에 들어가 데스크톱에서 네 개가
 // 화면 양끝까지 흩어지지 않는다.
 //
-// 네이티브에서는 빈 객체라 아무 영향이 없다.
+// **네이티브에서도 flex: 1 을 줘야 한다.** 빈 객체를 주면 이 View 가 flex 없이 콘텐츠 높이로
+// 잡히고, 그 안의 flex: 1 자식은 나눠 줄 여유 공간이 0이라 높이 0으로 접힌다. 화면이 빈 화면이
+// 된다. expo export 도 tsc 도 테스트도 이걸 못 잡는다 — 시뮬레이터를 띄워야 보인다(2026-09-26 QA).
 import type { ViewStyle } from 'react-native';
 import { isWeb } from '../lib/platform.ts';
 
@@ -19,5 +21,5 @@ export const contentFrame: ViewStyle = isWeb
 // 폭을 묶으면 좌우에 여백이 생긴다. 그 여백은 프레임 **바깥** 요소가 칠해야 한다.
 // 칠하지 않으면 다크 모드에서 양옆만 흰색으로 남는다(2026-09-26 QA).
 export function outerFrame(background: string): ViewStyle {
-  return isWeb ? { backgroundColor: background, flex: 1 } : {};
+  return isWeb ? { backgroundColor: background, flex: 1 } : { flex: 1 };
 }
