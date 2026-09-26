@@ -6,6 +6,7 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
+import { isWeb } from '../../src/lib/platform.ts';
 import { useRef, useState } from 'react';
 import { Alert, Pressable, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -73,6 +74,12 @@ export default function RecordScreen() {
   const [errors, setErrors] = useState<string[]>([]);
   // 저장 판정(기존 행사 조회) 중에도 버튼을 잠근다. 두 번 누르면 기록이 두 건 생긴다.
   const [checking, setChecking] = useState(false);
+  // 웹에서 "이미 있는 행사예요"는 세 갈래(취소 / 새 행사로 / 기존에 추가)다.
+  // window.confirm 은 예·아니오뿐이라 담을 수 없고, 두 번 묻는 것은 더 나쁘다.
+  // 그래서 웹에서는 저장 버튼 위에 선택지를 펼쳐 보여 준다. 앱은 지금처럼 Alert 세 갈래다.
+  const [eventChoice, setEventChoice] = useState<
+    { title: string; eventId: string; personId: string | null } | null
+  >(null);
 
   // 저장이 중간에 실패해도 이미 만들어진 것은 서버에 남는다.
   // 무엇을 만들었는지 기억해 두어야 (1) 재시도가 같은 사람을 또 만들지 않고
@@ -256,6 +263,7 @@ export default function RecordScreen() {
   async function onSave() {
     if (checking || save.isPending) return;
     setErrors([]);
+    setEventChoice(null);
     const validation = validateQuickRecord(draftForSave());
     if (!validation.ok) {
       setErrors(validation.errors);
@@ -303,6 +311,10 @@ export default function RecordScreen() {
         const best = pickClosestEvent(matches, draft.date);
         if (best) {
           const decided = hostId;
+          if (isWeb) {
+            setEventChoice({ title: best.title, eventId: best.id, personId: decided });
+            return;
+          }
           Alert.alert('이미 있는 행사예요', `"${best.title}"에 이 기록을 추가할까요?`, [
             { text: '취소', style: 'cancel' },
             { text: '새 행사로', onPress: () => save.mutate({ existingEventId: null, personId: decided }) },
@@ -579,6 +591,45 @@ export default function RecordScreen() {
           maxLength={500}
           placeholder="김철수 편에 전달 …"
         />
+
+        {eventChoice && (
+          <View
+            style={{
+              backgroundColor: colors.bgSubtle,
+              borderRadius: radius.lg,
+              gap: space.sm,
+              padding: space.lg,
+            }}
+          >
+            <Text style={{ color: colors.text, fontSize: font.body, fontWeight: '700' }}>
+              이미 있는 행사예요
+            </Text>
+            <Text style={{ color: colors.textMuted, fontSize: font.caption, lineHeight: 20 }}>
+              "{eventChoice.title}"에 이 기록을 추가할까요?
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
+              <Chip
+                label="기존에 추가"
+                selected
+                onPress={() => {
+                  const c = eventChoice;
+                  setEventChoice(null);
+                  save.mutate({ existingEventId: c.eventId, personId: c.personId });
+                }}
+              />
+              <Chip
+                label="새 행사로"
+                selected={false}
+                onPress={() => {
+                  const c = eventChoice;
+                  setEventChoice(null);
+                  save.mutate({ existingEventId: null, personId: c.personId });
+                }}
+              />
+              <Chip label="취소" selected={false} onPress={() => setEventChoice(null)} />
+            </View>
+          </View>
+        )}
 
         {errors.length > 0 && (
           <View style={{ gap: space.xs }}>
