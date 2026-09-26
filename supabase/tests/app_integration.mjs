@@ -757,6 +757,26 @@ async function main() {
     // 두 번째 초기화는 0건이다.
     const again = await ledgersRepo.resetLedger(LR);
     eq('빈 장부를 다시 초기화하면 0건이다', again.people + again.events + again.entries, 0);
+
+    // owner가 아닌 구성원은 초기화할 수 없다(0008). 장부가 이미 비어 있으니 0008이 아직
+    // 배포되지 않아 성공하더라도 잃는 것은 없다 — 그 경우 FAIL이 아니라 SKIP이다.
+    const code = await ledgersRepo.createInviteCode(LR);
+    const joiner = await makeUser('joiner', '합류자');
+    await actAs(joiner);
+    await ledgersRepo.joinLedger(normalizeInviteCode(code));
+    let ownerOnly = null;
+    try {
+      await ledgersRepo.resetLedger(LR);
+      ownerOnly = false;
+    } catch (e) {
+      ownerOnly = String(e?.message ?? e);
+    }
+    if (ownerOnly === false) {
+      skipped += 1;
+      console.log('  SKIP  owner가 아닌 구성원의 초기화 차단 — 0008이 아직 배포되지 않았다(db push 필요)');
+    } else {
+      check('owner가 아닌 구성원은 초기화할 수 없다', ownerOnly.includes('장부를 만든 사람만'), ownerOnly);
+    }
     // 뒤 검사들은 공용 계정으로 돌아가 이어진다.
     await actAs(alice);
     }

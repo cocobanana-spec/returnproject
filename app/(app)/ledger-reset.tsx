@@ -40,9 +40,13 @@ export default function LedgerResetScreen() {
     mutationFn: () => resetLedger(ledgerId),
     onSuccess: (done: LedgerContents) => {
       queryClient.clear();
-      Alert.alert('장부를 초기화했습니다', resetDoneLine(done), [
-        { text: '확인', onPress: () => router.replace('/') },
-      ]);
+      // 바깥을 눌러 닫아도(안드로이드) 빈 장부의 초기화 화면에 머물지 않게 한다.
+      Alert.alert(
+        '장부를 초기화했습니다',
+        resetDoneLine(done),
+        [{ text: '확인', onPress: () => router.replace('/') }],
+        { cancelable: true, onDismiss: () => router.replace('/') },
+      );
     },
     onError: (e: Error) => Alert.alert('초기화하지 못했습니다', e.message),
   });
@@ -56,7 +60,10 @@ export default function LedgerResetScreen() {
   }
 
   const name = current?.name ?? '';
-  const ready = canResetLedger(name, typed) && !reset.isPending;
+  // 초기화는 장부를 만든 사람만 한다(0008). 서버가 not_owner로 막지만, 눌러 보고 나서
+  // 아는 것보다 처음부터 이유를 보여 주는 편이 낫다.
+  const isOwner = current?.role === 'owner';
+  const ready = isOwner && canResetLedger(name, typed) && !reset.isPending;
 
   return (
     <Screen scroll>
@@ -85,8 +92,14 @@ export default function LedgerResetScreen() {
           </Text>
         </View>
 
+        {!isOwner && (
+          <Text style={{ color: colors.danger, fontSize: font.body, lineHeight: 22 }}>
+            장부를 만든 사람만 초기화할 수 있습니다.
+          </Text>
+        )}
         <Field
           label={`확인을 위해 장부 이름 "${name}"을 그대로 입력하세요`}
+          editable={isOwner}
           value={typed}
           onChangeText={setTyped}
           autoCorrect={false}

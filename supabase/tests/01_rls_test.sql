@@ -1300,7 +1300,7 @@ select tst.expect_ok('T15.14 상한 이하 금액은 저장된다',
               '77777777-0000-4000-8000-000000000001', 1000000000) $q$);
 
 -- ============================================================================
--- T16. 장부 초기화(0007 reset_ledger)
+-- T16. 장부 초기화(0007 reset_ledger, 0008 owner만)
 -- 되돌릴 수 없는 동작이다. **다른 장부가 함께 비워지지 않는지**가 핵심이다.
 -- ============================================================================
 
@@ -1347,6 +1347,24 @@ select tst.expect_error('T16.5 구성원이 아닌 장부는 초기화할 수 �
   $q$ select public.reset_ledger((select v from tst.fix where k='LG')) $q$,
   'not_member');
 
+-- owner가 아닌 구성원도 막힌다(0008). 새 사용자를 LG에 합류시켜 구성원으로 만든 뒤 시도한다
+-- (앞 절들이 기존 사용자 계정을 지우므로 여기서 새로 만든다).
+-- 초기화는 구성원 제거보다 파괴적이므로 그보다 느슨할 이유가 없다.
+insert into auth.users (id, email, raw_user_meta_data)
+values ('eeeeeeee-0000-4000-8000-000000000005', 'resetjoiner@example.com', '{"name":"합류자"}');
+
+select tst.expect_ok('T16.5b owner가 초대 코드를 발급한다',
+  'eeeeeeee-0000-4000-8000-000000000004',
+  $q$ select public.create_invite_code((select v from tst.fix where k='LG')) $q$);
+select tst.capture_code((select v from tst.fix where k='LG'));
+select tst.expect_ok('T16.5c 다른 사용자가 구성원으로 합류한다',
+  'eeeeeeee-0000-4000-8000-000000000005',
+  $q$ select public.join_ledger((select v from tst.val where k='code')) $q$);
+select tst.expect_error('T16.5d owner가 아닌 구성원은 초기화할 수 없다',
+  'eeeeeeee-0000-4000-8000-000000000005',
+  $q$ select public.reset_ledger((select v from tst.fix where k='LG')) $q$,
+  'not_owner');
+
 select tst.expect_admin('T16.6 막힌 뒤에도 대상 장부의 사람이 그대로다',
   $q$ select count(*)::text from public.people
        where ledger_id = (select v from tst.fix where k='LG')
@@ -1377,9 +1395,9 @@ select tst.expect_admin('T16.11 다른 장부의 사람은 그대로다',
   $q$ select count(*)::text from public.people
        where id = '99999999-0000-4000-8000-000000000021' $q$, '1');
 
-select tst.expect_admin('T16.12 장부와 구성원은 남는다',
+select tst.expect_admin('T16.12 장부와 구성원은 남는다 (owner + 합류한 구성원)',
   $q$ select count(*)::text from public.ledger_members
-       where ledger_id = (select v from tst.fix where k='LG') $q$, '1');
+       where ledger_id = (select v from tst.fix where k='LG') $q$, '2');
 
 -- 이미 빈 장부를 다시 초기화해도 오류가 아니다. 0건을 돌려준다.
 select tst.expect_scalar('T16.13 빈 장부를 초기화하면 0건이다',
