@@ -75,7 +75,10 @@ export default function EventEditScreen() {
   // 집계가 도착하기 전에는 "기록 0건"이 아니라 "모른다"이다. 모르는 동안은 잠가 둔다.
   // 서버 트리거가 최종적으로 막지만, 그 사이 측 라벨이 폼에서 지워지는 부작용이 남는다.
   const lockUnknown = editing && !summary.isSuccess;
-  const locked = editing && (lockUnknown || isMineLocked(entryCount));
+  // 명부 입력에서 만들러 온 행사는 내 행사여야 한다. 남의 행사를 만들어 돌아가면 거기서
+  // 저장한 기록이 전부 준돈으로 집계된다(2026-09-26 QA). 토글을 잠근다.
+  const forReceive = next === 'receive' && !editing;
+  const locked = forReceive || (editing && (lockUnknown || isMineLocked(entryCount)));
 
   const hostQuery = useQuery({
     queryKey: queryKeys.people.balance(ledgerId, existing.data?.host_person_id ?? ''),
@@ -227,9 +230,11 @@ export default function EventEditScreen() {
             <View style={{ alignItems: 'center', flexDirection: 'row', gap: space.xs }}>
               <Ionicons name="lock-closed-outline" size={14} color={colors.textMuted} />
               <Text style={{ color: colors.textMuted, fontSize: font.caption, flex: 1 }}>
-                {lockUnknown
-                  ? '기록 수를 확인하는 동안은 바꿀 수 없습니다.'
-                  : `기록 ${entryCount}건이 있어 바꿀 수 없습니다. 바꾸려면 기록을 먼저 지워야 합니다.`}
+                {forReceive
+                  ? '명부에 넣을 행사라 내 행사로 고정됩니다.'
+                  : lockUnknown
+                    ? '기록 수를 확인하는 동안은 바꿀 수 없습니다.'
+                    : `기록 ${entryCount}건이 있어 바꿀 수 없습니다. 바꾸려면 기록을 먼저 지워야 합니다.`}
               </Text>
             </View>
           )}

@@ -256,6 +256,25 @@ export default function ReceiveScreen() {
     );
   }
 
+  // 남의 행사에는 명부를 넣을 수 없다. 여기서 저장한 기록은 받은돈이어야 하는데,
+  // 남의 행사에 달리면 전부 준돈으로 집계된다. 어떤 경로로 왔든 서버가 준 값으로 막는다.
+  if (e && !e.is_mine) {
+    return (
+      <Screen edges={{ top: false }}>
+        <View style={{ gap: space.lg, paddingTop: space.xl }}>
+          <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }}>
+            남의 행사에는 명부를 넣을 수 없습니다
+          </Text>
+          <Text style={{ color: colors.textMuted, fontSize: font.body, lineHeight: 22 }}>
+            "{e.title}"은(는) 남의 행사입니다. 받은 돈은 내 행사에만 기록할 수 있습니다.
+          </Text>
+          <Button label="내 행사 만들기" onPress={() => router.replace('/event/edit?next=receive')} />
+          <Button label="돌아가기" variant="secondary" onPress={() => router.back()} />
+        </View>
+      </Screen>
+    );
+  }
+
   // 행사를 못 받은 채로 입력을 열어 두면 어느 행사에 넣는지도 모른 채 기록이 쌓인다. 막는다.
   if (event.isError || !e) {
     return (
