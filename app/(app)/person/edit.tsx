@@ -2,7 +2,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { confirmAction } from '../../../src/lib/confirm.ts';
 import {
   PERSON_KINDS,
   RELATION_GROUPS,
@@ -97,14 +98,13 @@ export default function PersonEditScreen() {
     }
     const same = (await findByNormalizedName(ledgerId, normalizeName(name))).filter((p) => p.id !== id);
     if (same.length > 0 && !label.trim()) {
-      Alert.alert(
-        '같은 이름이 이미 있습니다',
-        `"${trimName(name)}" 이름이 ${same.length}명 있습니다. 구분 라벨을 붙이면 나중에 헷갈리지 않습니다.`,
-        [
-          { text: '라벨 붙이기', style: 'cancel' },
-          { text: '그대로 저장', onPress: () => save.mutate() },
-        ],
-      );
+      const ok = await confirmAction({
+        title: '같은 이름이 이미 있습니다',
+        message: `"${trimName(name)}" 이름이 ${same.length}명 있습니다. 구분 라벨을 붙이면 나중에 헷갈리지 않습니다.`,
+        confirmLabel: '그대로 저장',
+        cancelLabel: '라벨 붙이기',
+      });
+      if (ok) save.mutate();
       return;
     }
     save.mutate();

@@ -6,7 +6,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Text, View } from 'react-native';
+import { confirmAction, notify } from '../../src/lib/confirm.ts';
+import { ActivityIndicator, Text, View } from 'react-native';
 import {
   canResetLedger,
   resetDoneLine,
@@ -40,15 +41,10 @@ export default function LedgerResetScreen() {
     mutationFn: () => resetLedger(ledgerId),
     onSuccess: (done: LedgerContents) => {
       queryClient.clear();
-      // 바깥을 눌러 닫아도(안드로이드) 빈 장부의 초기화 화면에 머물지 않게 한다.
-      Alert.alert(
-        '장부를 초기화했습니다',
-        resetDoneLine(done),
-        [{ text: '확인', onPress: () => router.replace('/') }],
-        { cancelable: true, onDismiss: () => router.replace('/') },
-      );
+      // 창을 어떻게 닫든 빈 장부의 초기화 화면에 머물지 않게 한다.
+      void notify('장부를 초기화했습니다', resetDoneLine(done)).then(() => router.replace('/'));
     },
-    onError: (e: Error) => Alert.alert('초기화하지 못했습니다', e.message),
+    onError: (e: Error) => void notify('초기화하지 못했습니다', e.message),
   });
 
   if (counts.isError) {
@@ -111,12 +107,16 @@ export default function LedgerResetScreen() {
           variant="danger"
           disabled={!ready}
           loading={reset.isPending}
-          onPress={() =>
-            Alert.alert('정말 지울까요', resetWarningLine(counts.data ?? { people: 0, events: 0, entries: 0 }), [
-              { text: '취소', style: 'cancel' },
-              { text: '전부 지우기', style: 'destructive', onPress: () => reset.mutate() },
-            ])
-          }
+          onPress={() => {
+            void confirmAction({
+              title: '정말 지울까요',
+              message: resetWarningLine(counts.data ?? { people: 0, events: 0, entries: 0 }),
+              confirmLabel: '전부 지우기',
+              destructive: true,
+            }).then((ok) => {
+              if (ok) reset.mutate();
+            });
+          }}
         />
         <Button label="취소" variant="secondary" onPress={() => router.back()} />
       </View>

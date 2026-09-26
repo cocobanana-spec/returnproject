@@ -1,6 +1,8 @@
 // 사람 상세·원장(S04) — 수지 카드와 이 사람과 주고받은 기록 전부. 병합·삭제도 여기서 한다
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { confirmAction, notify } from '../../../src/lib/confirm.ts';
+import { isWeb } from '../../../src/lib/platform.ts';
 import { useLayoutEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -57,7 +59,7 @@ export default function PersonDetailScreen() {
       invalidateAll();
       router.back();
     },
-    onError: (e: Error) => Alert.alert('삭제하지 못했습니다', e.message),
+    onError: (e: Error) => void notify('삭제하지 못했습니다', e.message),
   });
 
   const merge = useMutation({
@@ -69,17 +71,33 @@ export default function PersonDetailScreen() {
     },
     onError: (e: Error) => {
       setMerging(false);
-      Alert.alert('합치지 못했습니다', e.message);
+      void notify('합치지 못했습니다', e.message);
     },
   });
 
+  // 세 갈래(취소 / 합치기 / 삭제)다. 웹의 확인 창은 예·아니오뿐이라 "합치기"를 담을 수 없는데,
+  // 이 화면에는 합치기 버튼이 이미 있으므로 길이 막히지는 않는다. 그래서 웹에서는 본문으로
+  // 합치기를 안내하고 예·아니오만 묻는다. 앱은 세 갈래를 그대로 쓴다.
   function confirmDelete() {
     const count = entries.data?.rows.length ?? 0;
+    const body =
+      count > 0
+        ? `기록 ${count}건도 함께 삭제됩니다. 되돌릴 수 없습니다.\n중복으로 만들어진 사람이라면 위의 "합치기"를 쓰세요.`
+        : '되돌릴 수 없습니다.';
+    if (isWeb) {
+      void confirmAction({
+        title: `${person ? displayName(person) : '이 사람'} 삭제`,
+        message: body,
+        confirmLabel: '삭제',
+        destructive: true,
+      }).then((ok) => {
+        if (ok) remove.mutate();
+      });
+      return;
+    }
     Alert.alert(
       `${person ? displayName(person) : '이 사람'} 삭제`,
-      count > 0
-        ? `기록 ${count}건도 함께 삭제됩니다. 되돌릴 수 없습니다.\n중복으로 만들어진 사람이라면 합치기를 쓰세요.`
-        : '되돌릴 수 없습니다.',
+      body,
       [
         { text: '취소', style: 'cancel' },
         ...(count > 0
@@ -253,16 +271,16 @@ export default function PersonDetailScreen() {
         ledgerId={ledgerId}
         excludeId={personId}
         onClose={() => setMerging(false)}
-        onPick={(survivorId, survivorName) =>
-          Alert.alert(
-            '합치기',
-            `${displayName(person)} 의 기록 ${person.entry_count ?? 0}건이 ${survivorName} 에게 전부 옮겨집니다. 되돌릴 수 없습니다.`,
-            [
-              { text: '취소', style: 'cancel' },
-              { text: '합치기', style: 'destructive', onPress: () => merge.mutate(survivorId) },
-            ],
-          )
-        }
+        onPick={(survivorId, survivorName) => {
+          void confirmAction({
+            title: '합치기',
+            message: `${displayName(person)} 의 기록 ${person.entry_count ?? 0}건이 ${survivorName} 에게 전부 옮겨집니다.`,
+            confirmLabel: '합치기',
+            destructive: true,
+          }).then((ok) => {
+            if (ok) merge.mutate(survivorId);
+          });
+        }}
       />
     </Screen>
   );

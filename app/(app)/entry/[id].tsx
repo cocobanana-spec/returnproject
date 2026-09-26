@@ -6,8 +6,9 @@
 // 바꿀 수 없다. 표시만 한다(docs/03 결정 5). 입력자는 구성원이 2명 이상일 때만 보여 준다.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { confirmAction, notify } from '../../../src/lib/confirm.ts';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
   amountFieldLabel,
@@ -101,7 +102,7 @@ export default function EntryDetailScreen() {
       invalidate();
       router.back();
     },
-    onError: (err: Error) => Alert.alert('지우지 못했습니다', err.message),
+    onError: (err: Error) => void notify('지우지 못했습니다', err.message),
   });
 
   if (entry.isLoading) {
@@ -206,12 +207,16 @@ export default function EntryDetailScreen() {
           label="이 기록 지우기"
           variant="secondary"
           disabled={save.isPending}
-          onPress={() =>
-            Alert.alert('기록 삭제', '되돌릴 수 없습니다.', [
-              { text: '취소', style: 'cancel' },
-              { text: '삭제', style: 'destructive', onPress: () => remove.mutate() },
-            ])
-          }
+          onPress={() => {
+            void confirmAction({
+              title: '기록 삭제',
+              message: '되돌릴 수 없습니다.',
+              confirmLabel: '삭제',
+              destructive: true,
+            }).then((ok) => {
+              if (ok) remove.mutate();
+            });
+          }}
         />
       </View>
     </Screen>

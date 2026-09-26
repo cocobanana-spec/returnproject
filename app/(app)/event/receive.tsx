@@ -10,7 +10,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { confirmAction, notify } from '../../../src/lib/confirm.ts';
 import { Ionicons } from '@expo/vector-icons';
 import {
   RELATION_GROUPS,
@@ -205,7 +206,7 @@ export default function ReceiveScreen() {
   const removeEntry = useMutation({
     mutationFn: (entryId: string) => deleteEntry(ledgerId, entryId),
     onSuccess: invalidate,
-    onError: (err: Error) => Alert.alert('지우지 못했습니다', err.message),
+    onError: (err: Error) => void notify('지우지 못했습니다', err.message),
   });
 
   function onSaveNext() {
@@ -499,12 +500,16 @@ export default function ReceiveScreen() {
                   {formatWonShort(item.amount)}
                 </Text>
                 <Pressable
-                  onPress={() =>
-                    Alert.alert('이 기록을 지울까요', `${entryRowName(item.person, item.co_person)} · ${formatWonShort(item.amount)}`, [
-                      { text: '취소', style: 'cancel' },
-                      { text: '지우기', style: 'destructive', onPress: () => removeEntry.mutate(item.id) },
-                    ])
-                  }
+                  onPress={() => {
+                    void confirmAction({
+                      title: '이 기록을 지울까요',
+                      message: `${entryRowName(item.person, item.co_person)} · ${formatWonShort(item.amount)}`,
+                      confirmLabel: '지우기',
+                      destructive: true,
+                    }).then((ok) => {
+                      if (ok) removeEntry.mutate(item.id);
+                    });
+                  }}
                   hitSlop={8}
                 >
                   <Ionicons name="close-circle-outline" size={20} color={colors.textMuted} />

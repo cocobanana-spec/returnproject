@@ -2,7 +2,8 @@
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Text, View } from 'react-native';
+import { confirmAction, notify } from '../../src/lib/confirm.ts';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { deleteAccount } from '../../src/auth/account.ts';
 import { signOut } from '../../src/auth/providers';
@@ -45,44 +46,39 @@ export default function AccountScreen() {
     })),
   );
 
-  function onSignOut() {
-    Alert.alert('로그아웃', '이 기기에서 로그아웃합니다. 기록은 서버에 그대로 남습니다.', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '로그아웃',
-        style: 'destructive',
-        onPress: () => {
-          setBusy('signout');
-          void signOut().finally(() => setBusy(null));
-        },
-      },
-    ]);
+  async function onSignOut() {
+    const ok = await confirmAction({
+      title: '로그아웃',
+      message: '이 기기에서 로그아웃합니다. 기록은 서버에 그대로 남습니다.',
+      confirmLabel: '로그아웃',
+    });
+    if (!ok) return;
+    setBusy('signout');
+    void signOut().finally(() => setBusy(null));
   }
 
-  function confirm(body: string) {
-    Alert.alert('계정 삭제', body, [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: () => {
-          setMessage(null);
-          setBusy('delete');
-          void deleteAccount()
-            .then((result) => {
-              if (result.ok) {
-                // 서버에서 계정이 사라졌다. 로컬 세션과 캐시도 비우고 로그인 화면으로 간다.
-                return signOut();
-              }
-              setMessage(result.message);
-              return undefined;
-            })
-            // 계정은 사라졌는데 로그아웃이 실패하면 화면이 아무 말도 안 하게 된다.
-            .catch(() => setMessage('로그아웃하지 못했습니다. 앱을 다시 실행해 주세요.'))
-            .finally(() => setBusy(null));
-        },
-      },
-    ]);
+  async function confirm(body: string) {
+    const ok = await confirmAction({
+      title: '계정 삭제',
+      message: body,
+      confirmLabel: '삭제',
+      destructive: true,
+    });
+    if (!ok) return;
+    setMessage(null);
+    setBusy('delete');
+    void deleteAccount()
+      .then((result) => {
+        if (result.ok) {
+          // 서버에서 계정이 사라졌다. 로컬 세션과 캐시도 비우고 로그인 화면으로 간다.
+          return signOut();
+        }
+        setMessage(result.message);
+        return undefined;
+      })
+      // 계정은 사라졌는데 로그아웃이 실패하면 화면이 아무 말도 안 하게 된다.
+      .catch(() => setMessage('로그아웃하지 못했습니다. 앱을 다시 실행해 주세요.'))
+      .finally(() => setBusy(null));
   }
 
   async function onDelete() {

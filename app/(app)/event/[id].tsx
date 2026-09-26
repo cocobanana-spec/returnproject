@@ -2,7 +2,8 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useLayoutEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
+import { confirmAction, notify } from '../../../src/lib/confirm.ts';
 import { Ionicons } from '@expo/vector-icons';
 import type { DatePrecision, Side } from '../../../src/domain/constants.ts';
 import { directionLabel } from '../../../src/domain/entry.ts';
@@ -66,7 +67,7 @@ export default function EventDetailScreen() {
       void queryClient.invalidateQueries({ queryKey: ['stats'] });
       router.back();
     },
-    onError: (err: Error) => Alert.alert('삭제하지 못했습니다', err.message),
+    onError: (err: Error) => void notify('삭제하지 못했습니다', err.message),
   });
 
   if (event.isLoading) {
@@ -109,14 +110,14 @@ export default function EventDetailScreen() {
       : (s?.cnt ?? 0) > 0
         ? `기록 ${s?.cnt}건도 함께 삭제됩니다. 사람은 남습니다. 되돌릴 수 없습니다.`
         : '되돌릴 수 없습니다.';
-    Alert.alert(
-      `${e?.title ?? '이 행사'} 삭제`,
-      body,
-      [
-        { text: '취소', style: 'cancel' },
-        { text: '삭제', style: 'destructive', onPress: () => remove.mutate() },
-      ],
-    );
+    void confirmAction({
+      title: `${e?.title ?? '이 행사'} 삭제`,
+      message: body,
+      confirmLabel: '삭제',
+      destructive: true,
+    }).then((ok) => {
+      if (ok) remove.mutate();
+    });
   }
 
   return (

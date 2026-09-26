@@ -1,7 +1,8 @@
 // 장부 화면(S17) — 장부 전환, 이름 편집, 구성원 관리, 초대 코드 생성·입력, 나가기
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { Alert, Share, Text, View } from 'react-native';
+import { Share, Text, View } from 'react-native';
+import { confirmAction } from '../../src/lib/confirm.ts';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { INVITE_CODE_LENGTH, isValidInviteCode, normalizeInviteCode } from '../../src/domain/invite.ts';
@@ -90,18 +91,17 @@ export default function LedgerScreen() {
     onError: (e: Error) => setMessage(e.message),
   });
 
-  function confirmRemove(targetUserId: string, label: string) {
+  async function confirmRemove(targetUserId: string, label: string) {
     const isSelf = targetUserId === userId;
-    Alert.alert(
-      isSelf ? '장부에서 나가기' : `${label} 내보내기`,
-      isSelf
+    const ok = await confirmAction({
+      title: isSelf ? '장부에서 나가기' : `${label} 내보내기`,
+      message: isSelf
         ? '이 장부의 기록은 남은 구성원에게 그대로 남습니다.'
         : `${label}님이 이 장부를 더 이상 볼 수 없게 됩니다.`,
-      [
-        { text: '취소', style: 'cancel' },
-        { text: isSelf ? '나가기' : '내보내기', style: 'destructive', onPress: () => kick.mutate(targetUserId) },
-      ],
-    );
+      confirmLabel: isSelf ? '나가기' : '내보내기',
+      destructive: true,
+    });
+    if (ok) kick.mutate(targetUserId);
   }
 
   return (
