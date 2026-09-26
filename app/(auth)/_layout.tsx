@@ -1,10 +1,14 @@
 // 로그인 전 화면 묶음. 가입·메일 확인·비밀번호 재설정이 여기 들어간다
 import { Stack } from 'expo-router';
+import { View } from 'react-native';
 import { useTokens } from '../../src/theme/tokens';
+import { contentFrame } from '../../src/ui/webLayout.ts';
 
 export default function AuthLayout() {
   const { colors } = useTokens();
   return (
+    // 넓은 화면에서 로그인 칸이 화면 끝까지 늘어나지 않게 폭을 묶는다.
+    <View style={[{ flex: 1, backgroundColor: colors.bg }, contentFrame]}>
     <Stack
       screenOptions={{
         headerStyle: { backgroundColor: colors.bg },
@@ -21,5 +25,6 @@ export default function AuthLayout() {
       <Stack.Screen name="forgot-password" options={{ title: '비밀번호 재설정' }} />
       <Stack.Screen name="reset-password" options={{ title: '새 비밀번호', headerBackVisible: false }} />
     </Stack>
+    </View>
   );
 }

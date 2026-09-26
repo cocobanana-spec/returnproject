@@ -1,6 +1,7 @@
 // 로그인 후 화면 묶음. 현재 장부가 정해지기 전에는 아무 화면도 열지 않는다
 import { Stack } from 'expo-router';
 import { ActivityIndicator, Text, View } from 'react-native';
+import { contentFrame } from '../../src/ui/webLayout.ts';
 import { useLedger } from '../../src/ledger/LedgerProvider';
 import { NoLedger } from '../../src/ledger/NoLedger';
 import { useTokens } from '../../src/theme/tokens';
@@ -43,7 +44,8 @@ export default function AppLayout() {
 
   return (
     <ToastProvider>
-      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      {/* 넓은 화면에서 내용이 가로로 퍼지지 않게 폭을 묶는다. 하단 탭도 이 안에 들어간다 */}
+      <View style={[{ flex: 1, backgroundColor: colors.bg }, contentFrame]}>
         <OfflineBanner />
         <Stack
         screenOptions={{
