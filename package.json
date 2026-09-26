@@ -6,7 +6,7 @@
   "scripts": {
     "android": "expo run:android",
     "export": "expo export --platform ios --output-dir dist/ios",
-    "export:web": "expo export --platform web --output-dir dist/web",
+    "export:web": "expo export --platform web --output-dir dist/web && node tools/fix-web-html.mjs",
     "integration": "node supabase/tests/app_integration.mjs",
     "ios": "expo run:ios",
     "start": "expo start",

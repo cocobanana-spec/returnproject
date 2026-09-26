@@ -9,6 +9,7 @@ import { Tabs, useRouter, usePathname } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { restoredTabRoute, tabRouteFromPath } from '../../../src/domain/tabs.ts';
 import { LAST_TAB_KEY } from '../../../src/ledger/storage.ts';
+import { isWeb } from '../../../src/lib/platform.ts';
 import { useTokens } from '../../../src/theme/tokens';
 
 // 되살리기는 앱을 켠 뒤 한 번만이다. 탭 레이아웃이 다시 마운트될 때마다 하면
@@ -55,7 +56,14 @@ export default function TabsLayout() {
         headerShadowVisible: false,
         tabBarActiveTintColor: colors.text,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: { backgroundColor: colors.bg, borderTopColor: colors.border },
+        // 웹에서는 안전 영역 값이 0이라 탭 바가 화면 맨 밑에 딱 붙고, 라벨 아래 여백이 5px 뿐이다.
+        // 모바일 브라우저의 주소창·홈 인디케이터와 겹쳐 라벨이 잘린 것처럼 보인다(2026-09-26 실측).
+        // 네이티브는 안전 영역이 알아서 잡아 주므로 건드리지 않는다.
+        tabBarStyle: {
+          backgroundColor: colors.bg,
+          borderTopColor: colors.border,
+          ...(isWeb ? { height: 64 } : {}),
+        },
         tabBarLabelStyle: { fontSize: font.caption - 1 },
         sceneStyle: { backgroundColor: colors.bg },
       }}
