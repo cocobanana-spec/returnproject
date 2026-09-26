@@ -148,10 +148,13 @@ export default function MoreScreen() {
         />
       </Section>
 
+      {/* 안내는 실제로 없는 것만 적는다. 내보내기는 웹에 들어왔으므로 앱에서만 남는 말이다. */}
       <Text
         style={{ color: colors.textMuted, fontSize: font.caption, marginTop: space.xl, lineHeight: 20 }}
       >
-        기록 검색과 데이터 내보내기는 다음 단계(P1)에서 들어옵니다.
+        {canDownload()
+          ? '기록 검색은 다음 단계에서 들어옵니다.'
+          : '기록 검색은 다음 단계에서 들어옵니다.\n내보내기는 지금은 웹에서만 됩니다.'}
       </Text>
     </Screen>
   );
