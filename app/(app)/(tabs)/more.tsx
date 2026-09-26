@@ -3,11 +3,17 @@
 // 하단 탭이 홈·통계·더보기 셋으로 줄면서 사람(S03)과 행사(S06)가 이 안으로 들어왔다.
 // 잡동사니가 되지 않게 "기록 관리 / 장부 / 계정" 세 묶음으로 나눈다.
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { buildCsv, exportFileName } from '../../../src/domain/exportCsv.ts';
+import { todayISO } from '../../../src/domain/title.ts';
 import { useLedger } from '../../../src/ledger/LedgerProvider';
+import { canDownload, downloadText } from '../../../src/lib/downloadFile.ts';
+import { listAllEntries } from '../../../src/repositories/entries';
 import { useTokens } from '../../../src/theme/tokens';
 import { Screen } from '../../../src/ui/Screen';
+import { useToast } from '../../../src/ui/ToastProvider';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   const { colors, space, font } = useTokens();
@@ -63,6 +69,27 @@ export default function MoreScreen() {
   const router = useRouter();
   const { current, ledgers } = useLedger();
   const { colors, space, font } = useTokens();
+  const toast = useToast();
+  const [exporting, setExporting] = useState(false);
+
+  // 내보내기는 브라우저 내려받기를 쓰므로 웹에만 있다(docs/04 "아직 아닌 것").
+  async function onExport() {
+    if (exporting || !current) return;
+    setExporting(true);
+    try {
+      const rows = await listAllEntries(current.ledgerId);
+      if (rows.length === 0) {
+        toast.show({ message: '내보낼 기록이 없습니다.' });
+        return;
+      }
+      downloadText(exportFileName(current.name, todayISO()), buildCsv(rows));
+      toast.show({ message: `기록 ${rows.length}건을 내려받았습니다.` });
+    } catch (error) {
+      toast.show({ message: `내보내지 못했습니다 · ${(error as Error).message}`, durationMs: 4000 });
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <Screen scroll>
@@ -87,6 +114,14 @@ export default function MoreScreen() {
           hint="엑셀·CSV 파일로 준돈 기록이나 내 행사 명부를 한 번에"
           onPress={() => router.push('/import')}
         />
+        {canDownload() ? (
+          <Row
+            icon="download-outline"
+            label={exporting ? '내보내는 중…' : '내보내기'}
+            hint="장부의 모든 기록을 CSV 파일로 내려받습니다. 엑셀에서 바로 열립니다"
+            onPress={() => void onExport()}
+          />
+        ) : null}
       </Section>
 
       <Section title="장부">

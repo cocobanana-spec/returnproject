@@ -89,6 +89,33 @@ export async function listEntriesByDirection(
   return toPage(rows as unknown as EntryWithContext[], from, limit);
 }
 
+// 장부의 모든 기록. 내보내기가 쓴다.
+//
+// **한 번에 다 받을 수 없다.** PostgREST 는 한 요청에 1000행까지만 준다. 그 위는 오류가 아니라
+// 조용히 잘린 결과라서, 페이지를 끝까지 돌지 않으면 내보낸 파일에 기록이 소리 없이 빠진다.
+// 행사 날짜 내림차순으로 정렬해 목록 화면과 순서를 맞춘다.
+export async function listAllEntries(ledgerId: string): Promise<EntryWithContext[]> {
+  const all: EntryWithContext[] = [];
+  let offset = 0;
+  // 장부 하나가 수십만 건이 될 일은 없지만, 끝나지 않는 반복은 만들지 않는다.
+  for (let guard = 0; guard < 500; guard += 1) {
+    const { from, to, limit } = pageRange({ offset });
+    const rows = unwrap(
+      await db()
+        .from('entries')
+        .select(WITH_CONTEXT)
+        .eq('ledger_id', ledgerId)
+        .order('created_at', { ascending: false })
+        .range(from, to),
+    ) as unknown as EntryWithContext[];
+    const page = toPage(rows, offset, limit);
+    all.push(...page.rows);
+    if (page.nextOffset === null) return all;
+    offset = page.nextOffset;
+  }
+  return all;
+}
+
 export async function listRecentEntries(
   ledgerId: string,
   limit = 10,
