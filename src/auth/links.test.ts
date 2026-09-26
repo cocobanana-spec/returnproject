@@ -68,3 +68,25 @@ test('깨진 퍼센트 인코딩에도 터지지 않는다', () => {
   assert.equal(r.kind, 'reset');
   assert.equal(r.code, '%zz');
 });
+
+test('OAuth 복귀 주소는 callback 으로 읽는다 — 앱·웹 모두', () => {
+  assert.equal(parseAuthLink('ppurin://auth/callback?code=abc').kind, 'callback');
+  assert.equal(
+    parseAuthLink('https://user.github.io/returnproject/app/auth/callback?code=abc').kind,
+    'callback',
+  );
+  // 프로바이더가 거부하면 code 없이 error_description 만 온다. 이것이 화면에 떠야 한다.
+  const denied = parseAuthLink(
+    'https://user.github.io/returnproject/app/auth/callback?error=access_denied&error_description=User+denied',
+  );
+  assert.equal(denied.kind, 'callback');
+  assert.equal(denied.code, null);
+  assert.equal(denied.errorDescription, 'User denied');
+});
+
+test('웹 주소의 메일 링크도 종류를 알아본다', () => {
+  assert.equal(parseAuthLink('https://user.github.io/returnproject/app/auth/reset?code=a').kind, 'reset');
+  assert.equal(parseAuthLink('https://user.github.io/returnproject/app/auth/confirm?code=a').kind, 'confirm');
+  // 비슷하지만 다른 경로는 걸리지 않는다
+  assert.equal(parseAuthLink('https://user.github.io/app/myauth/reset?code=a').kind, 'other');
+});

@@ -84,6 +84,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (link.kind === 'other') return;
       handledUrls.current.add(url);
 
+      // OAuth 복귀. 코드 교환은 앱에서는 providers.ts 가, 웹에서는 supabase-js 가
+      // (detectSessionInUrl) 한다. 여기서 또 교환하면 서로 코드를 뺏는다.
+      // 다만 **프로바이더가 거부했을 때 아무 문구도 안 뜨는 것**은 막아야 한다.
+      if (link.kind === 'callback') {
+        if (link.errorDescription) {
+          setLinkError(mapAuthError({ message: link.errorDescription }).message);
+        }
+        return;
+      }
+
       if (link.errorDescription) {
         setLinkError(mapAuthError({ message: link.errorDescription }).message);
         return;

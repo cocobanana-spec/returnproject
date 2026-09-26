@@ -3,9 +3,10 @@
 // PKCE 흐름이라 링크에는 ?code= 가 붙는다. 스킴에 따라 모양이 다르다.
 //   개발  exp://127.0.0.1:8081/--/auth/reset?code=xxx
 //   배포  ppurin://auth/reset?code=xxx
+//   웹    https://host/returnproject/app/auth/reset?code=xxx (스킴과 호스트를 떼고 끝만 본다)
 // 순수 함수로 빼서 node --test로 덮는다.
 export type AuthLink = {
-  kind: 'reset' | 'confirm' | 'other';
+  kind: 'reset' | 'confirm' | 'callback' | 'other';
   code: string | null;
   errorDescription: string | null;
 };
@@ -50,7 +51,9 @@ export function parseAuthLink(url: string): AuthLink {
     ? 'reset'
     : normalized.endsWith('/auth/confirm')
       ? 'confirm'
-      : 'other';
+      : normalized.endsWith('/auth/callback')
+        ? 'callback'
+        : 'other';
 
   return { kind, code, errorDescription };
 }
