@@ -37,6 +37,10 @@ export const asyncStoragePersister = createAsyncStoragePersister({
 export const persistOptions = {
   persister: asyncStoragePersister,
   maxAge: 1000 * 60 * 60 * 24 * 7,
-  // 캐시 모양이 바뀌면 통째로 버린다. 스키마가 바뀔 때 이 값을 올린다.
-  buster: 'v1',
+  // 캐시 모양이 바뀌면 통째로 버린다. 조회 결과의 모양이 바뀔 때마다 이 값을 올린다.
+  //
+  // v2 — 목록 조회를 페이지 단위(useInfiniteQuery)로 바꾸고 통계·기록 조회의 반환 모양을 여러 번
+  // 손봤는데 이 값을 올리지 않았다. 오래 쓴 기기에는 옛 모양이 남아 있다가 새 코드로 복원되어
+  // 화면을 그리다 터질 수 있다. 값을 올리면 옛 캐시를 읽지 않고 버린다.
+  buster: 'v2',
 };
