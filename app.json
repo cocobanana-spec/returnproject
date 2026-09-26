@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.cocobanana.ppurin",
-      "buildNumber": "16",
+      "buildNumber": "18",
       "config": {
         "usesNonExemptEncryption": false
       },
