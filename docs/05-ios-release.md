@@ -63,6 +63,37 @@ xcodebuild -exportArchive -archivePath /tmp/ppurin.xcarchive \
 
 `destination`을 `upload`로 바꾸고 같은 명령을 다시 돌린다. 로그 끝에 `Upload succeeded.`가 떠야 한다.
 
+#### 5-1. Xcode 계정이 깨졌을 때 — API 키로 올린다 (2026-09-26)
+
+`xcodebuild`의 업로드는 **Xcode에 로그인된 App Store Connect 세션**을 쓴다. 이 세션은 조용히
+깨진다. 실제로 겪은 증상은 이렇다.
+
+```
+error: exportArchive Failed to Use Accounts
+App Store Connect access for "58XF2TVK7G" is required.
+DVTDeveloperAccountManager: Invalid credentials in keychain, missing Xcode-Username
+```
+
+**서명은 되는데 업로드만 안 되는 것이 특징이다.** 서명은 키체인의 인증서만 있으면 되지만
+업로드는 살아 있는 세션이 필요하기 때문이다. IPA가 정상으로 나왔다면 다시 빌드할 필요는 없다.
+
+Xcode 27에서는 Settings → Apple Accounts 에서 계정을 지우는 메뉴가 없다. 오른쪽 버튼 메뉴도,
+Delete 키도 듣지 않았다. **Xcode UI 를 고치려 들지 말고 API 키로 우회한다.**
+
+```
+xcrun altool --upload-app -f /tmp/ppurin-out/app.ipa -t ios   --apiKey <키 ID> --apiIssuer <발급자 ID>
+```
+
+- 키 파일은 `~/.appstoreconnect/private_keys/AuthKey_<키 ID>.p8` 에 둔다. `--apiKey` 에는
+  파일 경로가 아니라 **키 ID만** 넘긴다. altool 이 저 경로에서 알아서 찾는다.
+- **API 키는 앱별이 아니라 팀 단위다.** 다른 앱을 위해 만든 키도 같은 팀이면 그대로 쓴다.
+  권한은 App Manager 이상이어야 한다.
+- 발급자 ID 는 계정당 하나이고 App Store Connect → 사용자 및 액세스 → 통합 → App Store
+  Connect API 화면의 키 목록 위에 있다. 파일로 저장되지 않으므로 따로 적어 둔다.
+- 성공하면 `UPLOAD SUCCEEDED with no errors` 와 Delivery UUID 가 찍힌다.
+
+이 방법은 Xcode 로그인 상태와 무관하므로 다음부터는 이쪽을 먼저 쓴다.
+
 ## 전제 조건
 
 - Xcode에 애플 ID가 로그인돼 있어야 한다.
