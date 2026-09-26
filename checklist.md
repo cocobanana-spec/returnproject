@@ -306,7 +306,7 @@
 
 ### 웹 1차 — 브라우저에서 로그인해 내 기록 보기 (2026-09-26) — 완료
 사용자 원문 — "웹버전도 있었으면 좋겠는데 pc에서도 볼수 있게끔".
-검증 — `tsc` 0건 · `npm test` 262건 · `run.sh` 216건 · `npm run integration` 171건 · **헤드리스 크롬으로 실제 확인**.
+검증 — `tsc` 0건 · `npm test` 264건 · `run.sh` 213건 · `npm run integration` 171건 · **헤드리스 크롬으로 실제 확인**.
 - [x] `react-native-web`·`@expo/metro-runtime`·`react-dom` 설치, `app.json` web 설정(`output: single`)
 - [x] `experiments.baseUrl: /returnproject/app` — 번들 자산 경로가 실제로 그 하위로 나오는 것 확인
 - [x] **SPA 폴백** — `export:web` 스크립트가 `index.html`을 `404.html`로 복사한다. 없으면 새로고침에서 404
@@ -317,6 +317,14 @@
 - [x] iOS 회귀 — `expo export --platform ios` 정상, 네 검증 전부 통과
 - [ ] **⛔ Supabase Redirect URLs 등록 필요.** 등록 전에는 웹 소셜 로그인·메일 링크가 거부된다
 - [ ] 웹 소셜 로그인 실제 왕복, 가져오기 웹 전체 흐름 — 2차
+
+#### QA 재검증에서 잡힌 것 (웹 1차, 빌드 20에 남아 있던 것)
+- [x] **(중대) 웹에서 `Alert.alert` 이 빈 함수라 확인 창 18곳이 전부 무반응.** 공용 헬퍼 `src/lib/confirm.ts` 로 16곳을 옮기고, 세 갈래 2곳은 웹에서 다른 방식으로 풀었다
+- [x] 기록 저장의 세 갈래 — 웹에서는 저장 버튼 위에 **화면 안 선택지**. 헤드리스 브라우저로 실제 재현해 확인
+- [x] 사람 삭제의 세 갈래 — 웹은 예·아니오. 합치기는 그 화면의 버튼으로 간다
+- [x] (경미) 웹 OAuth 실패가 화면에 남지 않던 것 — `links.ts` 에 `callback` 종류 추가, AuthProvider 가 오류만 읽는다
+- [x] (경미) `webOrigin()` 주석을 사실에 맞게, 다크 모드 좌우 여백 배경(`outerFrame`), 토스트 폭 제한
+- [ ] 웹 날짜 선택기 — `docs/04` "아직 아닌 것"에 기록. 2차
 
 ## 6. P1 기능
 - [ ] S12 기록 검색/필터 (방향·종류·기간·금액·그룹, 하단 합계)
