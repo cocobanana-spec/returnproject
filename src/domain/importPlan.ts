@@ -221,9 +221,12 @@ export function buildRows(table: Table, mapping: Mapping, opts: BuildOptions): I
     if (!isValidName(name)) issues.push('empty_name');
     if (!parsed.ok) issues.push('bad_amount');
     else if (parsed.unitless) issues.push('unitless_amount');
-    if (opts.target === 'given') {
+    // 행사가 정해지지 않은 받은돈 가져오기는 준돈과 똑같이 파일의 구분 열을 따른다.
+    // 종류가 섞여 있으면 종류별로 내 행사에 나눠 담기 때문이다(importEvents.ts).
+    // 행사 상세에서 들어와 대상이 고정된 경우에만 구분 열이 다르다고 경고한다.
+    if (opts.eventType === null) {
       if (mapped === null) issues.push('unknown_type');
-    } else if (typeText.length > 0 && mapped !== null && opts.eventType && mapped !== opts.eventType) {
+    } else if (typeText.length > 0 && mapped !== null && mapped !== opts.eventType) {
       issues.push('type_mismatch');
     }
 
@@ -233,7 +236,7 @@ export function buildRows(table: Table, mapping: Mapping, opts: BuildOptions): I
       nameKey: normalizeName(name),
       amount: parsed.ok ? parsed.amount : null,
       amountText: cellText(amountCell),
-      type: opts.target === 'given' ? (mapped ?? 'other') : opts.eventType,
+      type: opts.eventType ?? mapped ?? 'other',
       typeText,
       date: date ?? opts.defaultDate,
       memo,

@@ -36,7 +36,9 @@ export type ImportProgress = { done: number; total: number };
 export type RunOptions = {
   ledgerId: string;
   target: ImportTarget;
-  eventId: string | null; // received면 명부를 붙일 내 행사
+  eventId: string | null; // received면 명부를 붙일 내 행사. null이면 종류별로 나눠 담는다
+  // 받은돈에서 행사가 정해지지 않았을 때 종류별 대상. 없는 종류는 그 자리에서 내 행사를 만든다.
+  myEventByType?: Map<EventType, { id: string | null; title: string; date: string }>;
   items: SaveItem[];
   state: ImportState;
   deps?: ImportDeps;
@@ -78,8 +80,30 @@ export async function runImport(opts: RunOptions): Promise<ImportProgress> {
         state.people.set(item.personKey, personId);
       }
 
-      // 2. 행사 — 명부는 정해진 내 행사, 준돈은 사람·종류·날짜로 기존 행사를 찾거나 만든다(S02 규칙).
+      // 2. 행사 — 준돈은 사람·종류·날짜로 기존 행사를 찾거나 만든다(S02 규칙).
+      //    받은돈은 대상이 정해졌으면 그 행사, 아니면 **종류별로 내 행사에 나눠 담는다.**
+      //    한 파일에 결혼식과 장례식이 섞여 있으면 행사 하나에 다 넣을 수 없기 때문이다.
       let eventId = opts.eventId;
+      if (target === 'received' && !eventId) {
+        const key = `mine:${item.type}`;
+        eventId = state.events.get(key) ?? null;
+        if (!eventId) {
+          const plan = opts.myEventByType?.get(item.type);
+          if (plan?.id) {
+            eventId = plan.id;
+          } else {
+            const date = plan?.date ?? item.date;
+            const made = await deps.createEvent(ledgerId, {
+              type: item.type,
+              is_mine: true,
+              title: plan?.title ?? autoEventTitle({ type: item.type, isMine: true, date }),
+              date,
+            });
+            eventId = made.id;
+          }
+          state.events.set(key, eventId);
+        }
+      }
       if (target === 'given') {
         const key = eventKey(personId, item.type, item.date);
         eventId = state.events.get(key) ?? null;

@@ -48,6 +48,14 @@ import { formatWon, formatWonShort } from '../../src/domain/money.ts';
 import { displayName } from '../../src/domain/person.ts';
 import { formatEventDate, todayISO } from '../../src/domain/title.ts';
 import { emptyImportState, runImport, type ImportState } from '../../src/import/runner.ts';
+import {
+  carryOverTargets,
+  groupRowsByType,
+  groupSummaryLine,
+  planByType,
+  setGroupTarget,
+  type TypeGroup,
+} from '../../src/domain/importEvents.ts';
 import { useLedgerId } from '../../src/ledger/LedgerProvider';
 import { queryKeys } from '../../src/lib/queryKeys';
 import { listEvents, type EventRow } from '../../src/repositories/events';
@@ -94,6 +102,8 @@ export default function ImportScreen() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
+  // 행사가 정해지지 않은 받은돈 — 파일의 종류별로 어느 내 행사에 넣을지.
+  const [groups, setGroups] = useState<TypeGroup[]>([]);
 
   // 중간 실패 뒤 이어서 재시도하려면 만든 것을 기억해야 한다(S02의 ref 패턴).
   const state = useRef<ImportState>(emptyImportState());
@@ -175,7 +185,20 @@ export default function ImportScreen() {
         ]),
       );
       setCandidates(byKey);
-      setRows(markSameNames(built, cands));
+      const marked = markSameNames(built, cands);
+      setRows(marked);
+      // 받은돈인데 대상 행사가 없으면 종류별로 나눠 담는다. 판정은 도메인이 한다.
+      if (target === 'received' && !eventId) {
+        const options = (myEvents.data?.rows ?? []).map((e) => ({
+          id: e.id as string,
+          title: e.title,
+          type: e.type,
+          date: e.date,
+        }));
+        setGroups(groupRowsByType(marked, options, defaultDate));
+      } else {
+        setGroups([]);
+      }
       state.current = emptyImportState();
       setStep('preview');
     } catch (e) {
@@ -201,6 +224,18 @@ export default function ImportScreen() {
   }
 
   const summary = useMemo(() => summarize(rows), [rows]);
+  // 건너뛰기·수정으로 저장 대상이 바뀌면 묶음의 건수와 합계도 따라 바뀐다.
+  // 사용자가 고른 대상 행사는 유지한다.
+  const shownGroups = useMemo(() => {
+    if (groups.length === 0) return [];
+    const options = (myEvents.data?.rows ?? []).map((e) => ({
+      id: e.id as string,
+      title: e.title,
+      type: e.type,
+      date: e.date,
+    }));
+    return carryOverTargets(groupRowsByType(rows, options, defaultDate), groups);
+  }, [rows, groups, myEvents.data, defaultDate]);
 
   // ---------------------------------------------------------------- 저장
   async function save() {
@@ -213,6 +248,7 @@ export default function ImportScreen() {
         ledgerId,
         target,
         eventId,
+        myEventByType: shownGroups.length > 0 ? planByType(shownGroups) : undefined,
         items,
         state: state.current,
         onProgress: setProgress,
@@ -406,6 +442,47 @@ export default function ImportScreen() {
                 저장될 합계 {formatWon(summary.totalAmount)}
                 {summary.fix > 0 ? ' · 수정 필요가 0이 되어야 저장할 수 있습니다' : ''}
               </Text>
+              {shownGroups.length > 0 && (
+                <View style={{ gap: space.sm, marginTop: space.sm }}>
+                  <Text style={{ color: colors.text, fontSize: font.caption, fontWeight: '700' }}>
+                    어느 행사에 넣을까요
+                  </Text>
+                  {shownGroups.map((g) => (
+                    <View
+                      key={g.type}
+                      style={{
+                        backgroundColor: colors.bgSubtle,
+                        borderRadius: radius.md,
+                        gap: space.xs,
+                        padding: space.md,
+                      }}
+                    >
+                      <Text style={{ color: colors.text, fontSize: font.caption, fontWeight: '600' }}>
+                        {groupSummaryLine(g)}
+                      </Text>
+                      <Text style={{ color: colors.textMuted, fontSize: font.caption - 1 }}>
+                        {g.count}건 · {formatWon(g.total)}
+                        {g.attachTo === null ? ` · ${formatEventDate(g.newDate, 'day')}에 만듭니다` : ''}
+                      </Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
+                        {g.options.map((o) => (
+                          <Chip
+                            key={o.id}
+                            label={`${o.title} · ${formatEventDate(o.date, 'day')}`}
+                            selected={g.attachTo === o.id}
+                            onPress={() => setGroups((prev) => setGroupTarget(prev, g.type, o.id))}
+                          />
+                        ))}
+                        <Chip
+                          label="새 행사로"
+                          selected={g.attachTo === null}
+                          onPress={() => setGroups((prev) => setGroupTarget(prev, g.type, null))}
+                        />
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
           }
           renderItem={({ item }) => (
