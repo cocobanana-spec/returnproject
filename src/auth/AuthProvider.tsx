@@ -100,7 +100,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) {
         // 세션이 이미 있으면(중복 교환 등) 대기를 유지한다. 내리면 홈으로 새기 때문이다.
         const current = await supabase.auth.getSession();
-        if (!current.data.session) setResetPending(false);
+        if (current.data.session) {
+          // 링크는 제 할 일을 했다. 웹에서는 supabase-js 가 주소창의 코드를 먼저 교환하므로
+          // 여기 교환은 "이미 쓴 코드"로 실패한다. 그때 오류 문구를 띄우면 성공했는데
+          // 실패한 것처럼 보인다. 세션이 생겼다는 사실이 링크가 유효했다는 증거다.
+          setLinkError(null);
+          return;
+        }
+        setResetPending(false);
         setLinkError(mapAuthError(error).message);
       } else {
         setLinkError(null);

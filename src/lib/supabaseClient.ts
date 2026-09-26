@@ -10,14 +10,24 @@ export type Db = SupabaseClient<Database>;
 
 let current: Db | null = null;
 
-export function createDb(url: string, anonKey: string, storage?: unknown): Db {
+export type DbOptions = {
+  // 웹은 주소창이 있다. OAuth 복귀 코드를 supabase-js 가 직접 읽어 교환하게 한다.
+  // 앱에는 주소창이 없으므로 false로 두고 딥링크로 받아 교환한다.
+  detectSessionInUrl?: boolean;
+};
+
+export function createDb(
+  url: string,
+  anonKey: string,
+  storage?: unknown,
+  opts?: DbOptions,
+): Db {
   return createClient<Database>(url, anonKey, {
     auth: {
       ...(storage ? { storage: storage as never } : {}),
       persistSession: Boolean(storage),
       autoRefreshToken: Boolean(storage),
-      // 앱에는 주소창이 없다. OAuth 복귀는 딥링크로 받아 직접 교환한다.
-      detectSessionInUrl: false,
+      detectSessionInUrl: opts?.detectSessionInUrl ?? false,
       flowType: 'pkce',
     },
   });

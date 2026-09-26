@@ -9,13 +9,14 @@
 // 바꾸는 것이 좋다(docs/04 §3). 바꿀 자리는 이 파일 한 곳이다.
 //
 // Kakao는 2026-09-24 사용자 결정으로 1단계에서 빠졌다(docs/04 §3.1에 조사 결과는 보존).
-import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import type { Session } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { mapAuthError } from './errors.ts';
 import { parseAuthLink } from './links.ts';
+import { callbackRedirectUrl } from './redirects.ts';
+import { isWeb } from '../lib/platform.ts';
 import { QUERY_CACHE_KEY, queryClient } from '../lib/queryClient';
 import { CURRENT_LEDGER_KEY, LAST_TAB_KEY } from '../ledger/storage';
 
@@ -32,16 +33,24 @@ export type SignInResult =
   | { status: 'cancelled' }
   | { status: 'error'; message: string };
 
-function redirectUrl(): string {
-  // 개발 중에는 exp:// 주소, 배포본에서는 ppurin:// 스킴이 된다.
-  return Linking.createURL('auth/callback');
-}
-
 export async function signInWith(provider: AuthProviderId): Promise<SignInResult> {
   // 브라우저 세션·URL 파싱은 예상 밖의 예외를 던질 수 있다. 여기서 막지 않으면
   // 화면의 setBusy(null)이 실행되지 않아 버튼이 영구 로딩 상태로 잠긴다.
   try {
-    const redirectTo = redirectUrl();
+    const redirectTo = callbackRedirectUrl();
+
+    // 웹은 별도 브라우저 세션이 필요 없다. 같은 탭에서 Supabase로 갔다가 돌아오고,
+    // 돌아온 주소의 코드는 supabase-js 가 detectSessionInUrl 로 직접 처리한다(lib/supabase.ts).
+    // 그래서 여기서는 세션을 기다리지 않고 이동만 시킨다.
+    if (isWeb) {
+      const { error: webError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo, skipBrowserRedirect: false },
+      });
+      if (webError) return { status: 'error', message: mapAuthError(webError).message };
+      // 페이지가 떠나는 중이다. 화면은 로딩 상태 그대로 두면 된다.
+      return { status: 'cancelled' };
+    }
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
