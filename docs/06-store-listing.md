@@ -78,7 +78,38 @@ Apple, Google 계정 또는 이메일로 시작하세요.
 
 > ⚠ **이 계정을 지우지 마라.** 도메인이 `@ppurin-review.kr`인 것은 검증 스크립트의 정리 대상(`@ppurin-test.kr`)과 겹치지 않게 하려는 것이다. 심사가 끝난 뒤에도 업데이트 심사에 계속 쓴다.
 
-### 메모
+### 메모 — **영어로 쓴다**
+
+심사관이 한국어를 읽는다는 보장이 없다. 앱 화면이 한국어인 것은 문제가 아니지만, 메모는 심사관이 그대로 따라 해야 하는 지시문이라 영어로 둔다. 한국 경조사 문화가 낯설 수 있어 앱이 무엇인지도 한 줄 넣는다.
+
+```
+ABOUT THIS APP
+In Korea, people give cash gifts at weddings, first-birthday parties and funerals, and
+are expected to give back a similar amount when the other person holds an event.
+This app is a ledger for those amounts, organized per person rather than per transaction.
+The UI is Korean only, as the app targets the Korean market.
+
+SIGN IN (required)
+Please use the demo account provided above. Sign-up confirmation emails are currently
+rate limited, so creating a new account may not work during review.
+Sign in with Apple and Google also work, but the demo account is faster.
+The demo account already contains sample people and records, so every screen has content.
+
+ACCOUNT DELETION
+More (더보기) > Account (계정) > Delete account (계정 삭제). Deletion happens in the app.
+Please do not delete the demo account itself, as we reuse it for future reviews.
+
+EXCEL / CSV IMPORT
+More (더보기) > Import (가져오기). The file picker screen shows an example table.
+Only a name column and an amount column are required. Files are parsed on the device
+and are never uploaded to our server.
+
+SHARED LEDGER
+More (더보기) > Ledger (장부). Generates an invite code so a spouse can join the same
+ledger and both people record into one place.
+```
+
+### 메모 한국어 원문 (참고용, 제출하지 않는다)
 
 ```
 [로그인]
