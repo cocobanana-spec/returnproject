@@ -1,4 +1,4 @@
-// 홈(S01) — 준돈·받은돈 상단 탭. 각 탭은 최신순 기록 목록이고 하단에 기록 FAB가 있다
+// 기록(S01) — 준돈·받은돈 상단 탭. 각 탭은 최신순 기록 목록이고 하단에 기록 FAB가 있다
 //
 // 사람 탭을 없앴기 때문에 이 목록의 사람 이름이 사람 원장(S04)으로 가는 주 진입로다.
 // 이 동선이 끊기면 이 앱의 핵심인 "사람별 수지"에 도달할 방법이 사라진다.
@@ -29,7 +29,7 @@ import { EmptyState } from '../../../src/ui/EmptyState';
 import { EntryNames } from '../../../src/ui/EntryNames';
 import { LoadFailed } from '../../../src/ui/LoadFailed';
 
-export default function HomeScreen() {
+export default function RecordsScreen() {
   const ledgerId = useLedgerId();
   const { current } = useLedger();
   const router = useRouter();
