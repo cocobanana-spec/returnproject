@@ -15,3 +15,9 @@ export const CONTENT_MAX_WIDTH = 720;
 export const contentFrame: ViewStyle = isWeb
   ? { alignSelf: 'center', maxWidth: CONTENT_MAX_WIDTH, width: '100%' }
   : {};
+
+// 폭을 묶으면 좌우에 여백이 생긴다. 그 여백은 프레임 **바깥** 요소가 칠해야 한다.
+// 칠하지 않으면 다크 모드에서 양옆만 흰색으로 남는다(2026-09-26 QA).
+export function outerFrame(background: string): ViewStyle {
+  return isWeb ? { backgroundColor: background, flex: 1 } : {};
+}

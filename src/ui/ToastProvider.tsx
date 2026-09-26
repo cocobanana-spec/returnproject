@@ -1,6 +1,7 @@
 // 화면 아래에 잠깐 떠서 결과를 알리는 띠. 실행 취소 같은 되돌리기 버튼을 함께 둘 수 있다
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { CONTENT_MAX_WIDTH } from './webLayout.ts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTokens } from '../theme/tokens';
 
@@ -45,9 +46,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         <View
           pointerEvents="box-none"
           style={{
+            // 토스트만 폭 제한 밖이라 넓은 화면에서 창 전체로 퍼졌다. 가운데로 모은다.
+            alignItems: 'center',
             position: 'absolute',
-            left: space.lg,
-            right: space.lg,
+            left: 0,
+            right: 0,
+            paddingHorizontal: space.lg,
             bottom: insets.bottom + space.xxl + space.lg,
           }}
         >
@@ -55,6 +59,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             style={{
               alignItems: 'center',
               backgroundColor: colors.accent,
+              maxWidth: CONTENT_MAX_WIDTH,
+              width: '100%',
               borderRadius: radius.md,
               flexDirection: 'row',
               gap: space.md,

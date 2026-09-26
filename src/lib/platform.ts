@@ -8,8 +8,12 @@ import { Platform } from 'react-native';
 
 export const isWeb = Platform.OS === 'web';
 
-// Expo가 app.json 의 experiments.baseUrl 을 번들에 넣어 준다.
-// 개발 서버(expo start --web)에서는 빈 문자열이라 origin 바로 아래가 된다.
+// Expo가 app.json 의 experiments.baseUrl 을 번들에 **인라인**한다.
+// 그래서 개발 서버(expo start --web)에서도 이 값이 들어 있다. 그런데 개발 서버는 앱을
+// origin 바로 아래(/)에서 서빙하므로, 개발에서 만들어지는 복귀 주소는
+// http://localhost:8081/returnproject/app/auth/… 가 되어 실제 개발 주소와 다르다.
+// 개발에서 소셜 로그인·메일 링크를 확인하려면 Supabase Redirect URLs 에 그 주소를
+// 그대로 등록하거나(권장), baseUrl 없이 따로 빌드해야 한다.
 export function webBasePath(): string {
   const raw = process.env.EXPO_BASE_URL ?? '';
   return raw.endsWith('/') ? raw.slice(0, -1) : raw;
