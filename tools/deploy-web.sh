@@ -2,8 +2,12 @@
 # 웹 앱을 GitHub Pages(gh-pages 브랜치)에 배포한다 — 빌드부터 폴백 배치까지 한 번에
 #
 # 배포 구조
-#   gh-pages 루트 : privacy.html (처리방침), index.html (처리방침으로 보냄), 404.html (= 웹 앱)
+#   gh-pages 루트 : index.html (랜딩), privacy.html (처리방침), img/ (랜딩 그림), 404.html (= 웹 앱)
 #   gh-pages /app : 웹 앱 본체
+#
+# 루트 index.html 은 랜딩 페이지다(2026-09-28). 웹 바로 시작·iOS 내려받기로 보낸다.
+# 랜딩과 처리방침의 원본은 저장소의 site/ 에 있고 이 스크립트가 통째로 올린다 — gh-pages 에서
+# 직접 고치면 다음 배포에 덮인다.
 #
 # **루트 404.html이 웹 앱이어야 한다.** 단일 페이지 앱이라 /app/records 같은 주소로 직접
 # 들어오거나 새로고침하면 그 경로의 파일이 없다. GitHub Pages는 없는 경로에 **사이트 루트의**
@@ -34,7 +38,12 @@ echo "== 3/3 파일 배치"
 rm -rf "$WORK/pages/app"
 cp -R dist/web "$WORK/pages/app"
 # 사이트 루트 폴백. 이것이 빠지면 새로고침과 인증 복귀가 전부 404다.
+# **404.html 은 랜딩이 아니라 웹 앱이어야 한다.** /app/records 로 직접 들어오는 길이 이것뿐이다.
 cp dist/web/index.html "$WORK/pages/404.html"
+# 랜딩·처리방침·그림. site/ 가 원본이다.
+rm -rf "$WORK/pages/img"
+cp site/index.html site/privacy.html "$WORK/pages/"
+cp -R site/img "$WORK/pages/img"
 
 cd "$WORK/pages"
 if git diff --quiet && git diff --cached --quiet && [ -z "$(git status --porcelain)" ]; then
@@ -49,6 +58,7 @@ git -c user.name="$NAME" -c user.email="$MAIL" commit -q -m "웹 앱 배포"
 git push -q origin gh-pages
 
 echo "배포 완료"
+echo "  랜딩      https://cocobanana-spec.github.io/returnproject/"
 echo "  앱        https://cocobanana-spec.github.io/returnproject/app/"
 echo "  처리방침   https://cocobanana-spec.github.io/returnproject/privacy.html"
 echo ""
