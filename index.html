@@ -1,4 +1,164 @@
 <!doctype html>
-<!-- 사이트 루트 — 개인정보 처리방침으로 보낸다 -->
-<html lang="ko"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=privacy.html"><title>뿌린대로거두리라</title></head>
-<body><a href="privacy.html">개인정보 처리방침</a></body></html>
+<!-- 랜딩 페이지 — gh-pages 루트에서 첫 화면이 된다. 웹 바로 시작과 앱 내려받기로 보낸다 -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>뿌린대로거두리라 · 축의금 경조사비 장부</title>
+<meta name="description" content="결혼식·돌잔치·장례식에서 주고받은 돈을 사람 단위로 기록하는 장부. 엑셀 명부 가져오기, 부부 공동 장부.">
+<meta property="og:title" content="뿌린대로거두리라">
+<meta property="og:description" content="경조사로 주고받은 마음을 사람 단위로 기록합니다.">
+<meta property="og:type" content="website">
+<link rel="icon" href="img/icon.png">
+<link rel="apple-touch-icon" href="img/icon.png">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fff;
+    --fg: #111;
+    --muted: #6b6b6b;
+    --line: #e6e6e6;
+    --card: #f7f7f7;
+    --accent: #111;
+    --accent-fg: #fff;
+    --given: #2563eb;
+    --received: #c2701c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f0f; --fg: #f2f2f2; --muted: #9a9a9a; --line: #2a2a2a;
+      --card: #1a1a1a; --accent: #f2f2f2; --accent-fg: #111;
+      --given: #6aa2ff; --received: #e0a05a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px; }
+
+  header { padding: 56px 0 8px; text-align: center; }
+  .icon { width: 88px; height: 88px; border-radius: 20px; display: block; margin: 0 auto 20px; }
+  h1 { font-size: 2rem; letter-spacing: -0.02em; margin: 0 0 10px; }
+  .tagline { color: var(--muted); font-size: 1.05rem; margin: 0 auto; max-width: 30ch; }
+
+  .cta { display: grid; gap: 10px; margin: 32px auto 0; max-width: 360px; }
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 15px 18px; border-radius: 999px; text-decoration: none;
+    font-weight: 700; font-size: 1rem; border: 1px solid var(--line);
+    color: var(--fg); background: var(--bg);
+  }
+  .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  .btn.soon { color: var(--muted); cursor: default; }
+  .btn.soon .tag { font-weight: 400; font-size: 0.85rem; }
+
+  .shots { display: flex; gap: 16px; justify-content: center; margin: 56px 0 8px; overflow-x: auto; padding-bottom: 8px; }
+  .shots img {
+    width: 220px; flex: 0 0 auto; border-radius: 18px; border: 1px solid var(--line);
+  }
+  .caption { color: var(--muted); font-size: 0.85rem; text-align: center; margin-top: 8px; }
+
+  section { margin: 56px 0; }
+  h2 { font-size: 1.25rem; margin: 0 0 18px; letter-spacing: -0.01em; }
+  .features { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .feature { background: var(--card); border-radius: 14px; padding: 18px; }
+  .feature h3 { font-size: 1rem; margin: 0 0 6px; }
+  .feature p { color: var(--muted); font-size: 0.93rem; margin: 0; }
+
+  .totals { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+  .total { background: var(--card); border-radius: 14px; padding: 16px 22px; text-align: left; min-width: 150px; }
+  .total span { display: block; color: var(--muted); font-size: 0.85rem; }
+  .total b { font-size: 1.3rem; letter-spacing: -0.02em; }
+  .total.g b { color: var(--given); }
+  .total.r b { color: var(--received); }
+
+  footer { border-top: 1px solid var(--line); margin-top: 64px; padding: 28px 0 56px; color: var(--muted); font-size: 0.88rem; }
+  footer a { color: var(--muted); }
+  footer p { margin: 5px 0; }
+
+  @media (max-width: 480px) {
+    header { padding-top: 40px; }
+    h1 { font-size: 1.6rem; }
+    .shots img { width: 180px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <img class="icon" src="img/icon.png" alt="뿌린대로거두리라 아이콘" width="88" height="88">
+    <h1>뿌린대로거두리라</h1>
+    <p class="tagline">경조사로 주고받은 마음을<br>사람 단위로 기록합니다.</p>
+
+    <div class="totals">
+      <div class="total g"><span>준 돈</span><b>15,790,000원</b></div>
+      <div class="total r"><span>받은 돈</span><b>16,650,777원</b></div>
+    </div>
+
+    <nav class="cta">
+      <a class="btn primary" href="app/">웹으로 바로 시작</a>
+      <a class="btn" href="https://apps.apple.com/kr/app/id6815605969">iOS 앱 내려받기</a>
+      <span class="btn soon">Android <span class="tag">준비 중</span></span>
+    </nav>
+  </header>
+
+  <div class="shots">
+    <img src="img/home.png" alt="홈 화면. 준 돈과 받은 돈 총액" width="220" height="478" loading="lazy">
+    <img src="img/records.png" alt="기록 화면. 사람별 준 돈 목록" width="220" height="478" loading="lazy">
+    <img src="img/stats.png" alt="통계 화면. 연도별 종류별 집계" width="220" height="478" loading="lazy">
+  </div>
+  <p class="caption">화면의 이름과 금액은 모두 가상입니다.</p>
+
+  <section>
+    <h2>금액이 아니라 사람이 축입니다</h2>
+    <div class="features">
+      <div class="feature">
+        <h3>준 돈, 받은 돈을 한눈에</h3>
+        <p>한 사람에 대해 내가 낸 돈과 그가 낸 돈이 한 화면에 모입니다. 다음에 얼마를 낼지 고민할 때 그 화면 하나면 됩니다.</p>
+      </div>
+      <div class="feature">
+        <h3>30초 기록</h3>
+        <p>식장 가는 길에 이름, 날짜, 종류, 금액만 넣으면 끝입니다. 같은 이름이 있으면 그 사람으로 자동 연결됩니다.</p>
+      </div>
+      <div class="feature">
+        <h3>엑셀·CSV 명부 가져오기</h3>
+        <p>결혼식 명부를 엑셀로 정리해 두셨다면 파일 하나로 통째로 넣습니다. 파일은 기기 안에서만 읽습니다.</p>
+      </div>
+      <div class="feature">
+        <h3>부부가 한 장부를 함께</h3>
+        <p>초대 코드 하나로 배우자를 부릅니다. 두 사람이 각자 기록해도 하나의 장부에 모입니다.</p>
+      </div>
+      <div class="feature">
+        <h3>동명이인도 헷갈리지 않게</h3>
+        <p>같은 이름이 둘이면 회사, 고등학교 같은 구분 말을 붙여 구별합니다.</p>
+      </div>
+      <div class="feature">
+        <h3>내 데이터는 내 것</h3>
+        <p>광고도 분석 도구도 없습니다. 계정 삭제는 앱 안에서 즉시 되고, 삭제하면 기록도 함께 사라집니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>어디서든 같은 장부</h2>
+    <p style="color: var(--muted); margin: 0;">
+      앱에서 넣은 기록이 웹에서 그대로 보입니다. 식장에서는 폰으로 적고, 정리는 PC에서 하세요.
+      웹에서는 장부 전체를 엑셀에서 열리는 파일로 내려받을 수도 있습니다.
+    </p>
+  </section>
+
+  <footer>
+    <p>Apple, Google 계정 또는 이메일로 시작하세요.</p>
+    <p><a href="privacy.html">개인정보 처리방침</a> · <a href="mailto:donghan.cocoperry@gmail.com">문의</a></p>
+    <p>ⓒ 2026 최동한</p>
+  </footer>
+
+</div>
+</body>
+</html>
