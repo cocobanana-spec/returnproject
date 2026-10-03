@@ -352,7 +352,12 @@
 
 ## 5-2. 2단계 계획 (2026-10-03) — `docs/08-phase2-plan.md`
 - [ ] 결정 8개 (docs/08 §6) — 도메인·웹 앱 주소·유료 모델·무료 구간·사업자등록·템플릿·돌잔치·안드로이드
-- [ ] ① 웹 주소 — `ppurin.kr` 구매, Cloudflare Pages 이전, Supabase·ASC 주소 교체, 옛 주소 안내 페이지
+- [ ] ① 웹 주소 — **`ppurin.com`** (2026-10-03 결정). 준비 완료 — `app.config.js`(WEB_BASE_URL 로 루트 빌드, 루트 번들에 옛 경로 0건 확인), `tools/deploy-cloudflare.sh`, `site-legacy/` + `tools/retire-github-pages.sh`
+  - [ ] 사장님 — Cloudflare 가입 → Domain Registration 에서 `ppurin.com` 구매 → `npx wrangler login` 1회
+  - [ ] 나 — Pages 프로젝트 2개 생성, 배포, Custom domains(ppurin.com / app.ppurin.com) 연결, 랜딩의 "웹으로 바로 시작" 링크를 `https://app.ppurin.com/` 으로
+  - [ ] Supabase — Site URL `https://app.ppurin.com`, Redirect URLs 에 `https://app.ppurin.com/auth/{callback,confirm,reset}` **추가**(옛 것은 2주 뒤 삭제)
+  - [ ] App Store Connect — 처리방침 URL `https://ppurin.com/privacy`, 지원 URL. `docs/06` 과 `site/privacy.html` 의 주소도 함께
+  - [ ] 전부 열리는 것을 확인한 뒤 `tools/retire-github-pages.sh` (옛 주소 → 안내 페이지, 6개월 유지)
 - [ ] ② 청첩장·부고장 2A → 2B → 2C
 - [ ] ③ 문자 발송 3A(한 명씩) → 3B(서버 발송, 발신번호 등록)
 - [ ] 프리미엄 기반 — entitlements·RevenueCat·유료 앱 계약

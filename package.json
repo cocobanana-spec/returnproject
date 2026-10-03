@@ -12,7 +12,8 @@
     "start": "expo start",
     "test": "node --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
-    "deploy:web": "bash tools/deploy-web.sh"
+    "deploy:web": "bash tools/deploy-web.sh",
+    "deploy:cf": "tools/deploy-cloudflare.sh"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.16",
