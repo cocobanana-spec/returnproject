@@ -352,13 +352,14 @@
 
 ## 5-2. 2단계 계획 (2026-10-03) — `docs/08-phase2-plan.md`
 - [ ] 결정 8개 (docs/08 §6) — 도메인·웹 앱 주소·유료 모델·무료 구간·사업자등록·템플릿·돌잔치·안드로이드
-- [ ] ① 웹 주소 — **`ppurin.com`** (2026-10-03 결정). 준비 완료 — `app.config.js`(WEB_BASE_URL 로 루트 빌드, 루트 번들에 옛 경로 0건 확인), `tools/deploy-cloudflare.sh`, `site-legacy/` + `tools/retire-github-pages.sh`
+- [x] ① 웹 주소 — **`ppurin.com`** 이전 완료 (2026-10-04). 준비 기록 — `app.config.js`(WEB_BASE_URL 로 루트 빌드, 루트 번들에 옛 경로 0건 확인), `tools/deploy-cloudflare.sh`, `site-legacy/` + `tools/retire-github-pages.sh`
   - [x] 사장님 — Cloudflare 가입, `ppurin.com` 구매, `npx wrangler login` (2026-10-04)
   - [x] 나 — Workers 2개(`wrangler.site.jsonc`·`wrangler.app.jsonc`) 배포, 커스텀 도메인은 설정의 routes 로 자동 연결. 랜딩·`src/lib/urls.ts` 를 새 주소로. **검증** — 랜딩·처리방침·OG·404, 앱 루트·깊은 경로·auth 경로·번들 전부 확인, 로그인 화면 스크린샷 (2026-10-04)
   - [x] Supabase — Site URL·Redirect URLs 3종 추가 (사장님, 2026-10-04). **2026-10-18 이후 github.io 3종 삭제**
-  - [ ] 새 주소에서 구글 로그인 실왕복 1회 — 사장님 확인 필요
+  - [x] 새 주소에서 구글 로그인 실왕복 — 사장님 확인 (2026-10-04). **① 완료**
   - [x] App Store Connect — 승인된 1.0 은 못 바꿔 **1.0.1 버전을 새로 만들어 거기에 새 주소**를 넣었다(사장님). `app.json` 도 1.0.1. **1.0.1 이 나가기 전까지 스토어의 1.0 은 옛 처리방침 주소를 가리키므로 옛 주소에 전문을 유지한다**(site-legacy/privacy.html 은 넘기기가 아니라 전문 + 안내). 1.0.1 출시 뒤 넘기기로 바꾼다
   - [x] `tools/retire-github-pages.sh` 실행 (2026-10-04). 루트·/app 은 새 주소 안내, /privacy.html 은 전문 유지 확인. 6개월 뒤(2027-04) 정리
+- [ ] **1.0.1 빌드(22)** — 바 흐림, PC 웹 버전 줄, 새 처리방침 주소. 사용자 결정: 다른 변경과 묶어서 올린다(2026-10-04). 올리면 옛 주소 처리방침을 넘기기로 바꾼다
 - [ ] ② 청첩장·부고장 2A → 2B → 2C
 - [ ] ③ 문자 발송 3A(한 명씩) → 3B(서버 발송, 발신번호 등록)
 - [ ] 프리미엄 기반 — entitlements·RevenueCat·유료 앱 계약
