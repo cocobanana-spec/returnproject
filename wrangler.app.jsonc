@@ -1,0 +1,18 @@
+// 웹 앱 — Cloudflare Workers 정적 자산으로 app.ppurin.com 에 올린다
+//
+// 단일 페이지 앱이라 없는 경로(/records 등)를 전부 index.html 로 받아야 한다.
+// GitHub Pages 에서는 404.html 복사로 흉내 냈지만 여기서는 설정 한 줄이다.
+// 빌드는 WEB_BASE_URL= 로 루트 경로에 맞춰야 한다(app.config.js). tools/deploy-cloudflare.sh 가 한다.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ppurin-app",
+  "compatibility_date": "2026-10-01",
+  "account_id": "bfa3b35cbbfa042aaabffd880f3eb75d",
+  "assets": {
+    "directory": "./dist/web",
+    "not_found_handling": "single-page-application"
+  },
+  "routes": [
+    { "pattern": "app.ppurin.com", "custom_domain": true }
+  ]
+}

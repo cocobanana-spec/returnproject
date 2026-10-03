@@ -12,8 +12,8 @@
 | 카테고리(보조) | 라이프스타일 | |
 | 연령 등급 | 4+ | 폭력·도박·의료 항목 전부 없음 |
 | 가격 | 무료 | 인앱 결제 없음 |
-| 개인정보 처리방침 URL | `https://cocobanana-spec.github.io/returnproject/privacy.html` | gh-pages 브랜치 |
-| 지원 URL | `https://github.com/cocobanana-spec/returnproject/issues` | 문의 창구가 따로 생기면 교체 |
+| 개인정보 처리방침 URL | `https://ppurin.com/privacy` | 2026-10-04 ppurin.com 으로 이전. 옛 github.io 주소는 안내 페이지 |
+| 지원 URL | `https://ppurin.com/` | 랜딩에 문의 메일이 있다. 2026-10-04 교체 |
 | 저작권 | `2026 최동한` | |
 
 ## 프로모션 텍스트 (170자, 심사 없이 수시 수정 가능)

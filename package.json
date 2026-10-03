@@ -13,7 +13,9 @@
     "test": "node --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "deploy:web": "bash tools/deploy-web.sh",
-    "deploy:cf": "tools/deploy-cloudflare.sh"
+    "deploy:cf": "tools/deploy-cloudflare.sh",
+    "deploy": "npx expo export -p web && wrangler deploy",
+    "preview": "npx expo export -p web && wrangler dev"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.16",
@@ -48,7 +50,8 @@
   "devDependencies": {
     "@types/node": "^26.6.2",
     "@types/react": "~19.2.2",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "wrangler": "^4.147.0"
   },
   "overrides": {
     "react-dom": "19.2.3"
