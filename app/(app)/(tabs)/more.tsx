@@ -4,12 +4,14 @@
 // 잡동사니가 되지 않게 "기록 관리 / 장부 / 계정" 세 묶음으로 나눈다.
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Linking, Pressable, Share, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { buildCsv, exportFileName } from '../../../src/domain/exportCsv.ts';
 import { todayISO } from '../../../src/domain/title.ts';
 import { useLedger } from '../../../src/ledger/LedgerProvider';
 import { canDownload, downloadText } from '../../../src/lib/downloadFile.ts';
+import { isWeb } from '../../../src/lib/platform.ts';
+import { APP_STORE_URL, WEB_APP_URL, shortUrl } from '../../../src/lib/urls.ts';
 import { listAllEntries } from '../../../src/repositories/entries';
 import { useTokens } from '../../../src/theme/tokens';
 import { Screen } from '../../../src/ui/Screen';
@@ -137,6 +139,33 @@ export default function MoreScreen() {
           hint="사람·행사·기록을 전부 지웁니다. 되돌릴 수 없습니다"
           onPress={() => router.push('/ledger-reset')}
         />
+      </Section>
+
+      {/* 앱에서는 웹이 있는 줄 모르고, 웹에서는 앱이 있는 줄 모른다(2026-10-03 사용자 지적).
+          서로를 가리키는 줄을 하나씩 둔다. 앱 쪽은 공유 시트로 띄운다 — 폰 브라우저에서 여는 것보다
+          AirDrop·메시지로 PC 에 보내는 쪽이 "PC 에서 쓰려는" 목적에 맞다. */}
+      <Section title="다른 기기에서">
+        {isWeb ? (
+          <Row
+            icon="phone-portrait-outline"
+            label="iOS 앱 내려받기"
+            hint="같은 계정으로 로그인하면 이 장부가 그대로 보입니다"
+            onPress={() => void Linking.openURL(APP_STORE_URL)}
+          />
+        ) : (
+          <Row
+            icon="desktop-outline"
+            label="PC 웹 버전"
+            hint={`${shortUrl(WEB_APP_URL)} · 같은 계정으로 로그인하면 같은 장부입니다`}
+            onPress={() =>
+              void Share.share({
+                title: '뿌린대로거두리라 웹 버전',
+                message: `PC 브라우저에서 열고 같은 계정으로 로그인하세요.\n${WEB_APP_URL}`,
+                url: WEB_APP_URL,
+              }).catch(() => {})
+            }
+          />
+        )}
       </Section>
 
       <Section title="계정">
