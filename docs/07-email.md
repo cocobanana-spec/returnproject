@@ -17,54 +17,60 @@ Supabase 내장 메일 발송은 **시간당 몇 건**으로 제한된다. 이 �
 | 가입 확인 | `signUpWithEmail` (`src/auth/email.ts`) | Confirm signup |
 | 비밀번호 재설정 | `resetPasswordForEmail` (같은 파일) | Reset password |
 
-## 지금 할 것 — Gmail SMTP (무료, 도메인 불필요)
+## 지금 할 것 — Resend 로 `noreply@ppurin.com` 에서 보낸다 (2026-10-04 개정)
 
-도메인을 사기 전까지의 답이다. **하루 약 500통**까지 보낼 수 있고, 보내는 서버가 Gmail
-자신이라 SPF·DKIM이 저절로 맞아 스팸함으로 덜 빠진다. Resend·SendGrid 같은 서비스는
-발신 도메인 인증을 요구하므로 도메인이 없으면 쓸 수 없다.
+> 처음 쓴 판은 "도메인이 없으니 Gmail SMTP" 였다. 사장님 개인 Gmail 주소가 발신자로 찍히는
+> 방식이라 사장님이 되물었다. 그 사이 `ppurin.com` 을 샀으므로 우리 주소로 보낸다.
 
-### 1. 앱 비밀번호 만들기
+| | Gmail SMTP (옛 안) | **Resend + ppurin.com** |
+|---|---|---|
+| 발신자 | 개인 Gmail 주소가 그대로 보임 | `noreply@ppurin.com` |
+| 무료 한도 | 하루 500통 | 하루 100통 · 월 3,000통 (유료 월 20달러부터 5만 통) |
+| 준비 | 앱 비밀번호 | 가입 + DNS 레코드 3개 (Cloudflare 에 붙여 넣기) |
+| 스팸 평판 | 구글 서버라 좋음 | 도메인 인증(SPF·DKIM)이 되므로 좋음 |
 
-Gmail 계정 비밀번호를 그대로 넣으면 안 된다. 구글이 거부한다.
+하루 100통은 초기에 충분하다. 넘길 즈음이면 유료로 올릴 이유가 생긴 것이다.
 
-1. Google 계정 → 보안 → **2단계 인증**을 켠다. 켜야 다음 항목이 보인다.
-2. 같은 화면에서 **앱 비밀번호**로 들어간다.
-3. 이름은 아무거나(예: `ppurin-supabase`) 적고 만든다.
-4. 공백 없이 붙은 **16자리**가 나온다. 이 화면을 닫으면 다시 볼 수 없다.
+### 1. Resend 가입과 도메인 등록 (사장님, 5분)
+1. `resend.com` 가입. 무료다.
+2. Domains → Add Domain → `ppurin.com` 입력. 지역은 아무거나(메일 발송 서버 위치일 뿐이다).
+3. DNS 레코드 3개가 나온다. **DKIM(TXT) 1개, SPF 용 MX·TXT** 형태다. 이 화면을 열어 둔다.
 
-### 2. Supabase에 넣기
+### 2. Cloudflare 에 레코드 넣기 (사장님, 5분)
+Cloudflare → `ppurin.com` → DNS → Records → Add record. Resend 가 보여 준 레코드를 **이름·종류·값 그대로** 셋 다 넣는다.
+- 이름 칸은 Resend 가 `resend._domainkey` 처럼 짧게 보여 주면 그대로, `resend._domainkey.ppurin.com` 처럼 길게 보여 주면 `ppurin.com` 을 뺀 앞부분만 넣는다. Cloudflare 가 뒤를 붙인다.
+- **Proxy 상태는 "DNS only"(회색 구름)** 로 둔다. 주황 구름이면 메일 인증이 안 된다.
+- 다 넣고 Resend 화면에서 Verify 를 누른다. 몇 분 안에 Verified 가 된다.
 
+### 3. API 키 (사장님, 1분)
+Resend → API Keys → Create. 권한은 Sending access 면 된다. **키는 한 번만 보인다.** 복사해 둔다.
+
+### 4. Supabase 에 넣기 (사장님, 2분)
 Authentication → Emails → **SMTP Settings** → Enable Custom SMTP.
 
 | 칸 | 값 |
 |---|---|
-| Host | `smtp.gmail.com` |
+| Host | `smtp.resend.com` |
 | Port | `465` |
-| Username | 보내는 Gmail 주소 |
-| Password | 위에서 만든 16자리 앱 비밀번호 |
-| Sender email | 같은 Gmail 주소 |
+| Username | `resend` (글자 그대로) |
+| Password | 3 에서 만든 API 키 |
+| Sender email | `noreply@ppurin.com` |
 | Sender name | `뿌린대로거두리라` |
 
-> Sender email 은 Username 과 **같아야 한다.** 다른 주소를 적으면 Gmail 이 바꿔 버리거나
-> 거부한다.
-
-### 3. 발송 제한 올리기
-
+### 5. 발송 제한 올리기 (사장님, 1분)
 커스텀 SMTP 를 켜도 Supabase 쪽 제한은 따로 남는다. Authentication → **Rate Limits** →
-"Rate limit for sending emails" 를 시간당 100 정도로 올린다. Gmail 의 하루 500통 안에서
-움직이도록 잡는 것이 안전하다.
+"Rate limit for sending emails" 를 시간당 **30** 으로 올린다. Resend 무료 한도(하루 100)를
+한 시간에 다 쓰지 않도록 잡은 값이다. 유료로 올리면 같이 올린다.
 
-### 4. 확인
-
+### 6. 확인 (나)
 **실제로 가입해 본다.** 설정 화면이 저장됐다는 것만으로는 아무것도 증명되지 않는다.
-모르는 메일 주소로 가입해 확인 메일이 오는지, 링크를 눌렀을 때 앱이나 웹으로 돌아오는지 본다.
-스팸함도 본다.
+모르는 메일 주소로 가입해 확인 메일이 오는지, 발신자가 `noreply@ppurin.com` 인지, 링크를 눌렀을 때
+앱이나 웹으로 돌아오는지, 스팸함으로 가지 않는지 본다.
 
-## 나중에 — 도메인을 사면 Resend 로
-
-도메인이 생기면 `noreply@<도메인>` 으로 보내는 편이 낫다. 개인 Gmail 주소가 발신자로 찍히지
-않고, 하루 한도도 훨씬 크다. Resend 무료 구간이 하루 100통·월 3,000통이라 초기에는 충분하다.
-웹 주소 변경과 같이 하면 된다(`checklist.md` 의 "웹 주소 바꾸기").
+### 덤 — 받는 메일도 `@ppurin.com` 으로
+Cloudflare 의 Email Routing(무료)을 켜면 `support@ppurin.com` 으로 온 메일을 사장님 Gmail 로
+넘겨 준다. 랜딩·처리방침의 문의 주소를 개인 Gmail 대신 이것으로 바꿀 수 있다. 메일 발송과는
+별개이니 나중에 해도 된다.
 
 ## 메일 본문 (한국어)
 
@@ -130,6 +136,7 @@ Supabase 기본 템플릿은 영문이다. Authentication → Emails → 각 템
 | 증상 | 원인 |
 |---|---|
 | `over_email_send_rate_limit` | 커스텀 SMTP 가 아직 꺼져 있거나 Rate Limits 를 안 올렸다 |
-| Gmail 이 인증 거부 | 계정 비밀번호를 넣었다. 앱 비밀번호여야 한다 |
+| Resend 가 Domain not verified | DNS 레코드가 덜 들어갔거나 주황 구름(프록시)으로 넣었다 |
+| Supabase 가 SMTP 인증 거부 | Username 이 `resend` 가 아니거나 API 키가 틀렸다 |
 | 메일은 가는데 링크가 열리지 않음 | Redirect URLs 에 그 주소가 없다. `checklist.md` 의 복귀 주소 6종을 확인한다 |
-| 스팸함으로 감 | 발신 주소와 SMTP 계정이 다르면 그렇다. 둘을 같게 맞춘다 |
+| 스팸함으로 감 | 도메인 Verify 전에 보냈다. Verified 뒤 다시 본다 |
