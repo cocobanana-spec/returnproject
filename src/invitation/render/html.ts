@@ -4,6 +4,15 @@
 // 앱은 같은 문자열을 웹뷰에 넣어 미리보기로 쓴다(docs/08 §3.3 "템플릿은 HTML 한 벌").
 // 외부 자원(폰트·스크립트·CSS)을 싣지 않는다. 하객은 데이터로 한 번 열어 본다.
 
+import { translate, type Locale } from '../../i18n/dict.ts';
+
+// 렌더러의 번역. 언어는 내용(content.lang)에서 오고 없으면 한국어다.
+export type T = (key: string, params?: Record<string, string | number>) => string;
+export function tFor(locale: Locale | undefined): T {
+  const l = locale ?? 'ko';
+  return (key, params) => translate(l, key, params);
+}
+
 export function esc(v: unknown): string {
   return String(v ?? '')
     .replace(/&/g, '&amp;')
@@ -16,52 +25,64 @@ export function esc(v: unknown): string {
 // 속성 값용. esc 와 같지만 이름을 나눠 의도를 드러낸다.
 export const attr = esc;
 
-const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
+const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토'];
+const WEEKDAY_JA = ['日', '月', '火', '水', '木', '金', '土'];
+const WEEKDAY_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTH_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-// 'YYYY-MM-DD' → '2027년 5월 1일 토요일'. 형식이 틀리면 원문을 돌려준다(공개 페이지가 죽지 않게).
-export function koreanDate(ymd: string): string {
+// 'YYYY-MM-DD' → 한국어 '2027년 5월 1일 토요일' / 영어 'Saturday, May 1, 2027' / 일본어 '2027年5月1日(土)'.
+// 형식이 틀리면 원문을 돌려준다(공개 페이지가 죽지 않게).
+export function koreanDate(ymd: string, locale: Locale = 'ko'): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
   if (!m) return ymd;
   const [, y, mo, d] = m;
   const dt = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d)));
-  return `${Number(y)}년 ${Number(mo)}월 ${Number(d)}일 ${WEEKDAY[dt.getUTCDay()]}요일`;
+  const wd = dt.getUTCDay();
+  if (locale === 'en') return `${WEEKDAY_EN[wd]}, ${MONTH_EN[Number(mo) - 1]} ${Number(d)}, ${Number(y)}`;
+  if (locale === 'ja') return `${Number(y)}年${Number(mo)}月${Number(d)}日(${WEEKDAY_JA[wd]})`;
+  return `${Number(y)}년 ${Number(mo)}월 ${Number(d)}일 ${WEEKDAY_KO[wd]}요일`;
 }
 
-// 'HH:mm' → '오후 12시 30분'. 정각이면 분을 뺀다.
-export function koreanTime(hm: string): string {
+// 'HH:mm' → '오후 12시 30분' / '12:30 PM' / '午後12時30分'. 정각이면 분을 뺀다(한·일).
+export function koreanTime(hm: string, locale: Locale = 'ko'): string {
   const m = /^(\d{2}):(\d{2})$/.exec(hm);
   if (!m) return hm;
   const h = Number(m[1]);
   const min = Number(m[2]);
-  const half = h < 12 ? '오전' : '오후';
   const h12 = h % 12 === 0 ? 12 : h % 12;
+  if (locale === 'en') return `${h12}:${String(min).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+  if (locale === 'ja') return `${h < 12 ? '午前' : '午後'}${h12}時${min === 0 ? '' : `${min}分`}`;
+  const half = h < 12 ? '오전' : '오후';
   return min === 0 ? `${half} ${h12}시` : `${half} ${h12}시 ${min}분`;
 }
 
-// 'YYYY-MM-DD HH:mm' → '2026년 11월 3일 화요일 오전 8시'
-export function koreanDateTime(v: string): string {
+// 'YYYY-MM-DD HH:mm' → 날짜 + 시간
+export function koreanDateTime(v: string, locale: Locale = 'ko'): string {
   const [d, t] = v.split(' ');
   if (!d || !t) return v;
-  return `${koreanDate(d)} ${koreanTime(t)}`;
+  return `${koreanDate(d, locale)} ${koreanTime(t, locale)}`;
 }
 
 // 지도 SDK 를 넣지 않는다. 검색 링크로 보낸다(docs/08 §3.3).
-export function mapLinks(query: string): string {
+export function mapLinks(query: string, t: T = tFor('ko'), locale: Locale = 'ko'): string {
   const q = encodeURIComponent(query);
+  // 한국어가 아니면 구글 지도를 앞에 둔다. 한국 밖 하객은 카카오맵이 없다.
+  const google = `<a href="https://www.google.com/maps/search/?api=1&query=${q}" target="_blank" rel="noopener">${esc(t('inv.googleMap'))}</a>`;
   return `<div class="maps">
-    <a href="https://map.kakao.com/link/search/${q}" target="_blank" rel="noopener">카카오맵</a>
-    <a href="https://map.naver.com/p/search/${q}" target="_blank" rel="noopener">네이버지도</a>
+    ${locale !== 'ko' ? google : ''}
+    <a href="https://map.kakao.com/link/search/${q}" target="_blank" rel="noopener">${esc(t('inv.kakaoMap'))}</a>
+    <a href="https://map.naver.com/p/search/${q}" target="_blank" rel="noopener">${esc(t('inv.naverMap'))}</a>
   </div>`;
 }
 
 export type AccountRow = { side?: 'groom' | 'bride'; holder: string; bank: string; number: string };
 
 // 계좌 한 줄. 복사 버튼은 아래 COPY_SCRIPT 가 처리한다.
-export function accountRow(a: AccountRow): string {
+export function accountRow(a: AccountRow, t: T = tFor('ko')): string {
   const text = `${a.bank} ${a.number} ${a.holder}`;
   return `<div class="account">
     <div><span class="bank">${esc(a.bank)}</span> <span class="num">${esc(a.number)}</span><br><span class="holder">${esc(a.holder)}</span></div>
-    <button type="button" class="copy" data-copy="${attr(text)}">복사</button>
+    <button type="button" class="copy" data-copy="${attr(text)}" data-copied="${attr(t('inv.copied'))}" data-label="${attr(t('inv.copy'))}">${esc(t('inv.copy'))}</button>
   </div>`;
 }
 
@@ -69,7 +90,7 @@ export const COPY_SCRIPT = `<script>
 document.addEventListener('click',function(e){
   var b=e.target.closest&&e.target.closest('button.copy'); if(!b) return;
   var t=b.getAttribute('data-copy')||'';
-  function done(){ b.textContent='복사됨'; setTimeout(function(){ b.textContent='복사'; },1500); }
+  function done(){ b.textContent=b.getAttribute('data-copied')||'✓'; setTimeout(function(){ b.textContent=b.getAttribute('data-label')||''; },1500); }
   if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done,function(){ fallback(); }); } else { fallback(); }
   function fallback(){ var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); done(); }catch(_){ } document.body.removeChild(ta); }
 });
@@ -121,24 +142,24 @@ export type GuestbookEndpoint = { supabaseUrl: string; anonKey: string; slug: st
 
 // 전광판. CSS 만으로 돈다(자바스크립트 없이도 움직인다). 메시지가 없으면 안내 한 줄.
 // 같은 내용을 두 번 이어 붙여 끊김 없이 돌게 한다.
-export function marquee(messages: GuestbookMessage[]): string {
+export function marquee(messages: GuestbookMessage[], t: T = tFor('ko')): string {
   const items = messages.length
     ? messages.map((m) => `<span class="mq-item"><b>${esc(m.name)}</b> ${esc(m.message)}</span>`).join('<span class="mq-dot">·</span>')
-    : `<span class="mq-item mq-empty">아래에서 첫 축하 메시지를 남겨 주세요</span>`;
+    : `<span class="mq-item mq-empty">${esc(t('gb.firstHint'))}</span>`;
   const dur = Math.max(18, Math.min(120, messages.reduce((n, m) => n + m.name.length + m.message.length, 0) / 2.2));
   return `<div class="marquee" id="marquee" aria-live="polite" style="--mq-dur:${dur.toFixed(0)}s">
     <div class="mq-track"><div class="mq-run">${items}</div><div class="mq-run" aria-hidden="true">${items}</div></div>
   </div>`;
 }
 
-export function guestbookForm(count: number): string {
+export function guestbookForm(count: number, t: T = tFor('ko')): string {
   return `<section class="guestbook" id="guestbook">
-    <h2>방명록</h2>
-    <p class="muted">${count ? `${count}개의 메시지` : '아직 메시지가 없습니다'}. 남기신 말은 위에서 돌아갑니다.</p>
-    <form id="gb-form">
-      <input name="name" maxlength="20" placeholder="이름" required autocomplete="name">
-      <textarea name="message" maxlength="200" rows="3" placeholder="축하 또는 위로의 한마디" required></textarea>
-      <button type="submit">남기기</button>
+    <h2>${esc(t('gb.title'))}</h2>
+    <p class="muted">${esc(count ? t('gb.count', { n: count }) : t('gb.empty'))}. ${esc(t('gb.rolls'))}</p>
+    <form id="gb-form" data-fill="${attr(t('gb.fillBoth'))}" data-sending="${attr(t('gb.sending'))}" data-done="${attr(t('gb.done'))}" data-failed="${attr(t('gb.failed'))}">
+      <input name="name" maxlength="20" placeholder="${attr(t('gb.name'))}" required autocomplete="name">
+      <textarea name="message" maxlength="200" rows="3" placeholder="${attr(t('gb.message'))}" required></textarea>
+      <button type="submit">${esc(t('gb.submit'))}</button>
       <p class="gb-note" id="gb-note"></p>
     </form>
   </section>`;
@@ -153,20 +174,20 @@ export function guestbookScript(ep: GuestbookEndpoint): string {
   f.addEventListener('submit',function(e){
     e.preventDefault();
     var name=f.name.value.trim(), msg=f.message.value.trim();
-    if(!name||!msg){ note.textContent='이름과 메시지를 적어 주세요.'; return; }
-    f.querySelector('button').disabled=true; note.textContent='남기는 중…';
+    if(!name||!msg){ note.textContent=f.getAttribute('data-fill'); return; }
+    f.querySelector('button').disabled=true; note.textContent=f.getAttribute('data-sending');
     fetch(${JSON.stringify(ep.supabaseUrl)}+'/rest/v1/rpc/add_guestbook_message',{method:'POST',
       headers:{'apikey':${JSON.stringify(ep.anonKey)},'Authorization':'Bearer '+${JSON.stringify(ep.anonKey)},'Content-Type':'application/json'},
       body:JSON.stringify({p_slug:${JSON.stringify(ep.slug)},p_name:name,p_message:msg})})
     .then(function(r){ if(!r.ok) throw new Error(String(r.status)); return r.json(); })
     .then(function(){
-      note.textContent='고맙습니다. 메시지를 남겼습니다.';
+      note.textContent=f.getAttribute('data-done');
       var esc=function(s){ return s.replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
       var html='<span class="mq-item"><b>'+esc(name)+'</b> '+esc(msg)+'</span><span class="mq-dot">·</span>';
       document.querySelectorAll('.mq-run').forEach(function(run){ var empty=run.querySelector('.mq-empty'); if(empty) run.innerHTML=''; run.insertAdjacentHTML('afterbegin',html); });
       f.reset();
     })
-    .catch(function(){ note.textContent='남기지 못했습니다. 잠시 뒤 다시 시도해 주세요.'; })
+    .catch(function(){ note.textContent=f.getAttribute('data-failed'); })
     .then(function(){ f.querySelector('button').disabled=false; });
   });
 })();
@@ -184,9 +205,10 @@ export type PageMeta = {
 
 // 문서 껍데기. 본문·CSS 는 템플릿이 준다.
 // footerNoun — 바닥 줄의 명사. 청첩장은 '초대장', 부고장은 '부고장'. 부고에 '초대'라는 말을 쓰지 않는다.
-export function document(meta: PageMeta, css: string, body: string, script = '', footerNoun = '초대장'): string {
+export function document(meta: PageMeta, css: string, body: string, script = '', footerNoun = '초대장', locale: Locale = 'ko'): string {
+  const t = tFor(locale);
   return `<!doctype html>
-<html lang="ko">
+<html lang="${locale}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -204,7 +226,7 @@ ${meta.image ? `<meta property="og:image" content="${attr(meta.image)}">` : ''}
 <body>
 <div class="page">
 ${body}
-<div class="footer"><a href="https://ppurin.com/">뿌린대로거두리라</a>로 만든 ${esc(footerNoun)}입니다</div>
+<div class="footer">${t('inv.madeWith', { app: '<a href="https://ppurin.com/">' + esc(t('app.name')) + '</a>', noun: esc(footerNoun) })}</div>
 </div>
 ${script}
 </body>
@@ -212,16 +234,17 @@ ${script}
 }
 
 // 없는 주소·내려간 청첩장·만료된 청첩장. 어느 경우든 "무엇이 있었는지"는 말하지 않는다.
-export function noticePage(kind: 'not_found' | 'expired', url: string): string {
-  const title = kind === 'expired' ? '기간이 지난 초대장입니다' : '초대장을 찾을 수 없습니다';
-  const text =
-    kind === 'expired'
-      ? '이 초대장은 공개 기간이 끝났습니다. 보내 주신 분께 다시 확인해 주세요.'
-      : '주소가 잘못되었거나 내려간 초대장입니다. 보내 주신 분께 다시 확인해 주세요.';
+export function noticePage(kind: 'not_found' | 'expired', url: string, locale: Locale = 'ko'): string {
+  const t = tFor(locale);
+  const title = kind === 'expired' ? t('inv.expiredTitle') : t('inv.notFoundTitle');
+  const text = kind === 'expired' ? t('inv.expiredBody') : t('inv.notFoundBody');
   const css = `body{background:#faf9f6;color:#333}.notice{min-height:70vh;display:grid;place-items:center;text-align:center}`;
   return document(
     { title, description: text, url, noindex: true },
     css,
     `<section class="notice"><div><h1 style="font-size:1.3rem">${esc(title)}</h1><p class="muted">${esc(text)}</p></div></section>`,
+    '',
+    t('inv.invitationNoun'),
+    locale,
   );
 }

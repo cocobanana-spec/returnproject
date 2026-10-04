@@ -24,6 +24,8 @@ import {
   type InvitationKind,
   type WeddingContent,
 } from '../../../src/domain/invitation.ts';
+import { useT } from '../../../src/i18n';
+import { LOCALES, LOCALE_LABEL } from '../../../src/i18n/dict.ts';
 import { useLedgerId } from '../../../src/ledger/LedgerProvider';
 import { confirmAction } from '../../../src/lib/confirm.ts';
 import { isWeb } from '../../../src/lib/platform.ts';
@@ -53,6 +55,7 @@ import { Screen } from '../../../src/ui/Screen';
 import { useToast } from '../../../src/ui/ToastProvider';
 
 export default function InvitationScreen() {
+  const t = useT();
   const ledgerId = useLedgerId();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -277,6 +280,16 @@ export default function InvitationScreen() {
               </Text>
             </>
           )}
+        </View>
+
+        {/* 공개 페이지의 안내 글자 언어(오시는 길·계좌·방명록). 적은 내용은 그대로다. 한·영·일(2026-10-04) */}
+        <View style={{ gap: space.sm }}>
+          <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }}>{t('inv.pageLanguage')}</Text>
+          <View style={{ flexDirection: 'row', gap: space.sm }}>
+            {LOCALES.map((l) => (
+              <Chip key={l} label={LOCALE_LABEL[l]} selected={(content.lang ?? 'ko') === l} onPress={() => patch({ lang: l })} />
+            ))}
+          </View>
         </View>
 
         <Guestbook invitationId={inv.id} />

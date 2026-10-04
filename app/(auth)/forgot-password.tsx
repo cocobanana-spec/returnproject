@@ -1,5 +1,6 @@
 // 비밀번호 재설정 요청 화면 — 메일을 보내면 링크가 앱의 ppurin://auth/reset 으로 돌아온다
 import { useRouter } from 'expo-router';
+import { useT } from '../../src/i18n';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { requestPasswordReset } from '../../src/auth/email.ts';
@@ -11,6 +12,7 @@ import { Field } from '../../src/ui/Field';
 import { Screen } from '../../src/ui/Screen';
 
 export default function ForgotPasswordScreen() {
+  const t = useT();
   const { colors, space, font } = useTokens();
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -36,13 +38,12 @@ export default function ForgotPasswordScreen() {
       <Screen edges={{ top: false }}>
         <View style={{ flex: 1, justifyContent: 'center', gap: space.lg }}>
           <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }}>
-            재설정 메일을 보냈습니다
+            {t('auth.resetSent')}
           </Text>
           <Text style={{ color: colors.textMuted, fontSize: font.body, lineHeight: 22 }}>
-            가입된 주소라면 {email}로 메일이 갑니다.{'\n'}
-            메일의 링크를 누르면 새 비밀번호를 정할 수 있습니다.
+            {t('auth.resetSentBody', { email })}
           </Text>
-          <Button label="로그인 화면으로" onPress={() => router.replace('/sign-in')} />
+          <Button label={t('auth.toSignIn')} onPress={() => router.replace('/sign-in')} />
         </View>
       </Screen>
     );
@@ -52,11 +53,11 @@ export default function ForgotPasswordScreen() {
     <Screen scroll edges={{ top: false }}>
       <View style={{ gap: space.lg }}>
         <Text style={{ color: colors.textMuted, fontSize: font.body, lineHeight: 22 }}>
-          가입할 때 쓴 메일 주소를 넣으면 재설정 링크를 보내 드립니다.
+          {t('auth.forgotHint')}
         </Text>
 
         <Field
-          label="메일 주소"
+          label={t('auth.email')}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -69,7 +70,7 @@ export default function ForgotPasswordScreen() {
         {error && <Text style={{ color: colors.danger, fontSize: font.caption }}>{error}</Text>}
 
         <Button
-          label="재설정 메일 보내기"
+          label={t('auth.sendReset')}
           onPress={() => void onSubmit()}
           disabled={!isLikelyEmail(email) || busy}
           loading={busy}

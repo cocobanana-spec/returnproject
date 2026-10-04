@@ -1,5 +1,6 @@
 // 회원가입 화면 — 메일·비밀번호·비밀번호 확인. 가입하면 확인 메일이 나간다
 import { useRouter } from 'expo-router';
+import { useT } from '../../src/i18n';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import {
@@ -16,6 +17,7 @@ import { Field } from '../../src/ui/Field';
 import { Screen } from '../../src/ui/Screen';
 
 export default function SignUpScreen() {
+  const t = useT();
   const { colors, space, font } = useTokens();
   const router = useRouter();
 
@@ -59,11 +61,11 @@ export default function SignUpScreen() {
     <Screen scroll edges={{ top: false }}>
       <View style={{ gap: space.lg }}>
         <Text style={{ color: colors.textMuted, fontSize: font.body, lineHeight: 22 }}>
-          메일 주소로 가입하면 기기를 바꿔도 장부가 그대로 남습니다.
+          {t('auth.signUpHint')}
         </Text>
 
         <Field
-          label="메일 주소"
+          label={t('auth.email')}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -74,7 +76,7 @@ export default function SignUpScreen() {
         />
 
         <Field
-          label="비밀번호"
+          label={t('auth.password')}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -95,7 +97,7 @@ export default function SignUpScreen() {
         )}
 
         <Field
-          label="비밀번호 확인"
+          label={t('auth.passwordConfirm')}
           value={confirm}
           onChangeText={setConfirm}
           secureTextEntry
@@ -106,7 +108,7 @@ export default function SignUpScreen() {
 
         {confirm.length > 0 && password !== confirm && (
           <Text style={{ color: colors.danger, fontSize: font.caption }}>
-            비밀번호가 서로 다릅니다.
+            {t('auth.passwordMismatch')}
           </Text>
         )}
 
@@ -116,7 +118,7 @@ export default function SignUpScreen() {
           </Text>
         ))}
 
-        <Button label="가입하기" onPress={() => void onSubmit()} disabled={!canSubmit} loading={busy} />
+        <Button label={t('auth.signUpButton')} onPress={() => void onSubmit()} disabled={!canSubmit} loading={busy} />
       </View>
     </Screen>
   );

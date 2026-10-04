@@ -3,6 +3,7 @@
 // 링크 교환으로 세션이 이미 생겨 있지만, 비밀번호를 바꾸기 전까지는 게이트가 홈으로 보내지 않는다
 // (AuthProvider의 resetPending). 여기서 바꾸면 resetPending을 내리고 홈으로 간다.
 import { useRouter } from 'expo-router';
+import { useT } from '../../src/i18n';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { useAuth } from '../../src/auth/AuthProvider';
@@ -14,6 +15,7 @@ import { Field } from '../../src/ui/Field';
 import { Screen } from '../../src/ui/Screen';
 
 export default function ResetPasswordScreen() {
+  const t = useT();
   const { colors, space, font } = useTokens();
   const { session, endPasswordReset, linkError } = useAuth();
   const router = useRouter();
@@ -50,7 +52,7 @@ export default function ResetPasswordScreen() {
     <Screen scroll edges={{ top: false }}>
       <View style={{ gap: space.lg }}>
         <Text style={{ color: colors.textMuted, fontSize: font.body, lineHeight: 22 }}>
-          새로 쓸 비밀번호를 정해 주세요.
+          {t('auth.newPasswordHint')}
         </Text>
 
         {linkError && (
@@ -59,12 +61,12 @@ export default function ResetPasswordScreen() {
 
         {!session && !linkError && (
           <Text style={{ color: colors.danger, fontSize: font.caption }}>
-            링크 확인이 끝나지 않았습니다. 메일의 링크를 다시 눌러 주세요.
+            {t('auth.linkNotReady')}
           </Text>
         )}
 
         <Field
-          label="새 비밀번호"
+          label={t('auth.newPassword')}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -75,7 +77,7 @@ export default function ResetPasswordScreen() {
           autoFocus
         />
         <Field
-          label="새 비밀번호 확인"
+          label={t('auth.newPasswordConfirm')}
           value={confirm}
           onChangeText={setConfirm}
           secureTextEntry
@@ -91,7 +93,7 @@ export default function ResetPasswordScreen() {
         ))}
 
         <Button
-          label="비밀번호 바꾸기"
+          label={t('auth.changePassword')}
           onPress={() => void onSubmit()}
           disabled={!check.ok || busy || !session}
           loading={busy}
@@ -99,7 +101,7 @@ export default function ResetPasswordScreen() {
 
         {/* 링크가 만료됐거나 교환이 실패하면 이 화면이 막다른 골목이 된다. 나갈 길을 둔다 */}
         <Button
-          label="로그인 화면으로"
+          label={t('auth.toSignIn')}
           variant="secondary"
           onPress={() => {
             endPasswordReset();

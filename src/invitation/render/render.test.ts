@@ -140,3 +140,24 @@ test('방명록 — 메시지가 없으면 안내 한 줄, 끝점이 없으면(�
   assert.ok(!preview.includes('id="gb-form"'));
   assert.ok(!preview.includes('add_guestbook_message'));
 });
+
+test('언어 — content.lang 이 en 이면 안내 글자·날짜·바닥 문구가 영어, ja 면 일본어', () => {
+  const en = renderInvitationPage({ kind: 'wedding', templateId: 'basic', content: { ...wedding, lang: 'en' }, url: 'u', assetUrl });
+  assert.ok(en.includes('<html lang="en">'));
+  assert.ok(en.includes('Saturday, May 1, 2027'));
+  assert.ok(en.includes('12:30 PM'));
+  assert.ok(en.includes('Directions'));
+  assert.ok(en.includes('Gift accounts'));
+  assert.ok(en.includes('Google Maps'), '한국어가 아니면 구글 지도 링크');
+  assert.ok(en.includes('This invitation was made with'));
+  assert.ok(!en.includes('오시는 길'));
+  const ja = renderInvitationPage({ kind: 'funeral', templateId: 'basic', content: { ...funeral, lang: 'ja' }, url: 'u', assetUrl });
+  assert.ok(ja.includes('<html lang="ja">'));
+  assert.ok(ja.includes('2026年11月3日(火) 午前8時'));
+  assert.ok(ja.includes('享年 82'));
+  assert.ok(ja.includes('香典の送り先'));
+  // 사람이 적은 내용(이름·장소)은 번역하지 않는다
+  assert.ok(ja.includes('서울병원 장례식장'));
+  const ko = renderInvitationPage({ kind: 'wedding', templateId: 'basic', content: wedding, url: 'u', assetUrl });
+  assert.ok(ko.includes('<html lang="ko">') && ko.includes('오시는 길') && !ko.includes('Google Maps'));
+});

@@ -3,6 +3,9 @@
 // 하단 탭이 홈·통계·더보기 셋으로 줄면서 사람(S03)과 행사(S06)가 이 안으로 들어왔다.
 // 잡동사니가 되지 않게 "기록 관리 / 장부 / 계정" 세 묶음으로 나눈다.
 import { useQuery } from '@tanstack/react-query';
+import { setLocaleSetting, useLocaleSetting, useT } from '../../../src/i18n';
+import { LOCALES, LOCALE_LABEL } from '../../../src/i18n/dict.ts';
+import { Chip } from '../../../src/ui/Chip';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable, Share, Text, View } from 'react-native';
@@ -70,6 +73,8 @@ function Row({
 }
 
 export default function MoreScreen() {
+  const t = useT();
+  const localeSetting = useLocaleSetting();
   const router = useRouter();
   const { current, ledgers } = useLedger();
   const { colors, space, font } = useTokens();
@@ -89,13 +94,13 @@ export default function MoreScreen() {
     try {
       const rows = await listAllEntries(current.ledgerId);
       if (rows.length === 0) {
-        toast.show({ message: '내보낼 기록이 없습니다.' });
+        toast.show({ message: t('more.exportEmpty') });
         return;
       }
       downloadText(exportFileName(current.name, todayISO()), buildCsv(rows));
-      toast.show({ message: `기록 ${rows.length}건을 내려받았습니다.` });
+      toast.show({ message: t('more.exportDone', { n: rows.length }) });
     } catch (error) {
-      toast.show({ message: `내보내지 못했습니다 · ${(error as Error).message}`, durationMs: 4000 });
+      toast.show({ message: t('more.exportFailed', { error: (error as Error).message }), durationMs: 4000 });
     } finally {
       setExporting(false);
     }
@@ -103,48 +108,48 @@ export default function MoreScreen() {
 
   return (
     <Screen scroll>
-      <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '700' }}>더보기</Text>
+      <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '700' }}>{t('more.title')}</Text>
 
-      <Section title="기록 관리">
+      <Section title={t('more.records')}>
         <Row
           icon="people-outline"
-          label="사람"
-          hint="이름·관계 정리, 동명이인 합치기"
+          label={t('more.people')}
+          hint={t('more.peopleHint')}
           onPress={() => router.push('/people')}
         />
         <Row
           icon="calendar-outline"
-          label="행사"
-          hint="내 행사 만들기, 명부 입력, 행사별 정산"
+          label={t('more.events')}
+          hint={t('more.eventsHint')}
           onPress={() => router.push('/events')}
         />
         <Row
           icon="cloud-upload-outline"
-          label="가져오기"
-          hint="엑셀·CSV 파일로 준돈 기록이나 내 행사 명부를 한 번에"
+          label={t('more.import')}
+          hint={t('more.importHint')}
           onPress={() => router.push('/import')}
         />
         {canDownload() ? (
           <Row
             icon="download-outline"
-            label={exporting ? '내보내는 중…' : '내보내기'}
-            hint="장부의 모든 기록을 CSV 파일로 내려받습니다. 엑셀에서 바로 열립니다"
+            label={exporting ? t('more.exporting') : t('more.export')}
+            hint={t('more.exportHint')}
             onPress={() => void onExport()}
           />
         ) : null}
       </Section>
 
-      <Section title="장부">
+      <Section title={t('more.ledgerSection')}>
         <Row
           icon="book-outline"
-          label="장부"
-          hint={`${current?.name ?? '내 장부'}${ledgers.length > 1 ? ` 외 ${ledgers.length - 1}권` : ''}`}
+          label={t('more.ledger')}
+          hint={`${current?.name ?? t('home.myLedger')}${ledgers.length > 1 ? t('more.ledgerOthers', { n: ledgers.length - 1 }) : ''}`}
           onPress={() => router.push('/ledger')}
         />
         <Row
           icon="trash-outline"
-          label="장부 초기화"
-          hint="사람·행사·기록을 전부 지웁니다. 되돌릴 수 없습니다"
+          label={t('more.reset')}
+          hint={t('more.resetHint')}
           onPress={() => router.push('/ledger-reset')}
         />
       </Section>
@@ -152,23 +157,23 @@ export default function MoreScreen() {
       {/* 앱에서는 웹이 있는 줄 모르고, 웹에서는 앱이 있는 줄 모른다(2026-10-03 사용자 지적).
           서로를 가리키는 줄을 하나씩 둔다. 앱 쪽은 공유 시트로 띄운다 — 폰 브라우저에서 여는 것보다
           AirDrop·메시지로 PC 에 보내는 쪽이 "PC 에서 쓰려는" 목적에 맞다. */}
-      <Section title="다른 기기에서">
+      <Section title={t('more.otherDevices')}>
         {isWeb ? (
           <Row
             icon="phone-portrait-outline"
-            label="iOS 앱 내려받기"
-            hint="같은 계정으로 로그인하면 이 장부가 그대로 보입니다"
+            label={t('more.iosApp')}
+            hint={t('more.iosAppHint')}
             onPress={() => void Linking.openURL(APP_STORE_URL)}
           />
         ) : (
           <Row
             icon="desktop-outline"
-            label="PC 웹 버전"
-            hint={`${shortUrl(WEB_APP_URL)} · 같은 계정으로 로그인하면 같은 장부입니다`}
+            label={t('more.webApp')}
+            hint={t('more.webAppHint', { url: shortUrl(WEB_APP_URL) })}
             onPress={() =>
               void Share.share({
-                title: '뿌린대로거두리라 웹 버전',
-                message: `PC 브라우저에서 열고 같은 계정으로 로그인하세요.\n${WEB_APP_URL}`,
+                title: t('more.webShareTitle'),
+                message: t('more.webShareMessage', { url: WEB_APP_URL }),
                 url: WEB_APP_URL,
               }).catch(() => {})
             }
@@ -176,17 +181,27 @@ export default function MoreScreen() {
         )}
       </Section>
 
+      {/* 언어 — 기기 설정을 따르거나 셋 중 하나로 고정한다(2026-10-04 사용자 요청: 한·영·일) */}
+      <Section title={t('more.language')}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
+          <Chip label={t('more.languageSystem')} selected={localeSetting === 'system'} onPress={() => void setLocaleSetting('system')} />
+          {LOCALES.map((l) => (
+            <Chip key={l} label={LOCALE_LABEL[l]} selected={localeSetting === l} onPress={() => void setLocaleSetting(l)} />
+          ))}
+        </View>
+      </Section>
+
       {isAdmin.data && (
-        <Section title="운영">
-          <Row icon="stats-chart-outline" label="관리자" hint="회원·활성 사용자·설치·접속 추이" onPress={() => router.push('/admin')} />
+        <Section title={t('more.ops')}>
+          <Row icon="stats-chart-outline" label={t('more.admin')} hint={t('more.adminHint')} onPress={() => router.push('/admin')} />
         </Section>
       )}
 
-      <Section title="계정">
+      <Section title={t('more.accountSection')}>
         <Row
           icon="person-circle-outline"
-          label="계정"
-          hint="로그아웃, 계정 삭제"
+          label={t('more.account')}
+          hint={t('more.accountHint')}
           onPress={() => router.push('/account')}
         />
       </Section>
@@ -195,9 +210,7 @@ export default function MoreScreen() {
       <Text
         style={{ color: colors.textMuted, fontSize: font.caption, marginTop: space.xl, lineHeight: 20 }}
       >
-        {canDownload()
-          ? '기록 검색은 다음 단계에서 들어옵니다.'
-          : '기록 검색은 다음 단계에서 들어옵니다.\n내보내기는 지금은 웹에서만 됩니다.'}
+        {canDownload() ? t('more.footnote') : t('more.footnoteNative')}
       </Text>
     </Screen>
   );

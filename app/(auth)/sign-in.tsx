@@ -1,5 +1,6 @@
 // 로그인 화면(S00) — 메일·비밀번호와 소셜 2종. 로그인 없이 쓰는 경로는 없다
 import { useRouter } from 'expo-router';
+import { useT } from '../../src/i18n';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +20,7 @@ import { Button } from '../../src/ui/Button';
 import { Field } from '../../src/ui/Field';
 
 export default function SignInScreen() {
+  const t = useT();
   const { colors, space, font } = useTokens();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -84,19 +86,19 @@ export default function SignInScreen() {
       <View style={{ flex: 1, justifyContent: 'center', gap: space.xl }}>
         <View>
           <Text style={{ color: colors.text, fontSize: font.display, fontWeight: '700' }}>
-            뿌린대로거두리라
+            {t('app.name')}
           </Text>
           <Text
             style={{ color: colors.textMuted, fontSize: font.body, lineHeight: 24, marginTop: space.md }}
           >
-            경조사로 주고받은 마음을{'\n'}사람 단위로 기록합니다.
+            {t('app.tagline')}
           </Text>
         </View>
 
         <View style={{ gap: space.md }}>
           {!online && (
             <Text style={{ color: colors.danger, fontSize: font.caption, textAlign: 'center' }}>
-              인터넷에 연결되어 있지 않습니다.
+              {t('auth.offline')}
             </Text>
           )}
           {shown && (
@@ -113,7 +115,7 @@ export default function SignInScreen() {
           <Field
             value={email}
             onChangeText={setEmail}
-            placeholder="메일 주소"
+            placeholder={t('auth.email')}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -122,7 +124,7 @@ export default function SignInScreen() {
           <Field
             value={password}
             onChangeText={setPassword}
-            placeholder="비밀번호"
+            placeholder={t('auth.password')}
             secureTextEntry
             autoCapitalize="none"
             autoCorrect={false}
@@ -130,7 +132,7 @@ export default function SignInScreen() {
           />
 
           <Button
-            label="로그인"
+            label={t('auth.signIn')}
             onPress={() => void onEmailSignIn()}
             disabled={!canSubmit || busy !== null}
             loading={busy === 'email'}
@@ -139,20 +141,20 @@ export default function SignInScreen() {
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: space.lg }}>
             <Pressable onPress={() => router.push('/sign-up')} hitSlop={8}>
               <Text style={{ color: colors.text, fontSize: font.caption, fontWeight: '600' }}>
-                회원가입
+                {t('auth.signUp')}
               </Text>
             </Pressable>
             <Text style={{ color: colors.border, fontSize: font.caption }}>|</Text>
             <Pressable onPress={() => router.push('/forgot-password')} hitSlop={8}>
               <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
-                비밀번호를 잊었어요
+                {t('auth.forgot')}
               </Text>
             </Pressable>
           </View>
 
           <View style={{ alignItems: 'center', flexDirection: 'row', gap: space.md, marginTop: space.sm }}>
             <View style={{ backgroundColor: colors.border, flex: 1, height: 1 }} />
-            <Text style={{ color: colors.textMuted, fontSize: font.caption }}>또는</Text>
+            <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{t('auth.or')}</Text>
             <View style={{ backgroundColor: colors.border, flex: 1, height: 1 }} />
           </View>
 
@@ -178,7 +180,7 @@ export default function SignInScreen() {
           marginTop: space.lg,
         }}
       >
-        로그인하면 개인정보 처리방침에 동의하는 것으로 봅니다.
+        {t('auth.consent')}
       </Text>
     </ScrollView>
   );

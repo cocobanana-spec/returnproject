@@ -6,6 +6,7 @@
 // 사람 탭을 없앴기 때문에 이 목록의 사람 이름이 사람 원장(S04)으로 가는 주 진입로다.
 // 이 동선이 끊기면 이 앱의 핵심인 "사람별 수지"에 도달할 방법이 사라진다.
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useT } from '../../../src/i18n';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
@@ -34,6 +35,7 @@ import { LoadFailed } from '../../../src/ui/LoadFailed';
 import { ScrollFade } from '../../../src/ui/ScrollFade';
 
 export default function RecordsScreen() {
+  const t = useT();
   const ledgerId = useLedgerId();
   const { current } = useLedger();
   const router = useRouter();
@@ -72,7 +74,7 @@ export default function RecordsScreen() {
   const upcomingRows = direction === 'given' ? (upcoming.data ?? []) : [];
   // 받은돈은 행사에 속한다. 받은돈 탭의 기록 버튼은 명부 입력(S09)으로 보낸다(2026-09-25 버그 수정).
   const recordHref = direction === 'given' ? '/record' : '/event/receive';
-  const recordLabel = direction === 'given' ? '기록 남기기' : '명부 입력하기';
+  const recordLabel = direction === 'given' ? t('home.recordGiven') : t('home.recordReceived');
   const unconfirmed =
     direction === 'given'
       ? (stats.data?.givenUnconfirmed ?? 0)
@@ -91,17 +93,17 @@ export default function RecordsScreen() {
         }}
       >
         <Pressable onPress={() => router.push('/ledger')} style={{ flex: 1 }}>
-          <Text style={{ color: colors.textMuted, fontSize: font.caption }}>현재 장부</Text>
+          <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{t('home.currentLedger')}</Text>
           <View style={{ alignItems: 'center', flexDirection: 'row', gap: space.xs }}>
             <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '700' }} numberOfLines={1}>
-              {current?.name ?? '내 장부'}
+              {current?.name ?? t('home.myLedger')}
             </Text>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </View>
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="사람 검색"
+          accessibilityLabel={t('home.search')}
           onPress={() => router.push('/search')}
           style={({ pressed }) => ({
             alignItems: 'center',
@@ -140,7 +142,7 @@ export default function RecordsScreen() {
                 opacity: pressed ? 0.7 : 1,
               })}
             >
-              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{DIRECTION_LABEL[d]}</Text>
+              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{t(d === 'given' ? 'home.given' : 'home.received')}</Text>
               <Text style={{ color: selected ? color : colors.text, fontSize: font.title, fontWeight: '700' }} numberOfLines={1}>
                 {stats.isSuccess ? formatWon(amount) : '—'}
               </Text>
@@ -164,10 +166,10 @@ export default function RecordsScreen() {
         ListHeaderComponent={
           <View style={{ gap: space.md, paddingBottom: space.md }}>
             {stats.isError && (
-              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>합계를 불러오지 못했습니다</Text>
+              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{t('home.statsFailed')}</Text>
             )}
             {stats.isSuccess && unconfirmed > 0 && (
-              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>미확정 {unconfirmed}건은 합계에서 빠져 있습니다.</Text>
+              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{t('home.unconfirmedExcluded', { n: unconfirmed })}</Text>
             )}
             {/* 다가오는 행사 띠 */}
             {upcomingRows.map((e) => (
@@ -201,18 +203,18 @@ export default function RecordsScreen() {
             <ActivityIndicator color={colors.textMuted} style={{ marginTop: space.xxl }} />
           ) : list.isError ? (
             // 조회 실패를 "기록 없음"으로 덮으면 사용자가 기록이 사라진 줄 안다.
-            <LoadFailed title="기록을 불러오지 못했습니다" onRetry={() => void list.refetch()} />
+            <LoadFailed title={t('home.listFailed')} onRetry={() => void list.refetch()} />
           ) : direction === 'given' ? (
             <EmptyState
-              title="첫 기록을 남겨 보세요"
-              hint={'경조사에 낸 돈을 기록하면\n사람별로 주고받은 내역이 쌓입니다.'}
+              title={t('home.emptyGivenTitle')}
+              hint={t('home.emptyGivenHint')}
               actionLabel={recordLabel}
               onAction={() => router.push(recordHref)}
             />
           ) : (
             <EmptyState
-              title="받은 기록이 아직 없습니다"
-              hint={'결혼식·돌잔치 같은 내 행사를 만들면\n명부를 한 번에 입력할 수 있습니다.'}
+              title={t('home.emptyReceivedTitle')}
+              hint={t('home.emptyReceivedHint')}
               actionLabel={recordLabel}
               onAction={() => router.push(recordHref)}
             />
@@ -224,7 +226,7 @@ export default function RecordsScreen() {
           ) : list.isError && rows.length > 0 ? (
             // 목록이 비어 있지 않으면 ListEmptyComponent가 안 그려진다. 이어받기 실패를
             // 알릴 자리가 여기밖에 없다.
-            <LoadFailed title="다음 기록을 불러오지 못했습니다" onRetry={() => void list.fetchNextPage()} />
+            <LoadFailed title={t('home.nextFailed')} onRetry={() => void list.fetchNextPage()} />
           ) : null
         }
         renderItem={({ item }) => <EntryRow item={item} />}
@@ -263,7 +265,7 @@ export default function RecordsScreen() {
           })}
         >
           <Ionicons name="add" size={20} color={colors.textOnAccent} />
-          <Text style={{ color: colors.textOnAccent, fontSize: font.body, fontWeight: '700' }}>기록</Text>
+          <Text style={{ color: colors.textOnAccent, fontSize: font.body, fontWeight: '700' }}>{t('home.record')}</Text>
         </Pressable>
       </View>
     </View>

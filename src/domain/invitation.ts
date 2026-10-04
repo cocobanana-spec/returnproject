@@ -4,6 +4,7 @@
 // 서버(0009)는 내용의 크기와 모양(object)만 본다. 칸의 뜻과 필수 여부는 여기서 정한다.
 // **입력 칸은 종류별로 고정**이다. 템플릿을 바꿔도 적은 내용이 사라지지 않는다(docs/08 §3.3).
 import { LANDING_URL } from '../lib/urls.ts';
+import type { Locale } from '../i18n/dict.ts';
 
 export type InvitationKind = 'wedding' | 'funeral';
 export type InvitationStatus = 'draft' | 'published' | 'unpublished' | 'expired';
@@ -19,6 +20,8 @@ export type BankAccount = {
 };
 
 export type WeddingContent = {
+  // 공개 페이지의 안내 글자 언어(오시는 길·계좌·방명록 등). 내용 자체는 적은 그대로다. 없으면 한국어.
+  lang?: Locale;
   groom: { name: string; father?: string; mother?: string };
   bride: { name: string; father?: string; mother?: string };
   date: string; // YYYY-MM-DD
@@ -32,6 +35,7 @@ export type WeddingContent = {
 };
 
 export type FuneralContent = {
+  lang?: Locale;
   deceased: { name: string; age?: number; title?: string }; // title: 故 OOO 님 앞의 호칭(예: 아버지)
   chiefMourners: { relation: string; name: string }[];
   mortuary: { name: string; room?: string; address?: string };

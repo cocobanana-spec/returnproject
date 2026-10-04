@@ -3,12 +3,13 @@
 // 2026-10-04 1차 피드백(docs/09 A2·A3). 받은 돈은 행사별로 묶어서 본다. 비어 있으면 가운데서 만들기로 유도한다.
 // 남의 행사(준 돈)는 여기 없다. 그것은 홈의 기록 목록과 사람 원장이 맡는다.
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useT } from '../../../src/i18n';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { eventTypeLabel } from '../../../src/domain/event.ts';
-import { invitationKindForEvent, KIND_LABEL } from '../../../src/domain/invitation.ts';
+import { invitationKindForEvent } from '../../../src/domain/invitation.ts';
 import { formatEventDate } from '../../../src/domain/title.ts';
 import type { DatePrecision } from '../../../src/domain/constants.ts';
 import { useLedgerId } from '../../../src/ledger/LedgerProvider';
@@ -20,6 +21,7 @@ import { EmptyState } from '../../../src/ui/EmptyState';
 import { LoadFailed } from '../../../src/ui/LoadFailed';
 
 export default function MyEventsScreen() {
+  const t = useT();
   const ledgerId = useLedgerId();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -52,12 +54,12 @@ export default function MyEventsScreen() {
         }}
       >
         <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.textMuted, fontSize: font.caption }}>받은 돈을 행사별로</Text>
-          <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '700' }}>내 행사</Text>
+          <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{t('myEvents.subtitle')}</Text>
+          <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '700' }}>{t('myEvents.title')}</Text>
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="내 행사 만들기"
+          accessibilityLabel={t('myEvents.createLong')}
           onPress={() => router.push('/event/edit')}
           style={({ pressed }) => ({
             alignItems: 'center',
@@ -71,7 +73,7 @@ export default function MyEventsScreen() {
           })}
         >
           <Ionicons name="add" size={18} color={colors.textOnAccent} />
-          <Text style={{ color: colors.textOnAccent, fontSize: font.caption, fontWeight: '700' }}>만들기</Text>
+          <Text style={{ color: colors.textOnAccent, fontSize: font.caption, fontWeight: '700' }}>{t('myEvents.create')}</Text>
         </Pressable>
       </View>
 
@@ -87,13 +89,13 @@ export default function MyEventsScreen() {
           list.isLoading ? (
             <ActivityIndicator color={colors.textMuted} style={{ marginTop: space.xxl }} />
           ) : list.isError ? (
-            <LoadFailed title="행사를 불러오지 못했습니다" onRetry={() => void list.refetch()} />
+            <LoadFailed title={t('myEvents.failed')} onRetry={() => void list.refetch()} />
           ) : (
             <View style={{ flex: 1, justifyContent: 'center' }}>
               <EmptyState
-                title="내 행사가 아직 없습니다"
-                hint={'결혼식·돌잔치·장례식을 만들면\n받은 돈을 행사별로 모아 보고 초대장도 만들 수 있습니다.'}
-                actionLabel="+ 내 행사 만들기"
+                title={t('myEvents.emptyTitle')}
+                hint={t('myEvents.emptyHint')}
+                actionLabel={t('myEvents.createLong')}
                 onAction={() => router.push('/event/edit')}
               />
             </View>
@@ -131,7 +133,7 @@ export default function MyEventsScreen() {
                     fontSize: font.caption,
                   }}
                 >
-                  {inv?.status === 'published' ? `${KIND_LABEL[kind]} 공개 중` : inv ? `${KIND_LABEL[kind]} 초안` : KIND_LABEL[kind]}
+                  {inv?.status === 'published' ? t('myEvents.published', { kind: t(`inv.${kind}`) }) : inv ? t('myEvents.draft', { kind: t(`inv.${kind}`) }) : t(`inv.${kind}`)}
                 </Text>
               )}
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />

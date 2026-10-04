@@ -1,5 +1,8 @@
 // 앱 루트 — 쿼리 캐시·세션·장부 컨텍스트를 깔고 로그인 여부에 따라 라우팅 그룹을 가른다
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { loadLocaleSetting } from '../src/i18n';
+// 저장된 언어 설정은 가능한 한 일찍 읽는다. 없으면 기기 언어다.
+void loadLocaleSetting();
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';

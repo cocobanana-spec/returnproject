@@ -4,6 +4,7 @@
 // 목록(준돈/받은돈 상단 탭)은 기록 탭으로 그대로 옮겼다. 기록 버튼과 검색도 함께 간다.
 // 사람·행사는 2026-09-24에 탭에서 빠져 더보기로 들어갔다. 화면 자체는 지우지 않았다.
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useT } from '../../../src/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs, useRouter, usePathname } from 'expo-router';
 import { useEffect, useRef } from 'react';
@@ -17,6 +18,7 @@ import { useTokens } from '../../../src/theme/tokens';
 let restoredOnce = false;
 
 export default function TabsLayout() {
+  const t = useT();
   const { colors, font } = useTokens();
   const router = useRouter();
   const pathname = usePathname();
@@ -71,7 +73,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: '홈',
+          title: t('tab.home'),
           headerShown: false,
           tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} />,
         }}
@@ -79,7 +81,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="my-events"
         options={{
-          title: '내 행사',
+          title: t('tab.myEvents'),
           headerShown: false,
           tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" color={color} size={size} />,
         }}
@@ -87,7 +89,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="stats"
         options={{
-          title: '통계',
+          title: t('tab.stats'),
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="stats-chart-outline" color={color} size={size} />
@@ -97,7 +99,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="more"
         options={{
-          title: '더보기',
+          title: t('tab.more'),
           headerShown: false,
           tabBarIcon: ({ color, size }) => <Ionicons name="menu-outline" color={color} size={size} />,
         }}

@@ -10,7 +10,7 @@ import {
   type WeddingContent,
 } from '../../domain/invitation.ts';
 import { FUNERAL_BASIC_CSS, renderFuneralBody } from './funeral.ts';
-import { COPY_SCRIPT, document, guestbookForm, guestbookScript, marquee, noticePage, type GuestbookEndpoint, type GuestbookMessage } from './html.ts';
+import { COPY_SCRIPT, document, guestbookForm, guestbookScript, marquee, noticePage, tFor, type GuestbookEndpoint, type GuestbookMessage } from './html.ts';
 import { WEDDING_BASIC_CSS, renderWeddingBody, type AssetUrl } from './wedding.ts';
 
 export { noticePage } from './html.ts';
@@ -40,11 +40,13 @@ export function shareDescription(kind: InvitationKind, content: InvitationConten
 
 export function renderInvitationPage(input: RenderInput): string {
   const { kind, content, url, assetUrl, guestbook, guestbookEndpoint } = input;
+  const locale = content.lang ?? 'ko';
+  const t = tFor(locale);
   const title = shareTitle(kind, content);
   const description = shareDescription(kind, content);
   // 방명록은 끝점이 있을 때만(공개 페이지). 전광판은 맨 위, 입력칸은 맨 아래.
-  const top = guestbookEndpoint ? marquee(guestbook ?? []) : '';
-  const bottom = guestbookEndpoint ? guestbookForm((guestbook ?? []).length) : '';
+  const top = guestbookEndpoint ? marquee(guestbook ?? [], t) : '';
+  const bottom = guestbookEndpoint ? guestbookForm((guestbook ?? []).length, t) : '';
   const script = COPY_SCRIPT + (guestbookEndpoint ? guestbookScript(guestbookEndpoint) : '');
 
   if (kind === 'wedding') {
@@ -54,8 +56,10 @@ export function renderInvitationPage(input: RenderInput): string {
       WEDDING_BASIC_CSS,
       top + renderWeddingBody(c, assetUrl) + bottom,
       script,
+      t('inv.invitationNoun'),
+      locale,
     );
   }
   const c = content as FuneralContent;
-  return document({ title, description, url }, FUNERAL_BASIC_CSS, top + renderFuneralBody(c) + bottom, script, '부고장');
+  return document({ title, description, url }, FUNERAL_BASIC_CSS, top + renderFuneralBody(c) + bottom, script, t('inv.funeral'), locale);
 }
