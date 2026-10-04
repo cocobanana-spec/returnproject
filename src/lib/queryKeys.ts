@@ -30,6 +30,11 @@ export const queryKeys = {
       ['events', 'summary', { ledgerId, eventId }] as const,
     upcoming: (ledgerId: string) => ['events', 'upcoming', { ledgerId }] as const,
   },
+  invitations: {
+    byEvent: (ledgerId: string, eventId: string) =>
+      ['invitations', 'byEvent', { ledgerId, eventId }] as const,
+    detail: (ledgerId: string, id: string) => ['invitations', 'detail', { ledgerId, id }] as const,
+  },
   entries: {
     byPerson: (ledgerId: string, personId: string) =>
       ['entries', 'byPerson', { ledgerId, personId }] as const,

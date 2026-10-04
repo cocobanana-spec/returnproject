@@ -3,6 +3,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useLayoutEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
+import { KIND_LABEL, invitationKindForEvent } from '../../../src/domain/invitation.ts';
 import { confirmAction, notify } from '../../../src/lib/confirm.ts';
 import { Ionicons } from '@expo/vector-icons';
 import type { DatePrecision, Side } from '../../../src/domain/constants.ts';
@@ -227,6 +228,13 @@ export default function EventDetailScreen() {
                   icon="cloud-upload-outline"
                   label="명부 가져오기"
                   onPress={() => router.push(`/import?target=received&eventId=${eventId}`)}
+                />
+              )}
+              {e.is_mine && invitationKindForEvent(e.type) && (
+                <Action
+                  icon="mail-outline"
+                  label={KIND_LABEL[invitationKindForEvent(e.type)!]}
+                  onPress={() => router.push(`/invitation/${eventId}`)}
                 />
               )}
               <Action icon="create-outline" label="편집" onPress={() => router.push(`/event/edit?id=${eventId}`)} />
