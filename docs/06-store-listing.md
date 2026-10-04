@@ -53,6 +53,16 @@
 Apple, Google 계정 또는 이메일로 시작하세요.
 ```
 
+## 새로운 기능 (버전 1.0.1)
+
+```
+청첩장과 부고장을 만들 수 있습니다.
+- 내 결혼식·장례식에 초대장을 만들어 링크로 공유하세요. 카카오톡 미리보기에 이름과 사진이 보입니다.
+- 축의금·조의금 계좌와 길찾기 버튼이 들어갑니다. 무료로 한 번에 하나, 3개월 공개됩니다.
+- 웹 버전 주소가 app.ppurin.com 으로 바뀌었습니다. 더보기에서 바로 열 수 있습니다.
+- 화면 아래가 잘려 보이던 문제를 고쳤습니다.
+```
+
 ## 새로운 기능 (버전 1.0.0)
 
 ```
@@ -103,6 +113,13 @@ EXCEL / CSV IMPORT
 More (더보기) > Import (가져오기). The file picker screen shows an example table.
 Only a name column and an amount column are required. Files are parsed on the device
 and are never uploaded to our server.
+
+INVITATIONS (new in 1.0.1)
+More (더보기) > Events (행사) > open one of "my events" (내 행사) > Invitation (청첩장 / 부고장).
+Fill in the form, tap Preview (미리보기), then Publish (발행하기). A public link like
+https://ppurin.com/i/XXXXXXXXXX is created; it needs no login. Photos are chosen with the
+system photo picker (no photo library permission prompt); only the selected photos are uploaded.
+The demo account already has a published invitation you can open from its wedding event.
 
 SHARED LEDGER
 More (더보기) > Ledger (장부). Generates an invite code so a spouse can join the same
@@ -160,6 +177,7 @@ Apple 로그인과 Google 로그인도 동작하지만, 심사에는 제공한 �
 | 연락처 정보 → 이메일 주소 | 예 | 앱 기능 | 예 | 아니요 |
 | 연락처 정보 → 이름 | 예 | 앱 기능 | 예 | 아니요 |
 | 사용자 콘텐츠 → 기타 사용자 콘텐츠 | 예 | 앱 기능 | 예 | 아니요 |
+| 사용자 콘텐츠 → 사진 또는 비디오 | 예 (1.0.1부터) | 앱 기능 | 예 | 아니요 |
 | 식별자 → 사용자 ID | 예 | 앱 기능 | 예 | 아니요 |
 
 "기타 사용자 콘텐츠"가 장부 기록이다. 이용자가 입력한 상대방 이름·금액·메모가 여기 들어간다.

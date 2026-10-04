@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.cocobanana.ppurin",
-      "buildNumber": "21",
+      "buildNumber": "22",
       "config": {
         "usesNonExemptEncryption": false
       },
@@ -33,7 +33,15 @@
       "expo-router",
       "expo-web-browser",
       "@react-native-community/datetimepicker",
-      "./plugins/withIosSceneLifecycle"
+      "./plugins/withIosSceneLifecycle",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "청첩장과 부고장에 넣을 사진을 고르기 위해 사진 보관함을 사용합니다.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
     ],
     "web": {
       "bundler": "metro",
