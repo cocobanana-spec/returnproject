@@ -95,7 +95,7 @@ export default function RecordsScreen() {
         {/* 장부라는 개념은 화면에서 뺐다(2026-10-04 사용자 결정). 공유는 행사 단위로 한다. */}
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '700' }} numberOfLines={1}>
-            {t('app.name')}
+            {t('home.title')}
           </Text>
         </View>
         <Pressable
@@ -129,10 +129,8 @@ export default function RecordsScreen() {
               accessibilityState={{ selected }}
               onPress={() => setDirection(d)}
               style={({ pressed }) => ({
-                backgroundColor: selected ? colors.bgSubtle : 'transparent',
-                borderColor: selected ? color : colors.border,
-                borderRadius: radius.lg,
-                borderWidth: selected ? 2 : 1,
+                backgroundColor: selected ? colors.surface2 : colors.bgSubtle,
+                borderRadius: radius.md,
                 flex: 1,
                 paddingHorizontal: space.md,
                 paddingVertical: space.sm,

@@ -1,4 +1,7 @@
-// 통계(S11) — 방향 탭과 연도만 항상 보이고, 숫자는 같은 열에 맞춰 눈으로 훑게 한다
+// 통계(S11) — 방향 탭 아래 총계·종류 칩·막대, 행사별은 연도 아코디언. 숫자는 같은 열에 맞춰 눈으로 훑게 한다
+//
+// 2026-10-04 저녁 사용자 요청. 연도 칩 줄을 뺐다(전체 기간 고정). 경조사 종류 칩은 접지 않고 바로 보인다.
+// 행사별 목록은 연도별로 묶어 아코디언으로 — 기본은 펼침, 연도 머리를 누르면 접힌다.
 //
 // 2026-09-25 2차. 빌드 10에서 "가독성이 너무 떨어진다"는 피드백을 받아 **덜어냈다.**
 // 뺀 것 — 막대 정렬 칩(금액순 고정), 행사별 정렬 칩(최신순 고정), 항상 펼쳐 있던 종류 필터(접었다),
@@ -16,18 +19,17 @@ import { formatBalance, formatWon } from '../../../src/domain/money.ts';
 import { displayName } from '../../../src/domain/person.ts';
 import {
   STATS_DIRECTION_LABEL,
-  defaultYear,
   filterEventTotals,
   topPeopleScopeLabel,
   filterStatsRows,
   foldYearStats,
+  groupEventTotalsByYear,
   sortEventTotals,
   typesOf,
-  yearsOf,
   type Bucket,
   type StatsDirection,
 } from '../../../src/domain/stats.ts';
-import { formatEventDate, todayISO } from '../../../src/domain/title.ts';
+import { formatEventDate } from '../../../src/domain/title.ts';
 import { useLedgerId } from '../../../src/ledger/LedgerProvider';
 import { queryKeys } from '../../../src/lib/queryKeys';
 import { listPeopleByIds } from '../../../src/repositories/people';
@@ -51,11 +53,10 @@ export default function StatsScreen() {
   const { colors, space, font, radius } = useTokens();
   const insets = useSafeAreaInsets();
 
-  const thisYear = Number(todayISO().slice(0, 4));
   const [direction, setDirection] = useState<StatsDirection>('all');
-  const [picked, setPicked] = useState<{ year: number | null } | null>(null);
   const [type, setType] = useState<string | null>(null);
-  const [typeOpen, setTypeOpen] = useState(false);
+  // 접힌 연도. 기본은 전부 펼침이라 비어 있다
+  const [collapsed, setCollapsed] = useState<Set<number>>(() => new Set());
 
   const raw = useQuery({
     queryKey: queryKeys.stats.allYears(ledgerId),
@@ -67,11 +68,8 @@ export default function StatsScreen() {
   });
 
   const rows = useMemo(() => raw.data ?? [], [raw.data]);
-  const years = useMemo(() => yearsOf(rows), [rows]);
-  const year =
-    picked && (picked.year === null || years.includes(picked.year))
-      ? picked.year
-      : defaultYear(years, thisYear);
+  // 전체 기간 고정. 연도는 아래 행사별 아코디언이 나눈다
+  const year = null;
   const types = useMemo(() => typesOf(rows), [rows]);
 
   const filtered = useMemo(() => filterStatsRows(rows, year, type), [rows, year, type]);
@@ -90,11 +88,10 @@ export default function StatsScreen() {
   });
   const labelOf = new Map((topLabels.data ?? []).map((p) => [p.id as string, p.label]));
 
-  const eventRows = useMemo(() => {
-    const all = events.data ?? [];
-    const byYear = year === null ? all : all.filter((e) => Number(e.event_date.slice(0, 4)) === year);
-    return sortEventTotals(filterEventTotals(byYear, direction, type));
-  }, [events.data, year, direction, type]);
+  const yearGroups = useMemo(
+    () => groupEventTotalsByYear(sortEventTotals(filterEventTotals(events.data ?? [], direction, type))),
+    [events.data, direction, type],
+  );
 
   const unconfirmed =
     direction === 'given'
@@ -168,16 +165,6 @@ export default function StatsScreen() {
         />
       ) : (
         <>
-          {/* 항상 보이는 조작은 연도 하나뿐이다 */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={{ flexDirection: 'row', gap: space.sm }}>
-              <Chip label="전체 기간" selected={year === null} onPress={() => setPicked({ year: null })} />
-              {years.map((y) => (
-                <Chip key={y} label={`${y}년`} selected={year === y} onPress={() => setPicked({ year: y })} />
-              ))}
-            </View>
-          </ScrollView>
-
           {/* 총계 */}
           <View
             style={{
@@ -244,113 +231,132 @@ export default function StatsScreen() {
             )}
           </View>
 
-          {/* 종류 필터는 접어 둔다. 기본값(전체)으로 대부분 충분하다 */}
+          {/* 경조사 종류 — 접지 않고 바로 보인다(2026-10-04) */}
           <View style={{ gap: space.sm }}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setTypeOpen((prev) => !prev)}
-              style={({ pressed }) => ({
-                alignItems: 'center',
-                flexDirection: 'row',
-                gap: space.xs,
-                opacity: pressed ? 0.6 : 1,
-              })}
-            >
-              <Ionicons
-                name={typeOpen ? 'chevron-down' : 'chevron-forward'}
-                size={14}
-                color={colors.textMuted}
-              />
-              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
-                {type === null
-                  ? '경조사 종류 고르기'
-                  : `${EVENT_TYPE_LABEL[type as EventType] ?? type}만 보는 중`}
-              </Text>
-              {type !== null && (
-                <Pressable onPress={() => setType(null)} hitSlop={8}>
-                  <Text style={{ color: colors.given, fontSize: font.caption }}>지우기</Text>
-                </Pressable>
-              )}
-            </Pressable>
-            {typeOpen && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={{ flexDirection: 'row', gap: space.sm }}>
-                  <Chip label="전체" selected={type === null} onPress={() => setType(null)} />
-                  {types.map((t) => (
-                    <Chip
-                      key={t}
-                      label={EVENT_TYPE_LABEL[t as EventType] ?? t}
-                      selected={type === t}
-                      onPress={() => setType(type === t ? null : t)}
-                    />
-                  ))}
-                </View>
-              </ScrollView>
-            )}
+            <Text style={{ color: colors.textMuted, fontSize: font.caption }}>경조사 종류</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ flexDirection: 'row', gap: space.sm }}>
+                <Chip label="전체" selected={type === null} onPress={() => setType(null)} />
+                {types.map((t) => (
+                  <Chip
+                    key={t}
+                    label={EVENT_TYPE_LABEL[t as EventType] ?? t}
+                    selected={type === t}
+                    onPress={() => setType(type === t ? null : t)}
+                  />
+                ))}
+              </View>
+            </ScrollView>
           </View>
 
           {showBars && <Bars title="경조사 종류별" buckets={byType} color={tone} />}
           {showBars && <Bars title="관계별" buckets={byGroup} color={tone} />}
 
-          {/* 행사별 — 홈에서 뺀 행사별 구분이 여기 있다. 최신순 고정 */}
+          {/* 행사별 — 연도 아코디언. 기본 펼침, 연도 머리를 누르면 접힌다. 묶음 안은 최신순 */}
           <Section title="행사별">
             {events.isError ? (
               <LoadFailed title="행사를 불러오지 못했습니다" onRetry={() => void events.refetch()} />
             ) : events.isLoading ? (
               <ActivityIndicator color={colors.textMuted} style={{ marginVertical: space.md }} />
-            ) : eventRows.length === 0 ? (
+            ) : yearGroups.length === 0 ? (
               <Empty text="조건에 맞는 행사가 없습니다." />
             ) : (
-              eventRows.map((e) => (
-                <Pressable
-                  key={e.event_id}
-                  onPress={() => router.push(`/event/${e.event_id}`)}
-                  style={({ pressed }) => ({
-                    alignItems: 'center',
-                    borderBottomColor: colors.border,
-                    borderBottomWidth: 1,
-                    flexDirection: 'row',
-                    paddingVertical: space.md,
-                    opacity: pressed ? 0.6 : 1,
-                  })}
-                >
-                  <View style={{ flex: 1, paddingRight: space.sm }}>
-                    <Text style={{ color: colors.text, fontSize: font.body }} numberOfLines={1}>
-                      {e.title}
-                    </Text>
-                    <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: 2 }}>
-                      {formatEventDate(e.event_date, 'day')}
-                    </Text>
+              yearGroups.map((g) => {
+                const open = !collapsed.has(g.year);
+                return (
+                  <View key={g.year} style={{ backgroundColor: colors.card, borderRadius: radius.md, marginTop: space.sm, paddingHorizontal: space.lg }}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded: open }}
+                      onPress={() =>
+                        setCollapsed((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(g.year)) next.delete(g.year);
+                          else next.add(g.year);
+                          return next;
+                        })
+                      }
+                      style={({ pressed }) => ({
+                        alignItems: 'center',
+                        flexDirection: 'row',
+                        gap: space.sm,
+                        paddingVertical: space.md,
+                        opacity: pressed ? 0.6 : 1,
+                      })}
+                    >
+                      <Ionicons name={open ? 'chevron-down' : 'chevron-forward'} size={16} color={colors.textMuted} />
+                      <Text style={{ color: colors.text, flex: 1, fontSize: font.body, fontWeight: '700' }}>{g.year}년</Text>
+                      <Text style={{ color: colors.textMuted, fontSize: font.caption, fontVariant: ['tabular-nums'] }}>
+                        {g.rows.length}개 행사 · {g.cnt}건
+                      </Text>
+                      <Text
+                        style={{
+                          color: colors.text,
+                          fontSize: font.body,
+                          fontVariant: ['tabular-nums'],
+                          fontWeight: '700',
+                          marginLeft: space.sm,
+                          textAlign: 'right',
+                        }}
+                        numberOfLines={1}
+                      >
+                        {formatWon(g.total)}
+                      </Text>
+                    </Pressable>
+                    {open &&
+                      g.rows.map((e) => (
+                        <Pressable
+                          key={e.event_id}
+                          onPress={() => router.push(`/event/${e.event_id}`)}
+                          style={({ pressed }) => ({
+                            alignItems: 'center',
+                            borderTopColor: colors.border,
+                            borderTopWidth: 1,
+                            flexDirection: 'row',
+                            paddingVertical: space.md,
+                            opacity: pressed ? 0.6 : 1,
+                          })}
+                        >
+                          <View style={{ flex: 1, paddingRight: space.sm }}>
+                            <Text style={{ color: colors.text, fontSize: font.body }} numberOfLines={1}>
+                              {e.title}
+                            </Text>
+                            <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: 2 }}>
+                              {formatEventDate(e.event_date, 'day')}
+                            </Text>
+                          </View>
+                          <Text
+                            style={{
+                              color: colors.textMuted,
+                              fontSize: font.caption,
+                              fontVariant: ['tabular-nums'],
+                              textAlign: 'right',
+                              width: COUNT_WIDTH,
+                            }}
+                          >
+                            {e.cnt}건
+                          </Text>
+                          <Text
+                            style={{
+                              color: e.is_mine ? colors.received : colors.given,
+                              fontSize: font.body,
+                              fontVariant: ['tabular-nums'],
+                              fontWeight: '600',
+                              marginLeft: space.sm,
+                              minWidth: AMOUNT_MIN_WIDTH,
+                              textAlign: 'right',
+                            }}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.7}
+                            numberOfLines={1}
+                          >
+                            {formatWon(e.total)}
+                          </Text>
+                        </Pressable>
+                      ))}
                   </View>
-                  <Text
-                    style={{
-                      color: colors.textMuted,
-                      fontSize: font.caption,
-                      fontVariant: ['tabular-nums'],
-                      textAlign: 'right',
-                      width: COUNT_WIDTH,
-                    }}
-                  >
-                    {e.cnt}건
-                  </Text>
-                  <Text
-                    style={{
-                      color: e.is_mine ? colors.received : colors.given,
-                      fontSize: font.body,
-                      fontVariant: ['tabular-nums'],
-                      fontWeight: '600',
-                      marginLeft: space.sm,
-                      minWidth: AMOUNT_MIN_WIDTH,
-                      textAlign: 'right',
-                    }}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.7}
-                    numberOfLines={1}
-                  >
-                    {formatWon(e.total)}
-                  </Text>
-                </Pressable>
-              ))
+                );
+              })
             )}
           </Section>
 

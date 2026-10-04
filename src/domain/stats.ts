@@ -274,3 +274,22 @@ export function sortEventTotals(rows: EventTotalRow[]): EventTotalRow[] {
     (a, b) => b.event_date.localeCompare(a.event_date) || a.title.localeCompare(b.title),
   );
 }
+
+export type YearGroup = { year: number; rows: EventTotalRow[]; cnt: number; total: number };
+
+// 행사별 목록을 연도로 묶는다(통계 탭의 연도 아코디언). 연도는 내림차순, 묶음 안 순서는 입력 순서다.
+export function groupEventTotalsByYear(rows: EventTotalRow[]): YearGroup[] {
+  const groups: YearGroup[] = [];
+  for (const r of rows) {
+    const year = Number(r.event_date.slice(0, 4));
+    let g = groups.find((x) => x.year === year);
+    if (!g) {
+      g = { year, rows: [], cnt: 0, total: 0 };
+      groups.push(g);
+    }
+    g.rows.push(r);
+    g.cnt += r.cnt;
+    g.total += r.total;
+  }
+  return groups.sort((a, b) => b.year - a.year);
+}

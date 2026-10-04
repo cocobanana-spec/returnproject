@@ -15,6 +15,7 @@ type Dict = Record<string, string>;
 const ko: Dict = {
   'app.name': '뿌린대로거두리라',
   'app.tagline': '경조사로 주고받은 마음을\n사람 단위로 기록합니다.',
+  'home.title': '뿌린',
   // 로그인·가입
   'auth.offline': '인터넷에 연결되어 있지 않습니다.',
   'auth.email': '메일 주소',
@@ -199,6 +200,7 @@ const ko: Dict = {
 const en: Dict = {
   'app.name': 'Ppurin',
   'app.tagline': 'Keep track of gift money\ngiven and received, per person.',
+  'home.title': 'Ppurin',
   'auth.offline': 'You are offline.',
   'auth.email': 'Email',
   'auth.password': 'Password',
@@ -375,6 +377,7 @@ const en: Dict = {
 const ja: Dict = {
   'app.name': 'Ppurin',
   'app.tagline': '冠婚葬祭で贈り合ったお金を\n人ごとに記録します。',
+  'home.title': 'Ppurin',
   'auth.offline': 'インターネットに接続されていません。',
   'auth.email': 'メールアドレス',
   'auth.password': 'パスワード',

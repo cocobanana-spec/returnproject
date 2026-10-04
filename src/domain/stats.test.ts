@@ -5,6 +5,7 @@ import {
   foldEventSummary,
   foldYearStats,
   foldYearStatsFor,
+  groupEventTotalsByYear,
   defaultYear,
   filterEventTotals,
   filterStatsRows,
@@ -211,4 +212,20 @@ test('종류별·관계별 버킷은 접는 시점에 이미 금액 내림차순
   const stats = foldYearStats(filterStatsRows(mixed, 2026, null));
   assert.deepEqual(stats.givenByType.map((b) => b.key), ['funeral', 'wedding']);
   assert.ok((stats.givenByType[0]?.total ?? 0) >= (stats.givenByType[1]?.total ?? 0));
+});
+
+test('groupEventTotalsByYear — 연도 내림차순으로 묶고 건수·금액을 더한다. 묶음 안 순서는 입력 순서', () => {
+  const row = (id: string, date: string, cnt: number, total: number): EventTotalRow => ({
+    event_id: id, title: id, type: 'wedding', is_mine: false, event_date: date, cnt, total, unconfirmed: 0,
+  });
+  const groups = groupEventTotalsByYear([
+    row('a', '2025-03-01', 2, 100000),
+    row('b', '2026-01-10', 1, 50000),
+    row('c', '2025-01-01', 3, 30000),
+  ]);
+  assert.deepEqual(groups.map((g) => [g.year, g.cnt, g.total, g.rows.map((r) => r.event_id)]), [
+    [2026, 1, 50000, ['b']],
+    [2025, 5, 130000, ['a', 'c']],
+  ]);
+  assert.deepEqual(groupEventTotalsByYear([]), []);
 });
