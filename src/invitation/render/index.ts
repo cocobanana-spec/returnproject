@@ -50,5 +50,5 @@ export function renderInvitationPage(input: RenderInput): string {
     );
   }
   const c = content as FuneralContent;
-  return document({ title, description, url }, FUNERAL_BASIC_CSS, renderFuneralBody(c), COPY_SCRIPT);
+  return document({ title, description, url }, FUNERAL_BASIC_CSS, renderFuneralBody(c), COPY_SCRIPT, '부고장');
 }

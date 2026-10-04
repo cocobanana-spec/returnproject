@@ -62,6 +62,7 @@ test('청첩장 — 이름·일시·장소·부모·계좌·사진·지도·연�
 
 test('부고장 — 고인·호칭·향년·상주·빈소·발인·장지·계좌·연락처', () => {
   const html = renderInvitationPage({ kind: 'funeral', templateId: 'basic', content: funeral, url: 'https://ppurin.com/i/abc', assetUrl });
+  assert.ok(html.includes('로 만든 부고장입니다'));
   for (const s of ['아버지 故 김아버지', '향년 82세', '아들', '김철수', '딸', '김영희', '서울병원 장례식장', '3호실',
                    '2026년 11월 1일 일요일 오전 3시 20분', '2026년 11월 3일 화요일 오전 8시', '서울추모공원',
                    '조의금 계좌', '123-456', 'tel:010-3333-4444']) {

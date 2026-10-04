@@ -362,9 +362,9 @@
 - [ ] **1.0.1 빌드(22)** — 바 흐림, PC 웹 버전 줄, 새 처리방침 주소. 사용자 결정: 다른 변경과 묶어서 올린다(2026-10-04). 올리면 옛 주소 처리방침을 넘기기로 바꾼다
 - [ ] ② 청첩장·부고장 — 2A 진행 중 (2026-10-04 시작). 계획 docs/08 §3
   - [x] **0009 데이터 모델** — `invitations` 테이블, slug 자동 생성, 내 행사·같은 장부·종류 일치 트리거, 발행 열 RPC 전용 가드, RLS(구성원만, anon 테이블 권한 없음), `public_invitation`·`record_invitation_view`(anon)·`publish_invitation`·`unpublish_invitation`(구성원)·`expire_invitations`(service_role), 스토리지 버킷 `invitations`. **SQL 검증 28건**(`02_invitations_test.sql`, run.sh 가 01 뒤에 돌림). 원격 적용 + 버킷·권한 실측 확인
-  - [ ] 도메인 — 종류별 내용 스키마·검증·기본값, 템플릿 목록, 만료 규칙 (`src/domain/invitation.ts` + 테스트)
-  - [ ] 렌더러 — 내용 → HTML 한 벌 (청첩장 1, 부고장 1). 워커와 앱 미리보기가 같은 코드
-  - [ ] 공개 페이지 — Cloudflare 워커 `/i/{slug}` (OG 포함, 404·만료 화면), `wrangler.site.jsonc` 에 main + run_worker_first
+  - [x] 도메인 — `src/domain/invitation.ts`. 종류별 칸·검증·기본값·템플릿 목록·만료 안내·공유 주소. 테스트 12건
+  - [x] 렌더러 — `src/invitation/render/`. 청첩장·부고장 basic 1종씩, 이스케이프·OG·noindex·외부 자원 없음. 테스트 7건, 샘플을 헤드리스로 찍어 확인
+  - [x] 공개 페이지 — `workers/site.ts`, `/i/{slug}` 만 워커가 받고 나머지는 정적 자산. **실측** — 테스트 계정으로 발행 전 404 → 발행 후 200(이름·날짜·OG·계좌 복사·noindex) → 조회수 1 → 내리면 404. 60초 캐시
   - [ ] 앱 — 리포지토리, 내 행사 상세의 진입점, 단계별 입력, 미리보기(웹뷰), 발행·공유·내리기. 네이티브 모듈: expo-image-picker, react-native-webview → 재빌드
   - [ ] 만료 집행 — 엣지 함수 + 일일 스케줄
   - [ ] 검증 — 통합 테스트 추가, 공개 페이지 헤드리스 확인, 시뮬레이터 빌드

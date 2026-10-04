@@ -11,12 +11,21 @@
   "name": "ppurin-site",
   "compatibility_date": "2026-10-01",
   "account_id": "bfa3b35cbbfa042aaabffd880f3eb75d",
+  // /i/{slug} 는 워커가 그린다(workers/site.ts). 나머지 경로는 정적 자산이 먼저 받는다.
+  "main": "./workers/site.ts",
   "assets": {
     "directory": "./site",
+    "binding": "ASSETS",
+    "run_worker_first": ["/i/*"],
     // 없는 경로는 404.html 이 아니라 404 로. 랜딩은 단일 페이지 앱이 아니다.
     "not_found_handling": "404-page",
     // /privacy 와 /privacy.html 둘 다 열린다(.html 생략 허용)
     "html_handling": "auto-trailing-slash"
+  },
+  // anon 키는 공개 키다(앱 번들과 웹 번들에 이미 들어 있다). 서비스 키는 여기에 두지 않는다.
+  "vars": {
+    "SUPABASE_URL": "https://ekcjfqqiopajlcbqgvfo.supabase.co",
+    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrY2pmcXFpb3BhamxjYnFndmZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4NTQ5NDQsImV4cCI6MjEwNTQzMDk0NH0.ojgwFmzMwJUCGAO62G0_8w1h91cbxuEAEM5UDePzTto"
   },
   "routes": [
     { "pattern": "ppurin.com", "custom_domain": true },

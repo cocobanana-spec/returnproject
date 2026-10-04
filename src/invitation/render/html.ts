@@ -110,7 +110,8 @@ export type PageMeta = {
 };
 
 // 문서 껍데기. 본문·CSS 는 템플릿이 준다.
-export function document(meta: PageMeta, css: string, body: string, script = ''): string {
+// footerNoun — 바닥 줄의 명사. 청첩장은 '초대장', 부고장은 '부고장'. 부고에 '초대'라는 말을 쓰지 않는다.
+export function document(meta: PageMeta, css: string, body: string, script = '', footerNoun = '초대장'): string {
   return `<!doctype html>
 <html lang="ko">
 <head>
@@ -130,7 +131,7 @@ ${meta.image ? `<meta property="og:image" content="${attr(meta.image)}">` : ''}
 <body>
 <div class="page">
 ${body}
-<div class="footer"><a href="https://ppurin.com/">뿌린대로거두리라</a>로 만든 초대장입니다</div>
+<div class="footer"><a href="https://ppurin.com/">뿌린대로거두리라</a>로 만든 ${esc(footerNoun)}입니다</div>
 </div>
 ${script}
 </body>
