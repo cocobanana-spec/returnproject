@@ -2,7 +2,7 @@
 //
 // 저장된 값은 기기에 오래 남는다. 탭 구성이 바뀌면 없는 탭이 저장돼 있을 수 있으므로
 // 되살리기 전에 반드시 아는 탭인지 확인한다. 모르면 홈이다.
-export const TAB_ROUTES = ['/', '/records', '/stats', '/more'] as const;
+export const TAB_ROUTES = ['/', '/my-events', '/stats', '/more'] as const;
 export type TabRoute = (typeof TAB_ROUTES)[number];
 
 export const DEFAULT_TAB: TabRoute = '/';

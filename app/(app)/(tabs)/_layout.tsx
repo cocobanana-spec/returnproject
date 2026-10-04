@@ -1,4 +1,4 @@
-// 하단 탭 4개 — 홈·기록·통계·더보기
+// 하단 탭 4개 — 홈·내 행사·통계·더보기 (2026-10-04 1차 피드백: 기록 탭은 홈에 합쳤고 내 행사 탭이 생겼다)
 //
 // 2026-09-26 개편(사용자 요청). 홈은 준돈·받은돈 총액만 보여 주는 대시보드가 되고,
 // 목록(준돈/받은돈 상단 탭)은 기록 탭으로 그대로 옮겼다. 기록 버튼과 검색도 함께 간다.
@@ -77,11 +77,11 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="records"
+        name="my-events"
         options={{
-          title: '기록',
+          title: '내 행사',
           headerShown: false,
-          tabBarIcon: ({ color, size }) => <Ionicons name="list-outline" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" color={color} size={size} />,
         }}
       />
       <Tabs.Screen

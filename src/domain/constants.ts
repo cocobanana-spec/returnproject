@@ -4,6 +4,7 @@ export const EVENT_TYPES = [
   'first_birthday',
   'funeral',
   'senior_birthday',
+  'birthday',
   'opening',
   'other',
 ] as const;
@@ -14,6 +15,7 @@ export const EVENT_TYPE_LABEL: Record<EventType, string> = {
   first_birthday: '돌잔치',
   funeral: '장례식',
   senior_birthday: '회갑·칠순',
+  birthday: '생일',
   opening: '개업',
   other: '기타',
 };

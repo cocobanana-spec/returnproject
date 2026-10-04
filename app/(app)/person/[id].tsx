@@ -28,6 +28,7 @@ export default function PersonDetailScreen() {
   const { colors, space, font, radius } = useTokens();
   const { id } = useLocalSearchParams<{ id: string }>();
   const personId = id as string;
+  const [moreOpen, setMoreOpen] = useState(false);
   const [merging, setMerging] = useState(false);
 
   const balance = useQuery({
@@ -194,9 +195,15 @@ export default function PersonDetailScreen() {
 
             <View style={{ flexDirection: 'row', gap: space.sm }}>
               <Action icon="create-outline" label="편집" onPress={() => router.push(`/person/edit?id=${personId}`)} />
+              <Action icon="ellipsis-horizontal" label="더보기" onPress={() => setMoreOpen((v) => !v)} />
+            </View>
+            {/* 합치기·삭제는 ⋯ 안에(docs/09 A7). 삭제가 메인 자리에 빨갛게 있으면 눌러 보고 싶어진다. */}
+            {moreOpen && (
+            <View style={{ flexDirection: 'row', gap: space.sm }}>
               <Action icon="git-merge-outline" label="합치기" onPress={() => setMerging(true)} />
               <Action icon="trash-outline" label="삭제" danger onPress={confirmDelete} />
             </View>
+            )}
 
             {/* 기록 조회가 실패했는데 "0건"을 찍으면 수지는 있는데 이력만 없는 모순이 된다 */}
             <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: space.sm }}>

@@ -32,6 +32,8 @@ export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const eventId = id as string;
 
+  // ⋯을 눌렀을 때만 편집·삭제가 보인다
+  const [moreOpen, setMoreOpen] = useState(false);
   const [sideFilter, setSideFilter] = useState<Side | null>(null);
   const [unconfirmedOnly, setUnconfirmedOnly] = useState(false);
 
@@ -215,7 +217,15 @@ export default function EventDetailScreen() {
               )}
             </View>
 
-            {/* 동작 */}
+            {/* 동작 — 내 행사는 초대장이 맨 위(docs/09 A3). 편집·삭제는 ⋯ 안에 숨긴다(A7).
+                삭제가 빨갛게 메인 자리에 있으면 "지우고 싶게 생겼다" — 한 단계 더 들어가야 한다. */}
+            {e.is_mine && invitationKindForEvent(e.type) && (
+              <Button
+                label={`${KIND_LABEL[invitationKindForEvent(e.type)!]} 만들기 · 보기`}
+                variant="secondary"
+                onPress={() => router.push(`/invitation/${eventId}`)}
+              />
+            )}
             {e.is_mine && (
               <Button
                 label={(s?.cnt ?? 0) > 0 ? '명부 이어서 입력' : '명부 입력 시작'}
@@ -230,16 +240,14 @@ export default function EventDetailScreen() {
                   onPress={() => router.push(`/import?target=received&eventId=${eventId}`)}
                 />
               )}
-              {e.is_mine && invitationKindForEvent(e.type) && (
-                <Action
-                  icon="mail-outline"
-                  label={KIND_LABEL[invitationKindForEvent(e.type)!]}
-                  onPress={() => router.push(`/invitation/${eventId}`)}
-                />
-              )}
-              <Action icon="create-outline" label="편집" onPress={() => router.push(`/event/edit?id=${eventId}`)} />
-              <Action icon="trash-outline" label="삭제" danger onPress={confirmDelete} />
+              <Action icon="ellipsis-horizontal" label="더보기" onPress={() => setMoreOpen((v) => !v)} />
             </View>
+            {moreOpen && (
+              <View style={{ flexDirection: 'row', gap: space.sm }}>
+                <Action icon="create-outline" label="편집" onPress={() => router.push(`/event/edit?id=${eventId}`)} />
+                <Action icon="trash-outline" label="삭제" danger onPress={confirmDelete} />
+              </View>
+            )}
 
             {/* 필터 */}
             {(hasSides || (s?.unconfirmed ?? 0) > 0 || unconfirmedOnly) && (

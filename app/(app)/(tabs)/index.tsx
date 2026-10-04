@@ -1,142 +1,318 @@
-// 홈(S01) — 준 돈 총액과 받은 돈 총액 두 숫자만 크게 보여 주는 대시보드
+// 홈(S01) — 준 돈·받은 돈 총액 띠 + 그 아래 기록 목록. 하단에 기록 FAB
 //
-// 2026-09-26 사용자 요청 — "홈탭에 대시보드 형태로 준돈 얼마, 받은돈 얼마 2개 항목을 딱 표기해줘".
-// 목록은 기록 탭으로 옮겼다. 여기에 욕심내서 무엇을 더 붙이면 "딱 2개"라는 요청이 깨진다.
-// 총액은 **전체 기간**이다. 올해로 묶으면 2020년 결혼식 축의금이 통째로 빠져 0원으로 보인다.
-import { useQuery } from '@tanstack/react-query';
+// 2026-10-04 1차 피드백(docs/09 A1). 홈(대시보드)과 기록 탭을 합쳤다. 총액은 위에 작게 두 칸으로 두고
+// 칸을 누르면 그 방향의 목록이 된다. '기록 보기' 버튼과 머리의 가져오기 아이콘은 뺐다(가져오기는 더보기에만).
+//
+// 사람 탭을 없앴기 때문에 이 목록의 사람 이름이 사람 원장(S04)으로 가는 주 진입로다.
+// 이 동선이 끊기면 이 앱의 핵심인 "사람별 수지"에 도달할 방법이 사라진다.
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { formatWon } from '../../../src/domain/money.ts';
+import {
+  DEFAULT_DIRECTION,
+  DIRECTIONS,
+  DIRECTION_LABEL,
+  entryRowSubtitle,
+  isMineOf,
+  upcomingHint,
+  type Direction,
+} from '../../../src/domain/home.ts';
+import { formatWon, formatWonShort } from '../../../src/domain/money.ts';
+import { todayISO } from '../../../src/domain/title.ts';
 import { useLedger, useLedgerId } from '../../../src/ledger/LedgerProvider';
 import { queryKeys } from '../../../src/lib/queryKeys';
+import { listEntriesByDirection, type EntryWithContext } from '../../../src/repositories/entries';
+import { listUpcomingEvents } from '../../../src/repositories/events';
 import { getYearStats } from '../../../src/repositories/stats';
 import { useTokens } from '../../../src/theme/tokens';
+import { EmptyState } from '../../../src/ui/EmptyState';
+import { EntryNames } from '../../../src/ui/EntryNames';
 import { LoadFailed } from '../../../src/ui/LoadFailed';
-import { Screen } from '../../../src/ui/Screen';
+import { ScrollFade } from '../../../src/ui/ScrollFade';
 
-export default function HomeScreen() {
+export default function RecordsScreen() {
   const ledgerId = useLedgerId();
   const { current } = useLedger();
   const router = useRouter();
   const { colors, space, font, radius } = useTokens();
+  const insets = useSafeAreaInsets();
 
+  const [direction, setDirection] = useState<Direction>(DEFAULT_DIRECTION);
+  const isMine = isMineOf(direction);
+
+  const today = todayISO();
+
+  // 목록은 서버 기본 1000행에서 조용히 잘린다. 스크롤에 맞춰 이어서 받는다.
+  const list = useInfiniteQuery({
+    queryKey: queryKeys.entries.byDirection(ledgerId, direction),
+    queryFn: ({ pageParam }) => listEntriesByDirection(ledgerId, isMine, { offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.nextOffset,
+  });
+
+  // 총액은 **전체 기간**이다. 올해로 묶으면 2020년 결혼식 축의금처럼 예전 기록이 통째로 빠져
+  // "총액 0원"으로 보인다(2026-09-26 사용자 보고. 받은돈 1,988만원이 전부 2020년 행사였다).
+  // 연도별로 보는 곳은 통계 탭이다.
   const stats = useQuery({
     queryKey: queryKeys.stats.byYear(ledgerId, null),
     queryFn: () => getYearStats(ledgerId, null),
   });
 
-  if (stats.isError) {
-    return (
-      <Screen>
-        <LoadFailed title="총액을 불러오지 못했습니다" onRetry={() => void stats.refetch()} />
-      </Screen>
-    );
-  }
+  // 다가오는 행사는 알림을 넣지 않기로 한 결정 9의 대체물이라 준돈 탭에만 띠로 남긴다.
+  const upcoming = useQuery({
+    queryKey: queryKeys.events.upcoming(ledgerId),
+    queryFn: () => listUpcomingEvents(ledgerId, today, 3),
+    enabled: direction === 'given',
+  });
 
-  const d = stats.data;
+  const rows = (list.data?.pages ?? []).flatMap((page) => page.rows);
+  const upcomingRows = direction === 'given' ? (upcoming.data ?? []) : [];
+  // 받은돈은 행사에 속한다. 받은돈 탭의 기록 버튼은 명부 입력(S09)으로 보낸다(2026-09-25 버그 수정).
+  const recordHref = direction === 'given' ? '/record' : '/event/receive';
+  const recordLabel = direction === 'given' ? '기록 남기기' : '명부 입력하기';
+  const unconfirmed =
+    direction === 'given'
+      ? (stats.data?.givenUnconfirmed ?? 0)
+      : (stats.data?.receivedUnconfirmed ?? 0);
 
   return (
-    <Screen scroll>
-      <View style={{ gap: space.lg, paddingTop: space.xl }}>
-        <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
-          {current?.name ?? '장부'} · 전체 기간
-        </Text>
-
-        <Total
-          label="준 돈"
-          amount={d?.givenTotal ?? 0}
-          count={d?.givenCount ?? 0}
-          color={colors.given}
-          loading={stats.isLoading}
-          onPress={() => router.push('/records')}
-        />
-        <Total
-          label="받은 돈"
-          amount={d?.receivedTotal ?? 0}
-          count={d?.receivedCount ?? 0}
-          color={colors.received}
-          loading={stats.isLoading}
-          onPress={() => router.push('/records')}
-        />
-
-        {(d?.unconfirmedCount ?? 0) > 0 && (
-          <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
-            미확정 {d?.unconfirmedCount}건은 합계에서 빠져 있습니다.
-          </Text>
-        )}
-
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      {/* 머리 — 장부 이름과 검색 */}
+      <View
+        style={{
+          alignItems: 'center',
+          flexDirection: 'row',
+          gap: space.md,
+          paddingHorizontal: space.xl,
+          paddingTop: insets.top + space.md,
+        }}
+      >
+        <Pressable onPress={() => router.push('/ledger')} style={{ flex: 1 }}>
+          <Text style={{ color: colors.textMuted, fontSize: font.caption }}>현재 장부</Text>
+          <View style={{ alignItems: 'center', flexDirection: 'row', gap: space.xs }}>
+            <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '700' }} numberOfLines={1}>
+              {current?.name ?? '내 장부'}
+            </Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </View>
+        </Pressable>
         <Pressable
           accessibilityRole="button"
-          onPress={() => router.push('/records')}
+          accessibilityLabel="사람 검색"
+          onPress={() => router.push('/search')}
           style={({ pressed }) => ({
             alignItems: 'center',
-            borderColor: colors.border,
-            borderRadius: radius.lg,
-            borderWidth: 1,
-            flexDirection: 'row',
-            gap: space.sm,
+            backgroundColor: colors.bgSubtle,
+            borderRadius: radius.pill,
+            height: 40,
             justifyContent: 'center',
-            paddingVertical: space.md,
+            width: 40,
             opacity: pressed ? 0.6 : 1,
           })}
         >
-          <Ionicons name="list-outline" size={18} color={colors.text} />
-          <Text style={{ color: colors.text, fontSize: font.body, fontWeight: '600' }}>기록 보기</Text>
+          <Ionicons name="search" size={20} color={colors.text} />
         </Pressable>
       </View>
-    </Screen>
+
+      {/* 총액 두 칸 — 칸이 곧 방향 탭이다(docs/09 A1). 넓게 차지하지 않게 한 줄에 둘 */}
+      <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.md, paddingHorizontal: space.xl }}>
+        {DIRECTIONS.map((d) => {
+          const selected = direction === d;
+          const amount = d === 'given' ? (stats.data?.givenTotal ?? 0) : (stats.data?.receivedTotal ?? 0);
+          const color = d === 'given' ? colors.given : colors.received;
+          return (
+            <Pressable
+              key={d}
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}
+              onPress={() => setDirection(d)}
+              style={({ pressed }) => ({
+                backgroundColor: selected ? colors.bgSubtle : 'transparent',
+                borderColor: selected ? color : colors.border,
+                borderRadius: radius.lg,
+                borderWidth: selected ? 2 : 1,
+                flex: 1,
+                paddingHorizontal: space.md,
+                paddingVertical: space.sm,
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{DIRECTION_LABEL[d]}</Text>
+              <Text style={{ color: selected ? color : colors.text, fontSize: font.title, fontWeight: '700' }} numberOfLines={1}>
+                {stats.isSuccess ? formatWon(amount) : '—'}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <FlatList
+        data={rows}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{
+          paddingBottom: insets.bottom + 96,
+          paddingHorizontal: space.xl,
+          paddingTop: space.md,
+        }}
+        onEndReachedThreshold={0.4}
+        onEndReached={() => {
+          if (list.hasNextPage && !list.isFetchingNextPage) void list.fetchNextPage();
+        }}
+        ListHeaderComponent={
+          <View style={{ gap: space.md, paddingBottom: space.md }}>
+            {stats.isError && (
+              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>합계를 불러오지 못했습니다</Text>
+            )}
+            {stats.isSuccess && unconfirmed > 0 && (
+              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>미확정 {unconfirmed}건은 합계에서 빠져 있습니다.</Text>
+            )}
+            {/* 다가오는 행사 띠 */}
+            {upcomingRows.map((e) => (
+              <Pressable
+                key={e.id}
+                onPress={() => router.push(`/event/${e.id}`)}
+                style={({ pressed }) => ({
+                  alignItems: 'center',
+                  backgroundColor: colors.bgSubtle,
+                  borderRadius: radius.md,
+                  flexDirection: 'row',
+                  gap: space.sm,
+                  paddingHorizontal: space.md,
+                  paddingVertical: space.sm,
+                  opacity: pressed ? 0.6 : 1,
+                })}
+              >
+                <Ionicons name="calendar-outline" size={14} color={colors.textMuted} />
+                <Text style={{ color: colors.text, flex: 1, fontSize: font.caption }} numberOfLines={1}>
+                  {e.title}
+                </Text>
+                <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
+                  {upcomingHint(today, e.date)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        }
+        ListEmptyComponent={
+          list.isLoading ? (
+            <ActivityIndicator color={colors.textMuted} style={{ marginTop: space.xxl }} />
+          ) : list.isError ? (
+            // 조회 실패를 "기록 없음"으로 덮으면 사용자가 기록이 사라진 줄 안다.
+            <LoadFailed title="기록을 불러오지 못했습니다" onRetry={() => void list.refetch()} />
+          ) : direction === 'given' ? (
+            <EmptyState
+              title="첫 기록을 남겨 보세요"
+              hint={'경조사에 낸 돈을 기록하면\n사람별로 주고받은 내역이 쌓입니다.'}
+              actionLabel={recordLabel}
+              onAction={() => router.push(recordHref)}
+            />
+          ) : (
+            <EmptyState
+              title="받은 기록이 아직 없습니다"
+              hint={'결혼식·돌잔치 같은 내 행사를 만들면\n명부를 한 번에 입력할 수 있습니다.'}
+              actionLabel={recordLabel}
+              onAction={() => router.push(recordHref)}
+            />
+          )
+        }
+        ListFooterComponent={
+          list.isFetchingNextPage ? (
+            <ActivityIndicator color={colors.textMuted} style={{ marginVertical: space.lg }} />
+          ) : list.isError && rows.length > 0 ? (
+            // 목록이 비어 있지 않으면 ListEmptyComponent가 안 그려진다. 이어받기 실패를
+            // 알릴 자리가 여기밖에 없다.
+            <LoadFailed title="다음 기록을 불러오지 못했습니다" onRetry={() => void list.fetchNextPage()} />
+          ) : null
+        }
+        renderItem={({ item }) => <EntryRow item={item} />}
+      />
+
+      {/* 기록 FAB — 사용자가 좋다고 한 부분이라 위치를 그대로 둔다.
+          바로 위에 ScrollFade 를 둔다. 이 바는 불투명한데 목록이 그 아래로 지나가므로, 그냥 두면
+          스크롤 도중 한 줄이 글자 한가운데서 잘린다. 선을 긋는 것으로는 모자랐다(2026-09-26). */}
+      <View
+        pointerEvents="box-none"
+        style={{
+          backgroundColor: colors.bg,
+          bottom: 0,
+          left: 0,
+          paddingBottom: insets.bottom + space.lg,
+          paddingHorizontal: space.xl,
+          paddingTop: space.md,
+          position: 'absolute',
+          right: 0,
+        }}
+      >
+        <ScrollFade />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={recordLabel}
+          onPress={() => router.push(recordHref)}
+          style={({ pressed }) => ({
+            alignItems: 'center',
+            backgroundColor: colors.accent,
+            borderRadius: radius.pill,
+            flexDirection: 'row',
+            gap: space.sm,
+            justifyContent: 'center',
+            paddingVertical: space.lg,
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          <Ionicons name="add" size={20} color={colors.textOnAccent} />
+          <Text style={{ color: colors.textOnAccent, fontSize: font.body, fontWeight: '700' }}>기록</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
-function Total({
-  label,
-  amount,
-  count,
-  color,
-  loading,
-  onPress,
-}: {
-  label: string;
-  amount: number;
-  count: number;
-  color: string;
-  loading: boolean;
-  onPress: () => void;
-}) {
-  const { colors, space, font, radius } = useTokens();
+// 한 행에 사람·행사·날짜·금액이 모두 보여야 한다.
+// 이름 영역과 나머지를 따로 누르게 해서 이름은 사람 원장, 나머지는 기록 상세로 보낸다.
+function EntryRow({ item }: { item: EntryWithContext }) {
+  const router = useRouter();
+  const { colors, space, font } = useTokens();
+  const isMine = item.event?.is_mine ?? false;
+
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${label} ${formatWon(amount)}`}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        backgroundColor: colors.bgSubtle,
-        borderRadius: radius.lg,
-        gap: space.xs,
-        padding: space.xl,
-        opacity: pressed ? 0.6 : 1,
-      })}
+    <View
+      style={{
+        alignItems: 'center',
+        borderBottomColor: colors.border,
+        borderBottomWidth: 1,
+        flexDirection: 'row',
+        gap: space.md,
+        paddingVertical: space.md,
+      }}
     >
-      <Text style={{ color: colors.textMuted, fontSize: font.body }}>{label}</Text>
-      {loading ? (
-        <ActivityIndicator color={colors.textMuted} style={{ alignSelf: 'flex-start' }} />
-      ) : (
+      <View style={{ flex: 1 }}>
+        <EntryNames person={item.person} coPerson={item.co_person} />
+        <Pressable
+          onPress={() => router.push(`/entry/${item.id}`)}
+          style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
+        >
+          <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: 2 }} numberOfLines={1}>
+            {entryRowSubtitle(item.event)}
+          </Text>
+        </Pressable>
+      </View>
+      <Pressable
+        onPress={() => router.push(`/entry/${item.id}`)}
+        style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
+      >
         <Text
           style={{
-            color,
-            fontSize: font.display ?? font.title + 12,
-            fontVariant: ['tabular-nums'],
-            fontWeight: '800',
+            color: item.amount === null ? colors.textMuted : isMine ? colors.received : colors.given,
+            fontSize: font.body,
+            fontWeight: '700',
           }}
-          adjustsFontSizeToFit
-          minimumFontScale={0.6}
-          numberOfLines={1}
         >
-          {formatWon(amount)}
+          {formatWonShort(item.amount)}
         </Text>
-      )}
-      <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{count}건</Text>
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }

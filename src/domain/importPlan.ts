@@ -140,6 +140,7 @@ const TYPE_PATTERNS: { type: EventType; re: RegExp }[] = [
   { type: 'first_birthday', re: /돌/ },
   { type: 'funeral', re: /장례|조문|부고|상가|별세|조의|부의/ },
   { type: 'senior_birthday', re: /회갑|칠순|팔순|환갑|고희|구순|생신/ },
+  { type: 'birthday', re: /생일|birthday/i },
   { type: 'opening', re: /개업|개소|개원|오픈/ },
 ];
 
