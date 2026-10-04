@@ -360,7 +360,14 @@
   - [x] App Store Connect — 승인된 1.0 은 못 바꿔 **1.0.1 버전을 새로 만들어 거기에 새 주소**를 넣었다(사장님). `app.json` 도 1.0.1. **1.0.1 이 나가기 전까지 스토어의 1.0 은 옛 처리방침 주소를 가리키므로 옛 주소에 전문을 유지한다**(site-legacy/privacy.html 은 넘기기가 아니라 전문 + 안내). 1.0.1 출시 뒤 넘기기로 바꾼다
   - [x] `tools/retire-github-pages.sh` 실행 (2026-10-04). 루트·/app 은 새 주소 안내, /privacy.html 은 전문 유지 확인. 6개월 뒤(2027-04) 정리
 - [ ] **1.0.1 빌드(22)** — 바 흐림, PC 웹 버전 줄, 새 처리방침 주소. 사용자 결정: 다른 변경과 묶어서 올린다(2026-10-04). 올리면 옛 주소 처리방침을 넘기기로 바꾼다
-- [ ] ② 청첩장·부고장 2A → 2B → 2C
+- [ ] ② 청첩장·부고장 — 2A 진행 중 (2026-10-04 시작). 계획 docs/08 §3
+  - [x] **0009 데이터 모델** — `invitations` 테이블, slug 자동 생성, 내 행사·같은 장부·종류 일치 트리거, 발행 열 RPC 전용 가드, RLS(구성원만, anon 테이블 권한 없음), `public_invitation`·`record_invitation_view`(anon)·`publish_invitation`·`unpublish_invitation`(구성원)·`expire_invitations`(service_role), 스토리지 버킷 `invitations`. **SQL 검증 28건**(`02_invitations_test.sql`, run.sh 가 01 뒤에 돌림). 원격 적용 + 버킷·권한 실측 확인
+  - [ ] 도메인 — 종류별 내용 스키마·검증·기본값, 템플릿 목록, 만료 규칙 (`src/domain/invitation.ts` + 테스트)
+  - [ ] 렌더러 — 내용 → HTML 한 벌 (청첩장 1, 부고장 1). 워커와 앱 미리보기가 같은 코드
+  - [ ] 공개 페이지 — Cloudflare 워커 `/i/{slug}` (OG 포함, 404·만료 화면), `wrangler.site.jsonc` 에 main + run_worker_first
+  - [ ] 앱 — 리포지토리, 내 행사 상세의 진입점, 단계별 입력, 미리보기(웹뷰), 발행·공유·내리기. 네이티브 모듈: expo-image-picker, react-native-webview → 재빌드
+  - [ ] 만료 집행 — 엣지 함수 + 일일 스케줄
+  - [ ] 검증 — 통합 테스트 추가, 공개 페이지 헤드리스 확인, 시뮬레이터 빌드
 - [ ] ③ 문자 발송 3A(한 명씩) → 3B(서버 발송, 발신번호 등록)
 - [ ] 프리미엄 기반 — entitlements·RevenueCat·유료 앱 계약
 

@@ -67,8 +67,8 @@ for m in "$ROOT"/supabase/migrations/*.sql; do
   run "$m"
 done
 
-echo "== 3/3 RLS 교차 검증"
-if run "$HERE/01_rls_test.sql"; then
+echo "== 3/3 RLS 교차 검증 (01 → 02 순서. 02 는 01 의 하네스와 계정을 그대로 쓴다)"
+if run "$HERE/01_rls_test.sql" && run "$HERE/02_invitations_test.sql"; then
   echo ""
   echo "== 전부 통과"
   rc=0

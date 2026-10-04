@@ -186,6 +186,75 @@ export type Database = {
           },
         ]
       }
+      invitations: {
+        Row: {
+          content: Json
+          created_at: string
+          created_by: string | null
+          event_id: string
+          expires_at: string | null
+          id: string
+          kind: string
+          ledger_id: string
+          plan: string
+          published_at: string | null
+          slug: string
+          status: string
+          template_id: string
+          updated_at: string
+          view_count: number
+        }
+        Insert: {
+          content?: Json
+          created_at?: string
+          created_by?: string | null
+          event_id: string
+          expires_at?: string | null
+          id?: string
+          kind: string
+          ledger_id: string
+          plan?: string
+          published_at?: string | null
+          slug?: string
+          status?: string
+          template_id?: string
+          updated_at?: string
+          view_count?: number
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          created_by?: string | null
+          event_id?: string
+          expires_at?: string | null
+          id?: string
+          kind?: string
+          ledger_id?: string
+          plan?: string
+          published_at?: string | null
+          slug?: string
+          status?: string
+          template_id?: string
+          updated_at?: string
+          view_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invitations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitations_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "ledgers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ledger_members: {
         Row: {
           created_at: string
@@ -384,6 +453,36 @@ export type Database = {
       random_invite_code: { Args: never; Returns: string }
       remove_member: {
         Args: { p_ledger_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      expire_invitations: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      public_invitation: {
+        Args: { p_slug: string }
+        Returns: {
+          content: Json
+          expires_at: string
+          kind: string
+          published_at: string
+          template_id: string
+        }[]
+      }
+      publish_invitation: {
+        Args: { p_invitation_id: string; p_months?: number }
+        Returns: {
+          expires_at: string
+          published_at: string
+          slug: string
+        }[]
+      }
+      record_invitation_view: {
+        Args: { p_slug: string }
+        Returns: undefined
+      }
+      unpublish_invitation: {
+        Args: { p_invitation_id: string }
         Returns: undefined
       }
       reset_ledger: {
