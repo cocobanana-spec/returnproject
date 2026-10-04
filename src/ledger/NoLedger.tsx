@@ -52,9 +52,8 @@ export function NoLedger() {
         autoCorrect={false}
         maxLength={INVITE_CODE_LENGTH}
         style={{
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: radius.md,
+          backgroundColor: colors.surface2,
+          borderRadius: radius.sm,
           color: colors.text,
           fontSize: font.title,
           letterSpacing: 4,

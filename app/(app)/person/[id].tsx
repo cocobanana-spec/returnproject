@@ -311,9 +311,8 @@ function Action({
       onPress={onPress}
       style={({ pressed }) => ({
         alignItems: 'center',
-        borderColor: colors.border,
+        backgroundColor: colors.bgSubtle,
         borderRadius: radius.md,
-        borderWidth: 1,
         flex: 1,
         gap: 4,
         paddingVertical: space.md,

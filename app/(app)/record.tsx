@@ -425,10 +425,8 @@ export default function RecordScreen() {
                 autoFocus
                 autoCorrect={false}
                 style={{
-                  backgroundColor: colors.card,
-                  borderColor: colors.border,
-                  borderRadius: radius.md,
-                  borderWidth: 1,
+                  backgroundColor: colors.surface2,
+                  borderRadius: radius.sm,
                   color: colors.text,
                   fontSize: font.title,
                   paddingHorizontal: space.lg,
@@ -506,9 +504,8 @@ export default function RecordScreen() {
           <Pressable
             onPress={() => setShowDate((prev) => !prev)}
             style={{
-              borderColor: colors.border,
-              borderRadius: radius.md,
-              borderWidth: 1,
+              backgroundColor: colors.surface2,
+              borderRadius: radius.sm,
               paddingHorizontal: space.lg,
               paddingVertical: space.md,
             }}
@@ -571,10 +568,8 @@ export default function RecordScreen() {
               placeholderTextColor={colors.textMuted}
               keyboardType="number-pad"
               style={{
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-                borderRadius: radius.md,
-                borderWidth: 1,
+                backgroundColor: colors.surface2,
+                borderRadius: radius.sm,
                 color: colors.text,
                 flex: 1,
                 fontSize: font.body,

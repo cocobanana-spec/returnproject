@@ -534,7 +534,7 @@ function Accounts({
   return (
     <View style={{ gap: space.md }}>
       {accounts.map((a, i) => (
-        <View key={i} style={{ gap: space.xs, borderColor: colors.border, borderWidth: 1, borderRadius: 10, padding: space.md }}>
+        <View key={i} style={{ gap: space.xs, backgroundColor: colors.bgSubtle, borderRadius: 8, padding: space.md }}>
           {withSide && (
             <View style={{ flexDirection: 'row', gap: space.sm }}>
               <Chip label="신랑 측" selected={a.side === 'groom'} onPress={() => set(i, { side: 'groom' })} />

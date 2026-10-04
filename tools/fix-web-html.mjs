@@ -18,6 +18,8 @@ const MARK = 'ppurin-visible-height';
 const CSS = `<style id="${MARK}">
 /* 옛 브라우저는 100%, 그 밖에는 실제로 보이는 높이 */
 html, body, #root { height: 100%; height: 100dvh; }
+/* 번들이 뜨기 전 흰 화면이 번쩍이지 않게 — Green Deck 바닥색 */
+body { background: #121212; }
 </style>`;
 
 const html = readFileSync(FILE, 'utf8');

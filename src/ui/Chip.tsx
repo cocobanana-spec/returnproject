@@ -1,4 +1,4 @@
-// 선택 가능한 칩. 행사 종류·금액 프리셋·관계 그룹·필터에 두루 쓴다
+// 선택 가능한 칩. 행사 종류·금액 프리셋·관계 그룹·필터에 두루 쓴다 — Green Deck: #282828 면, 선택하면 흰 바탕 검은 글자
 import { Pressable, Text } from 'react-native';
 import { useTokens } from '../theme/tokens';
 
@@ -11,7 +11,8 @@ type Props = {
 
 export function Chip({ label, selected = false, onPress, tone = 'default' }: Props) {
   const { colors, space, radius, font } = useTokens();
-  const activeBg = tone === 'accent' ? colors.given : colors.accent;
+  const activeBg = tone === 'accent' ? colors.accent : colors.text;
+  const activeFg = tone === 'accent' ? colors.textOnAccent : colors.bg;
 
   return (
     <Pressable
@@ -19,9 +20,7 @@ export function Chip({ label, selected = false, onPress, tone = 'default' }: Pro
       accessibilityState={{ selected }}
       onPress={onPress}
       style={({ pressed }) => ({
-        backgroundColor: selected ? activeBg : colors.bgSubtle,
-        borderColor: selected ? activeBg : colors.border,
-        borderWidth: 1,
+        backgroundColor: selected ? activeBg : colors.surface2,
         borderRadius: radius.pill,
         // iOS 최소 터치 영역 44pt. 빠른 기록의 주 조작 수단이라 작으면 안 된다.
         justifyContent: 'center',
@@ -33,7 +32,7 @@ export function Chip({ label, selected = false, onPress, tone = 'default' }: Pro
     >
       <Text
         style={{
-          color: selected ? colors.textOnAccent : colors.text,
+          color: selected ? activeFg : colors.text,
           fontSize: font.caption,
           fontWeight: selected ? '700' : '500',
         }}

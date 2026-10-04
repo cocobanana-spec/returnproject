@@ -275,9 +275,8 @@ export default function EventEditScreen() {
           <Pressable
             onPress={() => setShowDate((prev) => !prev)}
             style={{
-              borderColor: colors.border,
-              borderRadius: radius.md,
-              borderWidth: 1,
+              backgroundColor: colors.surface2,
+              borderRadius: radius.sm,
               paddingHorizontal: space.lg,
               paddingVertical: space.md,
             }}

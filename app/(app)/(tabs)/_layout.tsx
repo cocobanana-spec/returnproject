@@ -62,8 +62,8 @@ export default function TabsLayout() {
         // 모바일 브라우저의 주소창·홈 인디케이터와 겹쳐 라벨이 잘린 것처럼 보인다(2026-09-26 실측).
         // 네이티브는 안전 영역이 알아서 잡아 주므로 건드리지 않는다.
         tabBarStyle: {
-          backgroundColor: colors.bg,
-          borderTopColor: colors.border,
+          backgroundColor: colors.nav,
+          borderTopWidth: 0,
           ...(isWeb ? { height: 64 } : {}),
         },
         tabBarLabelStyle: { fontSize: font.caption - 1 },
