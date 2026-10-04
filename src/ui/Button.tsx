@@ -1,4 +1,4 @@
-// 버튼 한 종류로 primary·secondary·danger 세 모양을 낸다 — Green Deck: 알약, primary 는 초록 면
+// 버튼 한 종류로 primary·secondary·danger 세 모양을 낸다 — Green Deck 라이트: 모서리 12, primary 는 진한 초록 면
 import { ActivityIndicator, Pressable, Text, type ViewStyle } from 'react-native';
 import { useTokens } from '../theme/tokens';
 
@@ -13,7 +13,7 @@ type Props = {
 };
 
 // secondary 는 문서대로 1px #727272 선만 두고 면은 비운다
-const SECONDARY_BORDER = '#727272';
+const SECONDARY_BORDER = '#CFD4CC';
 
 export function Button({
   label,
@@ -43,7 +43,7 @@ export function Button({
           backgroundColor: bg,
           borderColor: variant === 'secondary' ? SECONDARY_BORDER : bg,
           borderWidth: variant === 'secondary' ? 1 : 0,
-          borderRadius: radius.pill,
+          borderRadius: radius.md,
           paddingVertical: size === 'sm' ? space.sm : space.lg,
           paddingHorizontal: space.xl,
           opacity: off || pressed ? 0.55 : 1,

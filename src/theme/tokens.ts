@@ -1,32 +1,37 @@
-// 색·간격·글꼴 크기 디자인 토큰 — Green Deck(docs/green-deck-DESIGN.md) 한 벌. 화면은 useTokens()로 꺼내 쓴다
+// 색·간격·글꼴 크기 디자인 토큰 — Green Deck **라이트**(사장님이 보여 준 그림 기준). 화면은 useTokens()로 꺼내 쓴다
 //
-// 2026-10-04 사용자 요청으로 Green Deck 을 입혔다. 다크 고정이다(문서: "dark-first, 흰 바탕은 어디에도").
-// 높낮이는 그림자가 아니라 면 밝기다 — #121212(바닥) < #181818(카드) < #282828(입력칸·칩·메뉴).
-// 테두리로 상자를 만들지 않는다. 구분선(#282828)만 허용.
+// 2026-10-04 처음엔 docs/green-deck-DESIGN.md 의 다크 버전을 입혔다가 사장님이 "원하는 건 라이트 그림"이라 해서
+// 라이트 한 벌로 바꿨다. 밝은 회백색 바닥, 흰 카드에 옅은 그림자, 진한 초록 강조, 연두 배지가 핵심이다.
+// 카드는 테두리 대신 흰 면 + 그림자(cardShadow)로 띄운다. 구분선은 옅은 회색만.
+import type { ViewStyle } from 'react-native';
 
-// 준 돈(나간 돈)은 주황, 받은 돈(들어온 돈)은 초록. 문서의 primary·warning 을 그대로 쓴다.
+// 준 돈(나간 돈)은 그림의 음수 색(붉은 기), 받은 돈(들어온 돈)은 초록. 배지 바탕은 각각의 옅은 색
 const palette = {
-  bg: '#121212',
-  bgSubtle: '#181818',
-  card: '#181818',
-  // 입력칸·칩·펼침 메뉴. 카드보다 한 단계 밝다
-  surface2: '#282828',
-  border: '#282828',
-  text: '#FFFFFF',
-  textMuted: '#A7A7A7',
+  bg: '#F6F7F5',
+  // 입력칸·칩·검색 바처럼 바닥보다 조금 어두운 면
+  bgSubtle: '#EEF0EC',
+  card: '#FFFFFF',
+  surface2: '#EEF0EC',
+  border: '#E4E7E1',
+  text: '#141615',
+  textMuted: '#6B7069',
   textOnAccent: '#FFFFFF',
-  accent: '#1DB954',
-  given: '#F59B23',
-  received: '#1DB954',
-  danger: '#E22134',
-  // 하단 탭 바(문서의 내비게이션 면)
-  nav: '#000000',
+  accent: '#2E7D32',
+  // 연두 배지·선택된 칸 바탕
+  accentSoft: '#E6F4E7',
+  given: '#C62828',
+  givenSoft: '#FBEAEA',
+  received: '#2E7D32',
+  receivedSoft: '#E6F4E7',
+  danger: '#C62828',
+  // 하단 탭 바
+  nav: '#FFFFFF',
 };
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
 
-// 4 입력칸·작은 섬네일, 8 카드, 12 큰 그림, 알약은 버튼·칩
-export const radius = { sm: 4, md: 8, lg: 12, pill: 9999 } as const;
+// 8 입력칸·작은 배지, 12 카드·버튼, 16 큰 카드, 알약은 칩
+export const radius = { sm: 8, md: 12, lg: 16, pill: 9999 } as const;
 
 export const font = {
   caption: 12,
@@ -36,6 +41,12 @@ export const font = {
   display: 28,
 } as const;
 
+// 흰 카드를 바닥에서 띄우는 그림자. boxShadow 는 RN 0.76+ 에서 네이티브·웹 모두 먹는다
+export const cardShadow: ViewStyle = {
+  backgroundColor: palette.card,
+  boxShadow: '0 2px 10px rgba(20, 22, 21, 0.06)',
+};
+
 export type Colors = typeof palette;
 
 export const colors = palette;
@@ -43,9 +54,10 @@ export const colors = palette;
 export function useTokens() {
   return {
     colors: palette,
-    isDark: true,
+    isDark: false,
     space,
     radius,
     font,
+    cardShadow,
   };
 }

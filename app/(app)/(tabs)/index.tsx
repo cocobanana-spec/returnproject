@@ -39,7 +39,7 @@ export default function RecordsScreen() {
   const ledgerId = useLedgerId();
   const { current } = useLedger();
   const router = useRouter();
-  const { colors, space, font, radius } = useTokens();
+  const { colors, space, font, radius, cardShadow } = useTokens();
   const insets = useSafeAreaInsets();
 
   const [direction, setDirection] = useState<Direction>(DEFAULT_DIRECTION);
@@ -129,7 +129,8 @@ export default function RecordsScreen() {
               accessibilityState={{ selected }}
               onPress={() => setDirection(d)}
               style={({ pressed }) => ({
-                backgroundColor: selected ? colors.surface2 : colors.bgSubtle,
+                ...cardShadow,
+                backgroundColor: selected ? colors.accentSoft : colors.card,
                 borderRadius: radius.md,
                 flex: 1,
                 paddingHorizontal: space.md,

@@ -50,7 +50,7 @@ const AMOUNT_MIN_WIDTH = 112;
 export default function StatsScreen() {
   const ledgerId = useLedgerId();
   const router = useRouter();
-  const { colors, space, font, radius } = useTokens();
+  const { colors, space, font, radius, cardShadow } = useTokens();
   const insets = useSafeAreaInsets();
 
   const [direction, setDirection] = useState<StatsDirection>('all');
@@ -168,7 +168,7 @@ export default function StatsScreen() {
           {/* 총계 */}
           <View
             style={{
-              backgroundColor: colors.bgSubtle,
+              ...cardShadow,
               borderRadius: radius.lg,
               gap: space.sm,
               padding: space.lg,
@@ -264,7 +264,7 @@ export default function StatsScreen() {
               yearGroups.map((g) => {
                 const open = !collapsed.has(g.year);
                 return (
-                  <View key={g.year} style={{ backgroundColor: colors.card, borderRadius: radius.md, marginTop: space.sm, paddingHorizontal: space.lg }}>
+                  <View key={g.year} style={{ ...cardShadow, borderRadius: radius.md, marginTop: space.sm, paddingHorizontal: space.lg }}>
                     <Pressable
                       accessibilityRole="button"
                       accessibilityState={{ expanded: open }}

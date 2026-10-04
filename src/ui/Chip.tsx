@@ -1,4 +1,4 @@
-// 선택 가능한 칩. 행사 종류·금액 프리셋·관계 그룹·필터에 두루 쓴다 — Green Deck: #282828 면, 선택하면 흰 바탕 검은 글자
+// 선택 가능한 칩. 행사 종류·금액 프리셋·관계 그룹·필터에 두루 쓴다 — Green Deck 라이트: 회색 면, 선택하면 초록 면 흰 글자
 import { Pressable, Text } from 'react-native';
 import { useTokens } from '../theme/tokens';
 
@@ -11,8 +11,8 @@ type Props = {
 
 export function Chip({ label, selected = false, onPress, tone = 'default' }: Props) {
   const { colors, space, radius, font } = useTokens();
-  const activeBg = tone === 'accent' ? colors.accent : colors.text;
-  const activeFg = tone === 'accent' ? colors.textOnAccent : colors.bg;
+  const activeBg = colors.accent;
+  const activeFg = colors.textOnAccent;
 
   return (
     <Pressable

@@ -38,22 +38,22 @@ export class ErrorBoundary extends Component<Props, State> {
     // 토큰 훅은 함수 컴포넌트 전용이라 여기서는 고정 색을 쓴다.
     // 경계 자신이 또 터지면 안 되므로 의존을 최소로 둔다.
     return (
-      <View style={{ flex: 1, backgroundColor: '#121212', padding: 24, gap: 16 }}>
-        <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF', marginTop: 48 }}>
+      <View style={{ flex: 1, backgroundColor: '#F6F7F5', padding: 24, gap: 16 }}>
+        <Text style={{ fontSize: 20, fontWeight: '700', color: '#141615', marginTop: 48 }}>
           화면을 그리다 문제가 생겼습니다
         </Text>
-        <Text style={{ fontSize: 15, color: '#A7A7A7' }}>
+        <Text style={{ fontSize: 15, color: '#6B7069' }}>
           앱은 계속 쓸 수 있습니다. 아래 내용을 알려 주시면 원인을 찾는 데 도움이 됩니다.
         </Text>
         <ScrollView
-          style={{ flex: 1, backgroundColor: '#181818', borderRadius: 12, padding: 12 }}
+          style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 12 }}
           contentContainerStyle={{ paddingBottom: 12 }}
         >
-          <Text selectable style={{ fontSize: 13, color: '#FFFFFF' }}>
+          <Text selectable style={{ fontSize: 13, color: '#141615' }}>
             {String(error?.message ?? error)}
           </Text>
           {info ? (
-            <Text selectable style={{ fontSize: 11, color: '#A7A7A7', marginTop: 12 }}>
+            <Text selectable style={{ fontSize: 11, color: '#6B7069', marginTop: 12 }}>
               {info.trim()}
             </Text>
           ) : null}
@@ -61,7 +61,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <Pressable
           accessibilityRole="button"
           onPress={this.reset}
-          style={{ backgroundColor: '#1DB954', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
+          style={{ backgroundColor: '#2E7D32', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
         >
           <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>다시 시도</Text>
         </Pressable>

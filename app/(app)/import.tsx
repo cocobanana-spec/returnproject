@@ -664,7 +664,7 @@ function Choice({ title, hint, selected, onPress }: { title: string; hint: strin
       accessibilityState={{ selected }}
       onPress={onPress}
       style={({ pressed }) => ({
-        backgroundColor: selected ? colors.surface2 : colors.bgSubtle,
+        backgroundColor: selected ? colors.accentSoft : colors.card,
         borderRadius: radius.md,
         gap: space.xs,
         padding: space.lg,

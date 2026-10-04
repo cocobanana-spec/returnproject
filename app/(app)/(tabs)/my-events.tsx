@@ -156,7 +156,7 @@ export default function MyEventsScreen() {
   );
 }
 
-// 행사 카드 — Green Deck 카드(#181818 면, 모서리 8, 안쪽 16, 테두리 없음). 배지는 초대장 상태나 '공동' 표시
+// 행사 카드 — Green Deck 라이트 카드(흰 면 + 옅은 그림자, 모서리 12, 안쪽 16, 테두리 없음). 배지는 초대장 상태나 '공동' 표시
 function EventCard({
   title,
   subtitle,
@@ -170,13 +170,14 @@ function EventCard({
   badgeTone: 'accent' | 'muted';
   onPress: () => void;
 }) {
-  const { colors, space, font, radius } = useTokens();
+  const { colors, space, font, radius, cardShadow } = useTokens();
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => ({
-        backgroundColor: pressed ? colors.surface2 : colors.card,
+        ...cardShadow,
+        opacity: pressed ? 0.7 : 1,
         borderRadius: radius.md,
         flexDirection: 'row',
         alignItems: 'center',
@@ -195,13 +196,13 @@ function EventCard({
           <View style={{ flexDirection: 'row', marginTop: space.xs }}>
             <View
               style={{
-                backgroundColor: badgeTone === 'accent' ? colors.accent : colors.surface2,
+                backgroundColor: badgeTone === 'accent' ? colors.accentSoft : colors.surface2,
                 borderRadius: radius.pill,
                 paddingHorizontal: space.sm + 2,
                 paddingVertical: 3,
               }}
             >
-              <Text style={{ color: badgeTone === 'accent' ? colors.textOnAccent : colors.textMuted, fontSize: font.caption - 1, fontWeight: '700' }}>
+              <Text style={{ color: badgeTone === 'accent' ? colors.accent : colors.textMuted, fontSize: font.caption - 1, fontWeight: '700' }}>
                 {badge}
               </Text>
             </View>

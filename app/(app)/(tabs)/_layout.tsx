@@ -56,14 +56,14 @@ export default function TabsLayout() {
         headerStyle: { backgroundColor: colors.bg },
         headerTintColor: colors.text,
         headerShadowVisible: false,
-        tabBarActiveTintColor: colors.text,
+        tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
         // 웹에서는 안전 영역 값이 0이라 탭 바가 화면 맨 밑에 딱 붙고, 라벨 아래 여백이 5px 뿐이다.
         // 모바일 브라우저의 주소창·홈 인디케이터와 겹쳐 라벨이 잘린 것처럼 보인다(2026-09-26 실측).
         // 네이티브는 안전 영역이 알아서 잡아 주므로 건드리지 않는다.
         tabBarStyle: {
           backgroundColor: colors.nav,
-          borderTopWidth: 0,
+          borderTopColor: colors.border,
           ...(isWeb ? { height: 64 } : {}),
         },
         tabBarLabelStyle: { fontSize: font.caption - 1 },
