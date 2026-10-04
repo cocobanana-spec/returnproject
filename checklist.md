@@ -364,7 +364,7 @@
 - [x] **OCR** — 그동안 없었다(계획만 있었다). 이번에 넣음: 가져오기 → '사진에서 읽기' → ML Kit(기기 안, 한국어) → 글줄 파서 → 열 매핑·미리보기. 네이티브 모듈이라 **빌드 23·안드로이드부터** 쓸 수 있다. 손글씨 정확도는 실기기에서 재야 한다
 - [x] **안드로이드 — 첫 실행 확인** — 프로젝트 생성(`android/`, 패키지 com.cocobanana.ppurin, 아이콘 있음) → 디버그·릴리즈 APK 빌드 성공(릴리즈 148MB) → 에뮬레이터 Pixel7_A16(Android 16)에 설치·실행 → 로그인 화면 정상 렌더링(스크린샷 확인, 에뮬레이터 언어가 영어라 영문 표시)
 - [x] **안드로이드 — 서명 키** — `~/.ppurin/upload-keystore.jks` + `keystore.properties`(저장소 밖). `plugins/withAndroidUploadSigning.js` 가 prebuild 때 release 서명을 이 키로 바꾼다. SHA-1 은 docs/10
-- [ ] **안드로이드 — 릴리즈 APK·AAB(현재 코드, versionCode 2)** — 빌드 진행 중 → 에뮬레이터 설치·로그인·홈 확인
+- [x] **안드로이드 — 릴리즈 APK·AAB(현재 코드, versionCode 2)** — 업로드 키로 서명 확인(SHA-1 일치). 에뮬레이터에서 로그인·홈·내 행사·통계(고정 머리) 확인. AAB 는 `~/Desktop/ppurin-1.0.1-vc2.aab`
 - [ ] **안드로이드 — Play Console(사장님)** — 개발자 계정(개인사업자=조직, 25달러) → 앱 만들기 → 내부 테스트에 AAB → 데이터 보안·등급·처리방침 URL. 절차는 docs/10-android-release.md
 
 ### 5-1-4. 3차 요청(2026-10-04 저녁) — 디자인·내 행사 카드·통계 구조·홈 제목 + 빌드 23
