@@ -263,13 +263,16 @@ export default function StatsScreen() {
     </View>
   );
 
+  // 안전 영역(상태 바) 여백은 목록 **바깥**에 둔다. contentContainer 에 넣으면 고정 머리가 스크롤 뷰
+  // 맨 위(상태 바 밑)에 붙어 시계와 겹친다(2026-10-04 안드로이드 에뮬레이터에서 확인).
   return (
+    <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top }}>
     <SectionList
-      style={{ flex: 1, backgroundColor: colors.bg }}
+      style={{ flex: 1 }}
       contentContainerStyle={{
         paddingBottom: insets.bottom + space.xxl,
         paddingHorizontal: space.xl,
-        paddingTop: insets.top + space.md,
+        paddingTop: space.md,
       }}
       sections={sections}
       keyExtractor={(e) => e.event_id}
@@ -457,6 +460,7 @@ export default function StatsScreen() {
         ) : null
       }
     />
+    </View>
   );
 }
 
