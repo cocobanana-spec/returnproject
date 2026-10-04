@@ -32,7 +32,10 @@ import { preparePhoto } from '../../../src/lib/preparePhoto.ts';
 import { getEvent } from '../../../src/repositories/events';
 import {
   createInvitation,
+  deleteGuestbookEntry,
   getInvitationByEvent,
+  listGuestbook,
+  setGuestbookHidden,
   photoUrl,
   publishInvitation,
   removePhotos,
@@ -276,6 +279,8 @@ export default function InvitationScreen() {
           )}
         </View>
 
+        <Guestbook invitationId={inv.id} />
+
         {kind === 'wedding' ? (
           <WeddingForm c={content as WeddingContent} patch={patch} onPick={pickAndUpload} uploading={uploading} />
         ) : (
@@ -428,6 +433,61 @@ function FuneralForm({ c, patch }: { c: FuneralContent; patch: (next: Partial<Fu
       <Text style={{ color: colors.textMuted, fontSize: font.caption, lineHeight: 18 }}>
         일시는 2026-11-03 08:00 형식으로 적어 주세요.
       </Text>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 방명록 — 하객이 공개 페이지에서 남긴 말. 주인은 숨기거나 지운다. 숨긴 것은 전광판에서 빠진다.
+// ---------------------------------------------------------------------------
+function Guestbook({ invitationId }: { invitationId: string }) {
+  const { colors, space, font, radius } = useTokens();
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const key = ['guestbook', invitationId] as const;
+  const list = useQuery({ queryKey: key, queryFn: () => listGuestbook(invitationId) });
+  const hide = useMutation({
+    mutationFn: ({ id, hidden }: { id: string; hidden: boolean }) => setGuestbookHidden(id, hidden),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: key }),
+    onError: (e: Error) => toast.show({ message: e.message, durationMs: 4000 }),
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => deleteGuestbookEntry(id),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: key }),
+    onError: (e: Error) => toast.show({ message: e.message, durationMs: 4000 }),
+  });
+  const rows = list.data ?? [];
+  if (list.isLoading) return null;
+  return (
+    <View style={{ gap: space.sm }}>
+      <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }}>방명록 {rows.length ? `· ${rows.length}` : ''}</Text>
+      {rows.length === 0 ? (
+        <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
+          하객이 공개 페이지에서 남긴 메시지가 여기 모입니다. 공개 페이지 맨 위에서 전광판처럼 돌아갑니다.
+        </Text>
+      ) : (
+        rows.map((g) => (
+          <View key={g.id} style={{ backgroundColor: colors.bgSubtle, borderRadius: radius.md, padding: space.md, gap: space.xs, opacity: g.hidden ? 0.5 : 1 }}>
+            <Text style={{ color: colors.text, fontSize: font.body }}>
+              <Text style={{ fontWeight: '700' }}>{g.name}</Text>  {g.message}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: space.md }}>
+              <Pressable onPress={() => hide.mutate({ id: g.id, hidden: !g.hidden })}>
+                <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{g.hidden ? '다시 보이기' : '숨기기'}</Text>
+              </Pressable>
+              <Pressable
+                onPress={() =>
+                  void confirmAction({ title: '이 메시지를 지울까요', message: `${g.name} · 되돌릴 수 없습니다.`, confirmLabel: '지우기', destructive: true }).then((ok) => {
+                    if (ok) remove.mutate(g.id);
+                  })
+                }
+              >
+                <Text style={{ color: colors.danger, fontSize: font.caption }}>지우기</Text>
+              </Pressable>
+            </View>
+          </View>
+        ))
+      )}
     </View>
   );
 }

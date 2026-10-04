@@ -10,7 +10,7 @@ import {
   type WeddingContent,
 } from '../../domain/invitation.ts';
 import { FUNERAL_BASIC_CSS, renderFuneralBody } from './funeral.ts';
-import { COPY_SCRIPT, document, noticePage } from './html.ts';
+import { COPY_SCRIPT, document, guestbookForm, guestbookScript, marquee, noticePage, type GuestbookEndpoint, type GuestbookMessage } from './html.ts';
 import { WEDDING_BASIC_CSS, renderWeddingBody, type AssetUrl } from './wedding.ts';
 
 export { noticePage } from './html.ts';
@@ -23,6 +23,9 @@ export type RenderInput = {
   url: string;
   // 스토리지 경로 → 공개 URL
   assetUrl: AssetUrl;
+  // 방명록. 메시지 목록과, 남기기 요청을 보낼 곳. 둘 다 없으면 방명록 없이 그린다(앱 미리보기).
+  guestbook?: GuestbookMessage[];
+  guestbookEndpoint?: GuestbookEndpoint;
 };
 
 // 미리보기(OG)에 쓸 한 줄 설명. 카카오톡 미리보기의 둘째 줄이다.
@@ -36,19 +39,23 @@ export function shareDescription(kind: InvitationKind, content: InvitationConten
 }
 
 export function renderInvitationPage(input: RenderInput): string {
-  const { kind, content, url, assetUrl } = input;
+  const { kind, content, url, assetUrl, guestbook, guestbookEndpoint } = input;
   const title = shareTitle(kind, content);
   const description = shareDescription(kind, content);
+  // 방명록은 끝점이 있을 때만(공개 페이지). 전광판은 맨 위, 입력칸은 맨 아래.
+  const top = guestbookEndpoint ? marquee(guestbook ?? []) : '';
+  const bottom = guestbookEndpoint ? guestbookForm((guestbook ?? []).length) : '';
+  const script = COPY_SCRIPT + (guestbookEndpoint ? guestbookScript(guestbookEndpoint) : '');
 
   if (kind === 'wedding') {
     const c = content as WeddingContent;
     return document(
       { title, description, url, image: c.cover ? assetUrl(c.cover) : undefined },
       WEDDING_BASIC_CSS,
-      renderWeddingBody(c, assetUrl),
-      COPY_SCRIPT,
+      top + renderWeddingBody(c, assetUrl) + bottom,
+      script,
     );
   }
   const c = content as FuneralContent;
-  return document({ title, description, url }, FUNERAL_BASIC_CSS, renderFuneralBody(c), COPY_SCRIPT, '부고장');
+  return document({ title, description, url }, FUNERAL_BASIC_CSS, top + renderFuneralBody(c) + bottom, script, '부고장');
 }

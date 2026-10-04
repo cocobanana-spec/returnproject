@@ -112,3 +112,31 @@ test('안내 페이지는 무엇이 있었는지 말하지 않는다', () => {
     assert.ok(!h.includes('김철수'));
   }
 });
+
+test('방명록 — 끝점이 있으면 전광판이 맨 위, 입력칸이 맨 아래에 들어가고 이름·메시지는 이스케이프된다', () => {
+  const ep = { supabaseUrl: 'https://x.supabase.co', anonKey: 'anon', slug: 'Ab3xYz9Qw1' };
+  const html = renderInvitationPage({
+    kind: 'wedding', templateId: 'basic', content: wedding, url: 'u', assetUrl,
+    guestbook: [{ name: '박하객', message: '축하해요 <b>진심</b>' }],
+    guestbookEndpoint: ep,
+  });
+  const marqueeAt = html.indexOf('class="marquee"');
+  const heroAt = html.indexOf('class="hero"');
+  const formAt = html.indexOf('id="gb-form"');
+  assert.ok(marqueeAt > 0 && marqueeAt < heroAt, '전광판이 본문보다 앞');
+  assert.ok(formAt > heroAt, '입력칸이 본문보다 뒤');
+  assert.ok(html.includes('<b>박하객</b> 축하해요 &lt;b&gt;진심&lt;/b&gt;'));
+  assert.ok(html.includes('add_guestbook_message'));
+  assert.ok(html.includes('"Ab3xYz9Qw1"'));
+  assert.ok(html.includes('1개의 메시지'));
+});
+
+test('방명록 — 메시지가 없으면 안내 한 줄, 끝점이 없으면(앱 미리보기) 방명록 자체가 없다', () => {
+  const ep = { supabaseUrl: 'https://x.supabase.co', anonKey: 'anon', slug: 'Ab3xYz9Qw1' };
+  const empty = renderInvitationPage({ kind: 'funeral', templateId: 'basic', content: funeral, url: 'u', assetUrl, guestbook: [], guestbookEndpoint: ep });
+  assert.ok(empty.includes('첫 축하 메시지를 남겨 주세요') || empty.includes('mq-empty'));
+  const preview = renderInvitationPage({ kind: 'funeral', templateId: 'basic', content: funeral, url: 'u', assetUrl });
+  assert.ok(!preview.includes('class="marquee"'));
+  assert.ok(!preview.includes('id="gb-form"'));
+  assert.ok(!preview.includes('add_guestbook_message'));
+});

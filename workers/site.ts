@@ -8,6 +8,7 @@
 // 들어 있다). 서비스 키는 이 워커에 없다 — 있을 이유가 없다.
 import { type InvitationContent, type InvitationKind } from '../src/domain/invitation.ts';
 import { noticePage, renderInvitationPage } from '../src/invitation/render/index.ts';
+import type { GuestbookMessage } from '../src/invitation/render/html.ts';
 
 type Env = {
   ASSETS: { fetch(request: Request): Promise<Response> };
@@ -46,6 +47,21 @@ async function fetchInvitation(env: Env, slug: string): Promise<PublicInvitation
   return rows[0] ?? null;
 }
 
+// 방명록. 실패하면 빈 목록으로 그린다 — 방명록 때문에 청첩장이 안 뜨면 안 된다.
+async function fetchGuestbook(env: Env, slug: string): Promise<GuestbookMessage[]> {
+  try {
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/public_guestbook`, {
+      method: 'POST',
+      headers: { apikey: env.SUPABASE_ANON_KEY, authorization: `Bearer ${env.SUPABASE_ANON_KEY}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ p_slug: slug }),
+    });
+    if (!res.ok) return [];
+    return (await res.json()) as GuestbookMessage[];
+  } catch {
+    return [];
+  }
+}
+
 // 조회수. 응답을 기다리지 않는다(waitUntil). 실패해도 페이지는 나간다.
 function countView(env: Env, slug: string): Promise<unknown> {
   return fetch(`${env.SUPABASE_URL}/rest/v1/rpc/record_invitation_view`, {
@@ -74,8 +90,9 @@ export default {
     }
 
     let inv: PublicInvitation | null;
+    let guestbook: GuestbookMessage[] = [];
     try {
-      inv = await fetchInvitation(env, slug);
+      [inv, guestbook] = await Promise.all([fetchInvitation(env, slug), fetchGuestbook(env, slug)]);
     } catch {
       // 데이터 쪽 장애. 캐시하지 않는 503 으로 돌려 봇이 '없음'으로 기억하지 않게 한다.
       return new Response('잠시 뒤 다시 열어 주세요.', { status: 503, headers: { ...HTML, 'cache-control': 'no-store' } });
@@ -96,11 +113,14 @@ export default {
       content: inv.content,
       url: pageUrl,
       assetUrl: assetUrlFor(env),
+      guestbook,
+      guestbookEndpoint: { supabaseUrl: env.SUPABASE_URL, anonKey: env.SUPABASE_ANON_KEY, slug },
     });
     return new Response(head ? null : html, {
       status: 200,
       // 짧게만 캐시한다. 내리기·수정이 1분 안에 보여야 한다.
-      headers: { ...HTML, 'cache-control': 'public, max-age=60' },
+      // 방명록이 남긴 직후 새로고침에서 보여야 한다. 캐시는 20초.
+      headers: { ...HTML, 'cache-control': 'public, max-age=20' },
     });
   },
 };

@@ -186,6 +186,20 @@ export type Database = {
           },
         ]
       }
+      guestbook_entries: {
+        Row: { created_at: string; hidden: boolean; id: string; invitation_id: string; message: string; name: string }
+        Insert: { created_at?: string; hidden?: boolean; id?: string; invitation_id: string; message: string; name: string }
+        Update: { created_at?: string; hidden?: boolean; id?: string; invitation_id?: string; message?: string; name?: string }
+        Relationships: [
+          {
+            foreignKeyName: "guestbook_entries_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: false
+            referencedRelation: "invitations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitations: {
         Row: {
           content: Json
@@ -502,6 +516,14 @@ export type Database = {
       unpublish_invitation: {
         Args: { p_invitation_id: string }
         Returns: undefined
+      }
+      add_guestbook_message: {
+        Args: { p_slug: string; p_name: string; p_message: string }
+        Returns: string
+      }
+      public_guestbook: {
+        Args: { p_slug: string }
+        Returns: { name: string; message: string; created_at: string }[]
       }
       admin_stats: {
         Args: Record<PropertyKey, never>

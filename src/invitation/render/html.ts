@@ -96,9 +96,82 @@ p{margin:0 0 8px}
 .account .bank{font-weight:600}
 .account .holder{opacity:0.7;font-size:0.9rem}
 button.copy{border:1px solid currentColor;background:transparent;color:inherit;border-radius:999px;padding:6px 12px;font-size:0.85rem;cursor:pointer}
+.marquee{overflow:hidden;white-space:nowrap;background:rgba(0,0,0,0.04);font-size:0.92rem;padding:10px 0}
+.mq-track{display:inline-flex;animation:mq var(--mq-dur,40s) linear infinite}
+.mq-run{display:inline-block;padding-right:48px}
+.mq-item{margin:0 10px}
+.mq-dot{opacity:0.4}
+.mq-empty{opacity:0.6}
+@keyframes mq{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion: reduce){.mq-track{animation:none}}
+.guestbook form{display:grid;gap:8px}
+.guestbook input,.guestbook textarea{font:inherit;padding:10px 12px;border:1px solid rgba(0,0,0,0.15);border-radius:10px;background:transparent;color:inherit}
+.guestbook button{font:inherit;font-weight:700;padding:12px;border-radius:999px;border:0;background:#111;color:#fff;cursor:pointer}
+.guestbook button:disabled{opacity:0.5}
+.gb-note{font-size:0.85rem;opacity:0.7;min-height:1.2em;margin:0}
 .footer{text-align:center;padding:24px;font-size:0.8rem;opacity:0.55}
 .footer a{color:inherit}
 `;
+
+// ---------------------------------------------------------------------------
+// 방명록 — 위에는 전광판(마키), 아래에는 입력칸. 하객은 로그인이 없으므로 anon 키로 함수를 부른다.
+// ---------------------------------------------------------------------------
+export type GuestbookMessage = { name: string; message: string };
+export type GuestbookEndpoint = { supabaseUrl: string; anonKey: string; slug: string };
+
+// 전광판. CSS 만으로 돈다(자바스크립트 없이도 움직인다). 메시지가 없으면 안내 한 줄.
+// 같은 내용을 두 번 이어 붙여 끊김 없이 돌게 한다.
+export function marquee(messages: GuestbookMessage[]): string {
+  const items = messages.length
+    ? messages.map((m) => `<span class="mq-item"><b>${esc(m.name)}</b> ${esc(m.message)}</span>`).join('<span class="mq-dot">·</span>')
+    : `<span class="mq-item mq-empty">아래에서 첫 축하 메시지를 남겨 주세요</span>`;
+  const dur = Math.max(18, Math.min(120, messages.reduce((n, m) => n + m.name.length + m.message.length, 0) / 2.2));
+  return `<div class="marquee" id="marquee" aria-live="polite" style="--mq-dur:${dur.toFixed(0)}s">
+    <div class="mq-track"><div class="mq-run">${items}</div><div class="mq-run" aria-hidden="true">${items}</div></div>
+  </div>`;
+}
+
+export function guestbookForm(count: number): string {
+  return `<section class="guestbook" id="guestbook">
+    <h2>방명록</h2>
+    <p class="muted">${count ? `${count}개의 메시지` : '아직 메시지가 없습니다'}. 남기신 말은 위에서 돌아갑니다.</p>
+    <form id="gb-form">
+      <input name="name" maxlength="20" placeholder="이름" required autocomplete="name">
+      <textarea name="message" maxlength="200" rows="3" placeholder="축하 또는 위로의 한마디" required></textarea>
+      <button type="submit">남기기</button>
+      <p class="gb-note" id="gb-note"></p>
+    </form>
+  </section>`;
+}
+
+// 전광판은 CSS 가 돌리고, 이 스크립트는 남기기만 처리한다. 성공하면 전광판 맨 앞에 바로 붙인다.
+export function guestbookScript(ep: GuestbookEndpoint): string {
+  return `<script>
+(function(){
+  var f=document.getElementById('gb-form'); if(!f) return;
+  var note=document.getElementById('gb-note');
+  f.addEventListener('submit',function(e){
+    e.preventDefault();
+    var name=f.name.value.trim(), msg=f.message.value.trim();
+    if(!name||!msg){ note.textContent='이름과 메시지를 적어 주세요.'; return; }
+    f.querySelector('button').disabled=true; note.textContent='남기는 중…';
+    fetch(${JSON.stringify(ep.supabaseUrl)}+'/rest/v1/rpc/add_guestbook_message',{method:'POST',
+      headers:{'apikey':${JSON.stringify(ep.anonKey)},'Authorization':'Bearer '+${JSON.stringify(ep.anonKey)},'Content-Type':'application/json'},
+      body:JSON.stringify({p_slug:${JSON.stringify(ep.slug)},p_name:name,p_message:msg})})
+    .then(function(r){ if(!r.ok) throw new Error(String(r.status)); return r.json(); })
+    .then(function(){
+      note.textContent='고맙습니다. 메시지를 남겼습니다.';
+      var esc=function(s){ return s.replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+      var html='<span class="mq-item"><b>'+esc(name)+'</b> '+esc(msg)+'</span><span class="mq-dot">·</span>';
+      document.querySelectorAll('.mq-run').forEach(function(run){ var empty=run.querySelector('.mq-empty'); if(empty) run.innerHTML=''; run.insertAdjacentHTML('afterbegin',html); });
+      f.reset();
+    })
+    .catch(function(){ note.textContent='남기지 못했습니다. 잠시 뒤 다시 시도해 주세요.'; })
+    .then(function(){ f.querySelector('button').disabled=false; });
+  });
+})();
+</script>`;
+}
 
 export type PageMeta = {
   title: string;

@@ -116,3 +116,22 @@ export async function removePhotos(paths: string[]): Promise<void> {
 export function photoUrl(path: string): string {
   return db().storage.from('invitations').getPublicUrl(path).data.publicUrl;
 }
+
+// ---------------------------------------------------------------------------
+// 방명록 — 주인이 본다·숨긴다·지운다. 하객의 쓰기는 공개 페이지가 함수로 한다(0015).
+// ---------------------------------------------------------------------------
+export type GuestbookEntry = Tables<'guestbook_entries'>;
+
+export async function listGuestbook(invitationId: string): Promise<GuestbookEntry[]> {
+  return unwrap(
+    await db().from('guestbook_entries').select('*').eq('invitation_id', invitationId).order('created_at', { ascending: false }),
+  ) as GuestbookEntry[];
+}
+
+export async function setGuestbookHidden(id: string, hidden: boolean): Promise<void> {
+  unwrap(await db().from('guestbook_entries').update({ hidden }).eq('id', id));
+}
+
+export async function deleteGuestbookEntry(id: string): Promise<void> {
+  unwrap(await db().from('guestbook_entries').delete().eq('id', id));
+}
