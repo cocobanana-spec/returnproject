@@ -66,6 +66,9 @@ import { Field } from '../../src/ui/Field';
 import { LoadFailed } from '../../src/ui/LoadFailed';
 import { Screen } from '../../src/ui/Screen';
 import { SampleTable } from '../../src/ui/SampleTable';
+import * as ImagePicker from 'expo-image-picker';
+import { linesToTable } from '../../src/domain/ocrLines.ts';
+import { isWeb } from '../../src/lib/platform.ts';
 
 type Step = 'target' | 'file' | 'mapping' | 'preview' | 'saving' | 'done';
 
@@ -146,6 +149,36 @@ export default function ImportScreen() {
       setStep('mapping');
     } catch (e) {
       setError(`파일을 읽지 못했습니다. ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 사진에서 읽기(OCR) — 손으로 쓴 명부·방명록·축의금 봉투 묶음. 기기 안에서만 인식한다(ML Kit).
+  // 웹에는 없다. 모듈은 네이티브에서만 require 한다 — 라우트 모듈은 시작 때 전부 평가되므로 위에서
+  // import 하면 웹 번들이 죽는다(미리보기 화면의 웹뷰와 같은 이유).
+  async function pickPhoto() {
+    setError(null);
+    setBusy(true);
+    try {
+      const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, allowsMultipleSelection: false });
+      if (picked.canceled || !picked.assets[0]) return;
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const mlkit = require('@react-native-ml-kit/text-recognition') as typeof import('@react-native-ml-kit/text-recognition');
+      const result = await mlkit.default.recognize(picked.assets[0].uri, mlkit.TextRecognitionScript.KOREAN);
+      const lines = result.blocks.flatMap((b) => b.lines.map((l) => l.text));
+      const tbl = linesToTable(lines);
+      if (tbl.length === 0) {
+        setError('사진에서 이름과 금액을 찾지 못했습니다. 글자가 또렷하게 나온 사진으로 다시 해 보세요.');
+        return;
+      }
+      setFileName('사진');
+      setBytes(null);
+      setTable(tbl);
+      setMapping(guessMapping(tbl));
+      setStep('mapping');
+    } catch (e) {
+      setError(`사진을 읽지 못했습니다. ${(e as Error).message}`);
     } finally {
       setBusy(false);
     }
@@ -383,6 +416,14 @@ export default function ImportScreen() {
           </Text>
           <SampleTable />
           <Button label="파일 고르기" onPress={() => void pickFile()} loading={busy} disabled={busy} />
+          {!isWeb && (
+            <>
+              <Button label="사진에서 읽기" variant="secondary" onPress={() => void pickPhoto()} loading={busy} disabled={busy} />
+              <Text style={{ color: colors.textMuted, fontSize: font.caption, lineHeight: 18 }}>
+                손으로 쓴 명부나 방명록 사진에서 이름과 금액을 읽어 옵니다. 기기 안에서만 인식하며 사진은 서버로 보내지 않습니다. 손글씨는 틀릴 수 있으니 미리보기에서 꼭 확인하세요.
+              </Text>
+            </>
+          )}
           {error && <Text style={{ color: colors.danger, fontSize: font.caption }}>{error}</Text>}
         </View>
       </Screen>
