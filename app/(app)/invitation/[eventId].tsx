@@ -28,7 +28,7 @@ import { useLedgerId } from '../../../src/ledger/LedgerProvider';
 import { confirmAction } from '../../../src/lib/confirm.ts';
 import { isWeb } from '../../../src/lib/platform.ts';
 import { queryKeys } from '../../../src/lib/queryKeys';
-import { readFileBytes } from '../../../src/lib/readFileBytes.ts';
+import { preparePhoto } from '../../../src/lib/preparePhoto.ts';
 import { getEvent } from '../../../src/repositories/events';
 import {
   createInvitation,
@@ -185,13 +185,15 @@ export default function InvitationScreen() {
     setUploading(true);
     try {
       const paths: string[] = [];
+      const notices = new Set<string>();
       for (const [i, a] of res.assets.entries()) {
-        const bytes = await readFileBytes(a.uri);
-        const ext = a.mimeType === 'image/png' ? 'png' : a.mimeType === 'image/webp' ? 'webp' : 'jpg';
-        const type = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-        const name = `${slot}-${Date.now()}-${i}.${ext}`;
-        paths.push(await uploadPhoto(ledgerId, inv.id, name, bytes, type));
+        // 큰 사진은 줄이고, 무거우면 압축하고, HEIC 는 JPEG 로. 바꿨으면 알린다(src/domain/photo.ts).
+        const ready = await preparePhoto(a.uri, { width: a.width, height: a.height, bytes: a.fileSize, mimeType: a.mimeType });
+        if (ready.notice) notices.add(ready.notice);
+        const name = `${slot}-${Date.now()}-${i}.${ready.ext}`;
+        paths.push(await uploadPhoto(ledgerId, inv.id, name, ready.bytes, ready.contentType));
       }
+      if (notices.size) toast.show({ message: [...notices].join(' '), durationMs: 4500 });
       const w = content as WeddingContent;
       if (slot === 'cover') {
         if (w.cover) void removePhotos([w.cover]).catch(() => {});
