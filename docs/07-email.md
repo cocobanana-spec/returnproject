@@ -72,63 +72,79 @@ Cloudflare 의 Email Routing(무료)을 켜면 `support@ppurin.com` 으로 온 �
 넘겨 준다. 랜딩·처리방침의 문의 주소를 개인 Gmail 대신 이것으로 바꿀 수 있다. 메일 발송과는
 별개이니 나중에 해도 된다.
 
-## 메일 본문 (한국어)
+## 메일 본문 (한국어 + 영어, 2026-10-04 개정)
 
-Supabase 기본 템플릿은 영문이다. Authentication → Emails → 각 템플릿에서 아래로 바꾼다.
+Supabase 기본 템플릿은 영문이다. Authentication → Emails → 각 템플릿 → **Source** 탭에 아래를 붙여 넣는다.
 `{{ .ConfirmationURL }}` 은 Supabase 가 채우는 자리다. **철자를 바꾸면 링크가 사라진다.**
+
+한 메일에 한국어를 먼저, 영어를 아래에 둔다. 사용자별로 언어를 가르는 것은 다국어 작업 때
+한다 — 앱이 가입할 때 `user_metadata.lang` 을 보내면 템플릿에서 `{{ if eq .Data.lang "en" }}` 으로
+가를 수 있다(Supabase 템플릿은 Go 템플릿이고 `.Data` 가 사용자 메타데이터다).
 
 ### Confirm signup — 제목
 
 ```
-뿌린대로거두리라 가입을 확인해 주세요
+뿌린대로거두리라 가입을 확인해 주세요 · Confirm your email
 ```
 
 ### Confirm signup — 본문
 
 ```html
-<h2>가입을 확인해 주세요</h2>
-<p>아래 버튼을 누르면 가입이 끝나고 바로 장부를 쓸 수 있습니다.</p>
-<p>
-  <a href="{{ .ConfirmationURL }}"
-     style="display:inline-block;padding:12px 22px;border-radius:999px;background:#111;color:#fff;text-decoration:none;font-weight:700">
-    가입 확인하기
-  </a>
-</p>
-<p style="color:#666;font-size:14px">
-  버튼이 눌리지 않으면 아래 주소를 브라우저에 붙여 넣으세요.<br>
-  {{ .ConfirmationURL }}
-</p>
-<p style="color:#666;font-size:14px">
-  본인이 가입한 적이 없다면 이 메일을 지우시면 됩니다. 아무 일도 일어나지 않습니다.
-</p>
-<p style="color:#999;font-size:13px">뿌린대로거두리라 · 경조사로 주고받은 마음을 사람 단위로</p>
+<div style="font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:#111;line-height:1.6">
+  <h2 style="margin:0 0 8px">가입을 확인해 주세요</h2>
+  <p>아래 버튼을 누르면 가입이 끝나고 바로 장부를 쓸 수 있습니다.</p>
+  <p style="margin:20px 0">
+    <a href="{{ .ConfirmationURL }}"
+       style="display:inline-block;padding:12px 22px;border-radius:999px;background:#111;color:#fff;text-decoration:none;font-weight:700">
+      가입 확인하기 · Confirm email
+    </a>
+  </p>
+  <p style="color:#666;font-size:14px">
+    버튼이 눌리지 않으면 아래 주소를 브라우저에 붙여 넣으세요.<br>
+    {{ .ConfirmationURL }}
+  </p>
+  <p style="color:#666;font-size:14px">
+    본인이 가입한 적이 없다면 이 메일을 지우시면 됩니다. 아무 일도 일어나지 않습니다.
+  </p>
+  <hr style="border:0;border-top:1px solid #e6e6e6;margin:24px 0">
+  <h3 style="margin:0 0 6px;color:#444">Confirm your email</h3>
+  <p style="color:#444">Tap the button above to finish signing up. If the button does not work, paste the link above into your browser.</p>
+  <p style="color:#666;font-size:14px">If you did not sign up, you can ignore this email. Nothing will happen.</p>
+  <p style="color:#999;font-size:13px;margin-top:24px">뿌린대로거두리라 · 경조사로 주고받은 마음을 사람 단위로</p>
+</div>
 ```
 
 ### Reset password — 제목
 
 ```
-뿌린대로거두리라 비밀번호 재설정
+뿌린대로거두리라 비밀번호 재설정 · Reset your password
 ```
 
 ### Reset password — 본문
 
 ```html
-<h2>비밀번호를 새로 정하세요</h2>
-<p>아래 버튼을 누르면 새 비밀번호를 입력하는 화면이 열립니다.</p>
-<p>
-  <a href="{{ .ConfirmationURL }}"
-     style="display:inline-block;padding:12px 22px;border-radius:999px;background:#111;color:#fff;text-decoration:none;font-weight:700">
-    비밀번호 재설정하기
-  </a>
-</p>
-<p style="color:#666;font-size:14px">
-  버튼이 눌리지 않으면 아래 주소를 브라우저에 붙여 넣으세요.<br>
-  {{ .ConfirmationURL }}
-</p>
-<p style="color:#666;font-size:14px">
-  본인이 요청한 적이 없다면 이 메일을 지우시면 됩니다. <strong>비밀번호는 그대로입니다.</strong>
-</p>
-<p style="color:#999;font-size:13px">뿌린대로거두리라 · 경조사로 주고받은 마음을 사람 단위로</p>
+<div style="font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:#111;line-height:1.6">
+  <h2 style="margin:0 0 8px">비밀번호를 새로 정하세요</h2>
+  <p>아래 버튼을 누르면 새 비밀번호를 입력하는 화면이 열립니다.</p>
+  <p style="margin:20px 0">
+    <a href="{{ .ConfirmationURL }}"
+       style="display:inline-block;padding:12px 22px;border-radius:999px;background:#111;color:#fff;text-decoration:none;font-weight:700">
+      비밀번호 재설정하기 · Reset password
+    </a>
+  </p>
+  <p style="color:#666;font-size:14px">
+    버튼이 눌리지 않으면 아래 주소를 브라우저에 붙여 넣으세요.<br>
+    {{ .ConfirmationURL }}
+  </p>
+  <p style="color:#666;font-size:14px">
+    본인이 요청한 적이 없다면 이 메일을 지우시면 됩니다. <strong>비밀번호는 그대로입니다.</strong>
+  </p>
+  <hr style="border:0;border-top:1px solid #e6e6e6;margin:24px 0">
+  <h3 style="margin:0 0 6px;color:#444">Reset your password</h3>
+  <p style="color:#444">Tap the button above to choose a new password. If the button does not work, paste the link above into your browser.</p>
+  <p style="color:#666;font-size:14px">If you did not request this, ignore this email. <strong>Your password stays the same.</strong></p>
+  <p style="color:#999;font-size:13px;margin-top:24px">뿌린대로거두리라 · 경조사로 주고받은 마음을 사람 단위로</p>
+</div>
 ```
 
 ## 걸리는 것
