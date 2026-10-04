@@ -67,8 +67,7 @@ export default function AppLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="ledger" options={{ title: '장부' }} />
-        <Stack.Screen name="ledger-reset" options={{ title: '장부 초기화' }} />
+        <Stack.Screen name="ledger-reset" options={{ title: '모든 기록 삭제' }} />
         <Stack.Screen name="search" options={{ title: '사람 찾기' }} />
         <Stack.Screen name="import" options={{ title: '가져오기' }} />
         <Stack.Screen name="people" options={{ title: '사람' }} />

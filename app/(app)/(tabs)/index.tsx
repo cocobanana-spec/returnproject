@@ -92,15 +92,12 @@ export default function RecordsScreen() {
           paddingTop: insets.top + space.md,
         }}
       >
-        <Pressable onPress={() => router.push('/ledger')} style={{ flex: 1 }}>
-          <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{t('home.currentLedger')}</Text>
-          <View style={{ alignItems: 'center', flexDirection: 'row', gap: space.xs }}>
-            <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '700' }} numberOfLines={1}>
-              {current?.name ?? t('home.myLedger')}
-            </Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-          </View>
-        </Pressable>
+        {/* 장부라는 개념은 화면에서 뺐다(2026-10-04 사용자 결정). 공유는 행사 단위로 한다. */}
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '700' }} numberOfLines={1}>
+            {t('app.name')}
+          </Text>
+        </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('home.search')}

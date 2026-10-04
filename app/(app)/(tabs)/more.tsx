@@ -139,21 +139,6 @@ export default function MoreScreen() {
         ) : null}
       </Section>
 
-      <Section title={t('more.ledgerSection')}>
-        <Row
-          icon="book-outline"
-          label={t('more.ledger')}
-          hint={`${current?.name ?? t('home.myLedger')}${ledgers.length > 1 ? t('more.ledgerOthers', { n: ledgers.length - 1 }) : ''}`}
-          onPress={() => router.push('/ledger')}
-        />
-        <Row
-          icon="trash-outline"
-          label={t('more.reset')}
-          hint={t('more.resetHint')}
-          onPress={() => router.push('/ledger-reset')}
-        />
-      </Section>
-
       {/* 앱에서는 웹이 있는 줄 모르고, 웹에서는 앱이 있는 줄 모른다(2026-10-03 사용자 지적).
           서로를 가리키는 줄을 하나씩 둔다. 앱 쪽은 공유 시트로 띄운다 — 폰 브라우저에서 여는 것보다
           AirDrop·메시지로 PC 에 보내는 쪽이 "PC 에서 쓰려는" 목적에 맞다. */}
@@ -198,6 +183,12 @@ export default function MoreScreen() {
       )}
 
       <Section title={t('more.accountSection')}>
+        <Row
+          icon="trash-outline"
+          label={t('more.reset')}
+          hint={t('more.resetHint')}
+          onPress={() => router.push('/ledger-reset')}
+        />
         <Row
           icon="person-circle-outline"
           label={t('more.account')}
