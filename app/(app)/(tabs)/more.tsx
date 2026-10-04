@@ -111,12 +111,7 @@ export default function MoreScreen() {
       <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '700' }}>{t('more.title')}</Text>
 
       <Section title={t('more.records')}>
-        <Row
-          icon="people-outline"
-          label={t('more.people')}
-          hint={t('more.peopleHint')}
-          onPress={() => router.push('/people')}
-        />
+        {/* '사람' 줄은 뺐다(2026-10-04 사장님 결정). 사람 원장은 홈 목록·검색·통계에서 가고, 합치기는 사람 원장 ⋯ 안에 있다 */}
         <Row
           icon="calendar-outline"
           label={t('more.events')}
