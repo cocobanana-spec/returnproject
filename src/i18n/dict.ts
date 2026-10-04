@@ -15,7 +15,7 @@ type Dict = Record<string, string>;
 const ko: Dict = {
   'app.name': '뿌린대로거두리라',
   'app.tagline': '경조사로 주고받은 마음을\n사람 단위로 기록합니다.',
-  'home.title': '뿌린',
+  'home.title': '뿌린대로거두리라',
   // 로그인·가입
   'auth.offline': '인터넷에 연결되어 있지 않습니다.',
   'auth.email': '메일 주소',

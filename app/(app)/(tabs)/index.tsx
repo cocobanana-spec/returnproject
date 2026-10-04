@@ -9,7 +9,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useT } from '../../../src/i18n';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -33,6 +33,8 @@ import { EmptyState } from '../../../src/ui/EmptyState';
 import { EntryNames } from '../../../src/ui/EntryNames';
 import { LoadFailed } from '../../../src/ui/LoadFailed';
 import { ScrollFade } from '../../../src/ui/ScrollFade';
+
+const LOGO = require('../../../assets/icon.png');
 
 export default function RecordsScreen() {
   const t = useT();
@@ -92,9 +94,11 @@ export default function RecordsScreen() {
           paddingTop: insets.top + space.md,
         }}
       >
-        {/* 장부라는 개념은 화면에서 뺐다(2026-10-04 사용자 결정). 공유는 행사 단위로 한다. */}
+        {/* 장부라는 개념은 화면에서 뺐다(2026-10-04 사용자 결정). 공유는 행사 단위로 한다.
+            왼쪽 로고 + 앱 이름 전체(2026-10-04 저녁, 사장님 요청). */}
+        <Image source={LOGO} style={{ borderRadius: radius.sm, height: 32, width: 32 }} accessibilityIgnoresInvertColors />
         <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '700' }} numberOfLines={1}>
+          <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }} numberOfLines={1}>
             {t('home.title')}
           </Text>
         </View>
