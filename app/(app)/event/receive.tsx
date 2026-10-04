@@ -33,7 +33,7 @@ import {
   validateReceiving,
   type ReceivingDraft,
 } from '../../../src/domain/receiving.ts';
-import { useLedgerId } from '../../../src/ledger/LedgerProvider';
+import { useLedger, useLedgerId, withLedger } from '../../../src/ledger/LedgerProvider';
 import { queryKeys } from '../../../src/lib/queryKeys';
 import { createEntry, deleteEntry, listEntriesByEvent } from '../../../src/repositories/entries';
 import { pickDefaultEvent } from '../../../src/domain/event.ts';
@@ -50,6 +50,8 @@ import { Screen } from '../../../src/ui/Screen';
 
 export default function ReceiveScreen() {
   const ledgerId = useLedgerId();
+  // 공동 행사를 열었을 때 내 장부와 다르다. 깊은 화면으로 갈 때 범위를 끌고 간다.
+  const myLedgerId = useLedger().currentLedgerId;
   const router = useRouter();
   const queryClient = useQueryClient();
   const { colors, space, font, radius } = useTokens();
@@ -294,7 +296,7 @@ export default function ReceiveScreen() {
               accessibilityRole="button"
               accessibilityLabel="가져오기"
               hitSlop={8}
-              onPress={() => router.push(`/import?target=received&eventId=${eventId}`)}
+              onPress={() => router.push(withLedger(`/import?target=received&eventId=${eventId}`, ledgerId, myLedgerId))}
             >
               <Ionicons name="cloud-upload-outline" size={22} color={colors.text} />
             </Pressable>
@@ -469,7 +471,7 @@ export default function ReceiveScreen() {
             {rows.map((item) => (
               <Pressable
                 key={item.id}
-                onPress={() => router.push(`/entry/${item.id}`)}
+                onPress={() => router.push(withLedger(`/entry/${item.id}`, ledgerId, myLedgerId))}
                 style={({ pressed }) => ({
                   alignItems: 'center',
                   borderBottomColor: colors.border,
@@ -516,7 +518,7 @@ export default function ReceiveScreen() {
                 </Pressable>
               </Pressable>
             ))}
-            <Pressable onPress={() => router.push(`/event/${eventId}`)}>
+            <Pressable onPress={() => router.push(withLedger(`/event/${eventId}`, ledgerId, myLedgerId))}>
               <Text style={{ color: colors.textMuted, fontSize: font.caption }}>전체 보기 →</Text>
             </Pressable>
           </View>

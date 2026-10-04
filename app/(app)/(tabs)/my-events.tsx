@@ -12,9 +12,9 @@ import { eventTypeLabel } from '../../../src/domain/event.ts';
 import { invitationKindForEvent } from '../../../src/domain/invitation.ts';
 import { formatEventDate } from '../../../src/domain/title.ts';
 import type { DatePrecision } from '../../../src/domain/constants.ts';
-import { useLedgerId } from '../../../src/ledger/LedgerProvider';
+import { useLedgerId, withLedger } from '../../../src/ledger/LedgerProvider';
 import { queryKeys } from '../../../src/lib/queryKeys';
-import { listEvents, type EventRow } from '../../../src/repositories/events';
+import { listEvents, listSharedEvents, type EventRow } from '../../../src/repositories/events';
 import { listInvitations } from '../../../src/repositories/invitations.ts';
 import { useTokens } from '../../../src/theme/tokens';
 import { EmptyState } from '../../../src/ui/EmptyState';
@@ -40,6 +40,9 @@ export default function MyEventsScreen() {
   });
   const invByEvent = new Map((invitations.data ?? []).map((i) => [i.event_id, i]));
   const rows: EventRow[] = list.data?.pages.flatMap((p) => p.rows) ?? [];
+  // 남의 행사를 코드로 같이 관리하는 것(0016). 목록 아래 따로 모은다.
+  const shared = useQuery({ queryKey: ['events', 'shared'], queryFn: listSharedEvents });
+  const sharedRows = shared.data ?? [];
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -57,6 +60,9 @@ export default function MyEventsScreen() {
           <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{t('myEvents.subtitle')}</Text>
           <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '700' }}>{t('myEvents.title')}</Text>
         </View>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/event/join')} style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, paddingVertical: space.sm })}>
+          <Text style={{ color: colors.textMuted, fontSize: font.caption, fontWeight: '600' }}>{t('share.joinByCode')}</Text>
+        </Pressable>
         {rows.length > 0 && (
         <Pressable
           accessibilityRole="button"
@@ -143,7 +149,31 @@ export default function MyEventsScreen() {
           );
         }}
         ListFooterComponent={
-          list.isFetchingNextPage ? <ActivityIndicator color={colors.textMuted} style={{ marginVertical: space.lg }} /> : null
+          <View>
+            {list.isFetchingNextPage && <ActivityIndicator color={colors.textMuted} style={{ marginVertical: space.lg }} />}
+            {sharedRows.length > 0 && (
+              <View style={{ marginTop: space.xl, gap: space.xs }}>
+                <Text style={{ color: colors.textMuted, fontSize: font.caption, marginBottom: space.xs }}>{t('share.sectionTitle')}</Text>
+                {sharedRows.map((e) => (
+                  <Pressable
+                    key={e.event_id}
+                    accessibilityRole="button"
+                    onPress={() => router.push(withLedger(`/event/${e.event_id}`, e.ledger_id, ledgerId))}
+                    style={({ pressed }) => ({ borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: space.md, opacity: pressed ? 0.6 : 1 })}
+                  >
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={{ color: colors.text, fontSize: font.body, fontWeight: '600' }} numberOfLines={1}>{e.title}</Text>
+                      <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
+                        {eventTypeLabel(e.type)} · {formatEventDate(e.date, e.date_precision as DatePrecision)}{e.owner_name ? ` · ${t('share.ownerOf', { name: e.owner_name })}` : ''}
+                      </Text>
+                    </View>
+                    <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{t('share.sharedBadge')}</Text>
+                    <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
         }
       />
     </View>

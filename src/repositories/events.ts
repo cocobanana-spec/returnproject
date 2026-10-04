@@ -136,3 +136,37 @@ export async function getEventSummary(
   const rows = unwrap({ data, error });
   return foldEventSummary(rows ?? []);
 }
+
+// ---------------------------------------------------------------------------
+// 행사 공동 관리(0016) — 초대 코드, 합류, 구성원, 공동 행사 목록
+// ---------------------------------------------------------------------------
+export type EventMember = Tables<'event_members'>;
+export type SharedEvent = {
+  event_id: string; ledger_id: string; title: string; type: string; date: string; date_precision: string;
+  owner_name: string | null; joined_at: string;
+};
+
+export async function createEventInvite(eventId: string): Promise<string> {
+  return unwrap(await db().rpc('create_event_invite', { p_event_id: eventId }));
+}
+
+// 합류한 행사 id 를 돌려준다. 코드가 틀리거나 만료면 서버 문구(invalid_or_expired_code)가 온다.
+export async function joinEvent(code: string): Promise<string> {
+  return unwrap(await db().rpc('join_event', { p_code: code }));
+}
+
+export async function leaveEvent(eventId: string): Promise<void> {
+  unwrap(await db().rpc('leave_event', { p_event_id: eventId }));
+}
+
+export async function removeEventMember(eventId: string, userId: string): Promise<void> {
+  unwrap(await db().rpc('remove_event_member', { p_event_id: eventId, p_user_id: userId }));
+}
+
+export async function listEventMembers(eventId: string): Promise<EventMember[]> {
+  return unwrap(await db().from('event_members').select('*').eq('event_id', eventId).order('joined_at')) as EventMember[];
+}
+
+export async function listSharedEvents(): Promise<SharedEvent[]> {
+  return unwrap(await db().rpc('list_shared_events')) as SharedEvent[];
+}

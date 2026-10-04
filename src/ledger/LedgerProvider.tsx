@@ -2,6 +2,7 @@
 //
 // RLS는 "내가 구성원인 모든 장부"를 허용하므로 앱이 장부를 고르지 않으면 두 장부가 섞여 보인다.
 // 고르는 규칙 — 저장된 id가 아직 유효하면 유지, 아니면 owner인 장부를 먼저, 그것도 없으면 첫 번째.
+import { useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -132,8 +133,20 @@ export function useLedger(): LedgerState {
 }
 
 // 장부가 반드시 있어야 하는 화면에서 쓴다. 없으면 바로 터뜨려 실수를 드러낸다.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// 화면이 읽을 장부. 보통은 내 장부지만, 공동 관리하는 남의 행사를 열 때는 주소의 ?ledger= 가 그 행사의
+// 장부를 가리킨다(0016). 서버 RLS 가 범위를 지키므로 여기서 더 검사하지 않는다.
 export function useLedgerId(): string {
   const { currentLedgerId } = useLedger();
+  const { ledger } = useLocalSearchParams<{ ledger?: string }>();
+  if (typeof ledger === 'string' && UUID.test(ledger)) return ledger;
   if (!currentLedgerId) throw new Error('현재 장부가 없다. 장부 게이트를 거치지 않은 화면이다.');
   return currentLedgerId;
+}
+
+// 깊은 화면으로 갈 때 장부 범위를 끌고 간다. 내 장부면 아무것도 안 붙인다.
+export function withLedger(href: string, ledgerId: string, myLedgerId: string | null): string {
+  if (!myLedgerId || ledgerId === myLedgerId) return href;
+  return `${href}${href.includes('?') ? '&' : '?'}ledger=${ledgerId}`;
 }

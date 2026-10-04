@@ -120,6 +120,8 @@ export type Database = {
           date_precision: string
           host_person_id: string | null
           id: string
+          invite_code: string | null
+          invite_code_expires_at: string | null
           is_mine: boolean
           ledger_id: string
           memo: string | null
@@ -136,6 +138,8 @@ export type Database = {
           date_precision?: string
           host_person_id?: string | null
           id?: string
+          invite_code?: string | null
+          invite_code_expires_at?: string | null
           is_mine?: boolean
           ledger_id: string
           memo?: string | null
@@ -152,6 +156,8 @@ export type Database = {
           date_precision?: string
           host_person_id?: string | null
           id?: string
+          invite_code?: string | null
+          invite_code_expires_at?: string | null
           is_mine?: boolean
           ledger_id?: string
           memo?: string | null
@@ -182,6 +188,20 @@ export type Database = {
             columns: ["ledger_id"]
             isOneToOne: false
             referencedRelation: "ledgers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_members: {
+        Row: { display_name: string; event_id: string; joined_at: string; user_id: string }
+        Insert: { display_name: string; event_id: string; joined_at?: string; user_id: string }
+        Update: { display_name?: string; event_id?: string; joined_at?: string; user_id?: string }
+        Relationships: [
+          {
+            foreignKeyName: "event_members_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
         ]
@@ -486,6 +506,39 @@ export type Database = {
       remove_member: {
         Args: { p_ledger_id: string; p_user_id: string }
         Returns: undefined
+      }
+      create_event_invite: {
+        Args: { p_event_id: string }
+        Returns: string
+      }
+      join_event: {
+        Args: { p_code: string }
+        Returns: string
+      }
+      leave_event: {
+        Args: { p_event_id: string }
+        Returns: undefined
+      }
+      remove_event_member: {
+        Args: { p_event_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      list_shared_events: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          event_id: string
+          ledger_id: string
+          title: string
+          type: string
+          date: string
+          date_precision: string
+          owner_name: string | null
+          joined_at: string
+        }[]
+      }
+      is_event_member: {
+        Args: { e: string }
+        Returns: boolean
       }
       expire_invitations: {
         Args: Record<PropertyKey, never>

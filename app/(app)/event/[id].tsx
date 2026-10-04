@@ -2,7 +2,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useLayoutEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, Share, Text, View } from 'react-native';
 import { KIND_LABEL, invitationKindForEvent } from '../../../src/domain/invitation.ts';
 import { confirmAction, notify } from '../../../src/lib/confirm.ts';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,10 +11,14 @@ import { directionLabel } from '../../../src/domain/entry.ts';
 import { eventTypeLabel } from '../../../src/domain/event.ts';
 import { formatWon, formatWonShort } from '../../../src/domain/money.ts';
 import { formatEventDate } from '../../../src/domain/title.ts';
-import { useLedgerId } from '../../../src/ledger/LedgerProvider';
+import { useLedger, useLedgerId, withLedger } from '../../../src/ledger/LedgerProvider';
+import { useT } from '../../../src/i18n';
+import { isWeb } from '../../../src/lib/platform.ts';
+import { useToast } from '../../../src/ui/ToastProvider';
 import { queryKeys } from '../../../src/lib/queryKeys';
 import { listEntriesByEvent } from '../../../src/repositories/entries';
 import { deleteEvent, getEvent, getEventSummary } from '../../../src/repositories/events';
+import { createEventInvite, leaveEvent, listEventMembers, removeEventMember, type EventMember } from '../../../src/repositories/events';
 import { useTokens } from '../../../src/theme/tokens';
 import { Button } from '../../../src/ui/Button';
 import { Chip } from '../../../src/ui/Chip';
@@ -25,6 +29,11 @@ import { Screen } from '../../../src/ui/Screen';
 
 export default function EventDetailScreen() {
   const ledgerId = useLedgerId();
+  // 공동 행사를 열었을 때 내 장부와 다르다. 깊은 화면으로 갈 때 범위를 끌고 간다.
+  const myLedgerId = useLedger().currentLedgerId;
+  const t = useT();
+  // 공동 관리하는 남의 행사인가. 그러면 초대장·편집·삭제·가져오기는 없고 '나가기'만 있다(0016).
+  const isShared = ledgerId !== myLedgerId;
   const router = useRouter();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
@@ -219,7 +228,7 @@ export default function EventDetailScreen() {
 
             {/* 동작 — 내 행사는 초대장이 맨 위(docs/09 A3). 편집·삭제는 ⋯ 안에 숨긴다(A7).
                 삭제가 빨갛게 메인 자리에 있으면 "지우고 싶게 생겼다" — 한 단계 더 들어가야 한다. */}
-            {e.is_mine && invitationKindForEvent(e.type) && (
+            {!isShared && e.is_mine && invitationKindForEvent(e.type) && (
               <Button
                 label={`${KIND_LABEL[invitationKindForEvent(e.type)!]} 만들기 · 보기`}
                 variant="secondary"
@@ -229,15 +238,19 @@ export default function EventDetailScreen() {
             {e.is_mine && (
               <Button
                 label={(s?.cnt ?? 0) > 0 ? '명부 이어서 입력' : '명부 입력 시작'}
-                onPress={() => router.push(`/event/receive?id=${eventId}`)}
+                onPress={() => router.push(withLedger(`/event/receive?id=${eventId}`, ledgerId, myLedgerId))}
               />
             )}
+            {isShared ? (
+              <SharedFooter eventId={eventId} />
+            ) : (
+            <>
             <View style={{ flexDirection: 'row', gap: space.sm }}>
               {e.is_mine && (
                 <Action
                   icon="cloud-upload-outline"
                   label="명부 가져오기"
-                  onPress={() => router.push(`/import?target=received&eventId=${eventId}`)}
+                  onPress={() => router.push(withLedger(`/import?target=received&eventId=${eventId}`, ledgerId, myLedgerId))}
                 />
               )}
               <Action icon="ellipsis-horizontal" label="더보기" onPress={() => setMoreOpen((v) => !v)} />
@@ -248,6 +261,10 @@ export default function EventDetailScreen() {
                 <Action icon="trash-outline" label="삭제" danger onPress={confirmDelete} />
               </View>
             )}
+            </>
+            )}
+            {/* 공동 관리자 초대 — 내 행사의 주인에게만 */}
+            {!isShared && e.is_mine && <InviteSection eventId={eventId} title={e.title} />}
 
             {/* 필터 */}
             {(hasSides || (s?.unconfirmed ?? 0) > 0 || unconfirmedOnly) && (
@@ -297,7 +314,7 @@ export default function EventDetailScreen() {
         }
         renderItem={({ item }) => (
           <Pressable
-            onPress={() => router.push(`/entry/${item.id}`)}
+            onPress={() => router.push(withLedger(`/entry/${item.id}`, ledgerId, myLedgerId))}
             style={({ pressed }) => ({
               alignItems: 'center',
               borderBottomColor: colors.border,
@@ -333,6 +350,109 @@ export default function EventDetailScreen() {
         )}
       />
     </Screen>
+  );
+}
+
+// 주인 — 초대 코드를 만들어 보내고, 공동 관리자를 본다·뺀다
+function InviteSection({ eventId, title }: { eventId: string; title: string }) {
+  const t = useT();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const { colors, space, font, radius } = useTokens();
+  const [code, setCode] = useState<string | null>(null);
+  const members = useQuery({ queryKey: ['events', 'members', eventId], queryFn: () => listEventMembers(eventId) });
+  const make = useMutation({
+    mutationFn: () => createEventInvite(eventId),
+    onSuccess: (c) => {
+      setCode(c);
+      toast.show({ message: t('share.codeMade') });
+    },
+    onError: (e: Error) => toast.show({ message: e.message, durationMs: 4000 }),
+  });
+  const remove = useMutation({
+    mutationFn: (userId: string) => removeEventMember(eventId, userId),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['events', 'members', eventId] }),
+    onError: (e: Error) => toast.show({ message: e.message, durationMs: 4000 }),
+  });
+  async function share() {
+    if (!code) return;
+    const message = t('share.codeMessage', { title, code });
+    if (isWeb) {
+      try {
+        await navigator.clipboard.writeText(message);
+        toast.show({ message: '복사했습니다.' });
+      } catch {
+        toast.show({ message: message, durationMs: 6000 });
+      }
+      return;
+    }
+    await Share.share({ message }).catch(() => {});
+  }
+  const list: EventMember[] = members.data ?? [];
+  return (
+    <View style={{ backgroundColor: colors.bgSubtle, borderRadius: radius.lg, gap: space.sm, padding: space.lg }}>
+      <Text style={{ color: colors.text, fontSize: font.body, fontWeight: '700' }}>{t('share.invite')}</Text>
+      <Text style={{ color: colors.textMuted, fontSize: font.caption, lineHeight: 18 }}>{t('share.inviteHint')}</Text>
+      {code ? (
+        <View style={{ gap: space.sm }}>
+          <Text selectable style={{ color: colors.text, fontSize: font.display, fontWeight: '700', letterSpacing: 2 }}>{code}</Text>
+          <Button label={t('share.shareCode')} onPress={() => void share()} />
+        </View>
+      ) : (
+        <Button label={t('share.makeCode')} variant="secondary" onPress={() => make.mutate()} loading={make.isPending} />
+      )}
+      <Text style={{ color: colors.text, fontSize: font.caption, fontWeight: '700', marginTop: space.sm }}>{t('share.members')}</Text>
+      {list.length === 0 ? (
+        <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{t('share.noMembers')}</Text>
+      ) : (
+        list.map((m) => (
+          <View key={m.user_id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={{ color: colors.text, fontSize: font.body }}>{m.display_name}</Text>
+            <Pressable
+              onPress={() =>
+                void confirmAction({ title: t('share.removeConfirm', { name: m.display_name }), message: t('share.removeBody'), confirmLabel: t('share.remove'), destructive: true }).then((ok) => {
+                  if (ok) remove.mutate(m.user_id);
+                })
+              }
+            >
+              <Text style={{ color: colors.danger, fontSize: font.caption }}>{t('share.remove')}</Text>
+            </Pressable>
+          </View>
+        ))
+      )}
+    </View>
+  );
+}
+
+// 공동 관리자 — 나가기만
+function SharedFooter({ eventId }: { eventId: string }) {
+  const t = useT();
+  const router = useRouter();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const { colors, space, font } = useTokens();
+  const leave = useMutation({
+    mutationFn: () => leaveEvent(eventId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['events', 'shared'] });
+      router.back();
+    },
+    onError: (e: Error) => toast.show({ message: e.message, durationMs: 4000 }),
+  });
+  return (
+    <View style={{ gap: space.sm }}>
+      <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{t('share.sharedBadge')}</Text>
+      <Button
+        label={t('share.leave')}
+        variant="secondary"
+        loading={leave.isPending}
+        onPress={() =>
+          void confirmAction({ title: t('share.leaveConfirm'), message: t('share.leaveBody'), confirmLabel: t('share.leave'), destructive: true }).then((ok) => {
+            if (ok) leave.mutate();
+          })
+        }
+      />
+    </View>
   );
 }
 

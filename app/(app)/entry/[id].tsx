@@ -19,7 +19,7 @@ import {
 import { formatWon } from '../../../src/domain/money.ts';
 import { displayName } from '../../../src/domain/person.ts';
 import { useAuth } from '../../../src/auth/AuthProvider';
-import { useLedgerId } from '../../../src/ledger/LedgerProvider';
+import { useLedger, useLedgerId, withLedger } from '../../../src/ledger/LedgerProvider';
 import { queryKeys } from '../../../src/lib/queryKeys';
 import { deleteEntry, getEntry, updateEntry } from '../../../src/repositories/entries';
 import { listMembers } from '../../../src/repositories/ledgers';
@@ -39,6 +39,8 @@ function amountHint(text: string, isMine: boolean): string {
 
 export default function EntryDetailScreen() {
   const ledgerId = useLedgerId();
+  // 공동 행사를 열었을 때 내 장부와 다르다. 깊은 화면으로 갈 때 범위를 끌고 간다.
+  const myLedgerId = useLedger().currentLedgerId;
   const router = useRouter();
   const queryClient = useQueryClient();
   const { colors, space, font, radius } = useTokens();
@@ -170,7 +172,7 @@ export default function EntryDetailScreen() {
             )}
           </View>
           <Pressable
-            onPress={() => row.event && router.push(`/event/${row.event.id}`)}
+            onPress={() => row.event && router.push(withLedger(`/event/${row.event.id}`, ledgerId, myLedgerId))}
             style={{ alignItems: 'center', flexDirection: 'row', gap: space.xs, marginTop: space.xs }}
           >
             <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
