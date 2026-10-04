@@ -9,7 +9,6 @@ import { signInWithEmail } from '../../src/auth/email.ts';
 import { repeatedFailureHint } from '../../src/auth/errors.ts';
 import {
   AUTH_PROVIDERS,
-  AUTH_PROVIDER_LABEL,
   signInWith,
   type AuthProviderId,
 } from '../../src/auth/providers';
@@ -161,7 +160,7 @@ export default function SignInScreen() {
           {AUTH_PROVIDERS.map((provider) => (
             <Button
               key={provider}
-              label={AUTH_PROVIDER_LABEL[provider]}
+              label={t(`auth.${provider}`)}
               variant="secondary"
               onPress={() => void onProvider(provider)}
               disabled={busy !== null}
