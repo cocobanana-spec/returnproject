@@ -359,7 +359,9 @@
   - [x] 새 주소에서 구글 로그인 실왕복 — 사장님 확인 (2026-10-04). **① 완료**
   - [x] App Store Connect — 승인된 1.0 은 못 바꿔 **1.0.1 버전을 새로 만들어 거기에 새 주소**를 넣었다(사장님). `app.json` 도 1.0.1. **1.0.1 이 나가기 전까지 스토어의 1.0 은 옛 처리방침 주소를 가리키므로 옛 주소에 전문을 유지한다**(site-legacy/privacy.html 은 넘기기가 아니라 전문 + 안내). 1.0.1 출시 뒤 넘기기로 바꾼다
   - [x] `tools/retire-github-pages.sh` 실행 (2026-10-04). 루트·/app 은 새 주소 안내, /privacy.html 은 전문 유지 확인. 6개월 뒤(2027-04) 정리
-- [ ] **1.0.1 빌드(22)** — 바 흐림, PC 웹 버전 줄, 새 처리방침 주소. 사용자 결정: 다른 변경과 묶어서 올린다(2026-10-04). 올리면 옛 주소 처리방침을 넘기기로 바꾼다
+- [ ] **1.0.1 빌드(22)** — 바 흐림, PC 웹 버전 줄, 새 처리방침 주소, **청첩장·부고장 2A**, 사진 선택·웹뷰 모듈. **TestFlight 업로드 완료**(2026-10-04, altool, Delivery 8b5ca823). 데모 계정에 발행된 청첩장 1건(`/i/Ul0VcOMFLF`, 2027-01-04 만료 — 심사가 늦어지면 재발행)
+  - [ ] 사장님 — App Store Connect 1.0.1 에 빌드 22 선택, 새로운 기능 문안(docs/06), App Privacy 에 '사진 또는 비디오' 추가, 심사 메모 갱신(docs/06 INVITATIONS 절), 제출
+  - [ ] 1.0.1 출시 뒤 — 옛 github.io 처리방침을 넘기기로 바꾼다, Supabase 옛 Redirect URLs 삭제(10-18 이후)
 - [ ] ② 청첩장·부고장 — 2A 진행 중 (2026-10-04 시작). 계획 docs/08 §3
   - [x] **0009 데이터 모델** — `invitations` 테이블, slug 자동 생성, 내 행사·같은 장부·종류 일치 트리거, 발행 열 RPC 전용 가드, RLS(구성원만, anon 테이블 권한 없음), `public_invitation`·`record_invitation_view`(anon)·`publish_invitation`·`unpublish_invitation`(구성원)·`expire_invitations`(service_role), 스토리지 버킷 `invitations`. **SQL 검증 28건**(`02_invitations_test.sql`, run.sh 가 01 뒤에 돌림). 원격 적용 + 버킷·권한 실측 확인
   - [x] 도메인 — `src/domain/invitation.ts`. 종류별 칸·검증·기본값·템플릿 목록·만료 안내·공유 주소. 테스트 12건
