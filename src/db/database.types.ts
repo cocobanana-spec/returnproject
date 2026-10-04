@@ -255,6 +255,24 @@ export type Database = {
           },
         ]
       }
+      app_activity: {
+        Row: { day: string; platform: string; user_id: string }
+        Insert: { day: string; platform: string; user_id: string }
+        Update: { day?: string; platform?: string; user_id?: string }
+        Relationships: []
+      }
+      app_admins: {
+        Row: { created_at: string; email: string }
+        Insert: { created_at?: string; email: string }
+        Update: { created_at?: string; email?: string }
+        Relationships: []
+      }
+      app_installs: {
+        Row: { device_id: string; first_seen: string; last_seen: string; last_user_id: string | null; platform: string }
+        Insert: { device_id: string; first_seen?: string; last_seen?: string; last_user_id?: string | null; platform: string }
+        Update: { device_id?: string; first_seen?: string; last_seen?: string; last_user_id?: string | null; platform?: string }
+        Relationships: []
+      }
       ledger_members: {
         Row: {
           created_at: string
@@ -483,6 +501,18 @@ export type Database = {
       }
       unpublish_invitation: {
         Args: { p_invitation_id: string }
+        Returns: undefined
+      }
+      admin_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      is_app_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      record_activity: {
+        Args: { p_device_id: string; p_platform: string }
         Returns: undefined
       }
       reset_ledger: {

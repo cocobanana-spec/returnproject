@@ -350,6 +350,13 @@
 - [x] (경미) 로그아웃 빨간 버튼 복원, 웹 꼬리말의 어색한 한국어, 안 쓰는 `notify` import, `platform.ts` 머리말
 - [x] **빌드 21 업로드 완료** (2026-09-26 20:16). `xcodebuild` 업로드가 `Failed to Use Accounts` 로 막혀 **API 키(`xcrun altool`)로 우회**했다. 절차는 `docs/05` §5-1. 심사 중인 빌드 19 는 그대로 두었다
 
+## 5-1. 출시 뒤 사용자 요청 (2026-10-04, 빌드 23 묶음)
+- [x] **큰 사진 자동 처리** — 긴 변 1600px·JPEG 0.82, HEIC → JPEG, 줄였으면 토스트로 알림. `src/domain/photo.ts`(테스트 7건) + `expo-image-manipulator`(네이티브 → 23 에 포함)
+- [x] **관리자 페이지** — `app_admins`(donghan.cocoperry@gmail.com)·`app_installs`·`app_activity` + `admin_stats()`(0011). 총 회원, 오늘 활성, 일·주·월 접속자(플랫폼별), 설치=첫 실행 기기 수(플랫폼별, 추정), 최근 30일 추이. 더보기 → 운영 → 관리자(관리자에게만 보임, 서버가 다시 거부). SQL 14건, 로컬 웹에서 화면 확인. **다운로드 수는 App Store Connect 의 것이 정답**이라 화면에도 그렇게 적었다
+  - [ ] App Privacy 에 **사용 데이터 → 제품 상호 작용(분석, 사용자에 연결)** 추가 — 사장님. 그리고 1.0 의 네 가지(이메일·이름·기타 사용자 콘텐츠·사용자 ID)가 빠져 있던 것을 되살린다. 총 6개
+- [ ] **릴리즈 노트** — 나중에 따로 정리한다(사용자 요청). 1.0.1 문안은 docs/06 에 있다
+- [ ] 빌드 23 — 사진 처리·관리자 포함. 22 를 폰에서 본 뒤 올린다
+
 ## 5-2. 2단계 계획 (2026-10-03) — `docs/08-phase2-plan.md`
 - [ ] 결정 8개 (docs/08 §6) — 도메인·웹 앱 주소·유료 모델·무료 구간·사업자등록·템플릿·돌잔치·안드로이드
 - [x] ① 웹 주소 — **`ppurin.com`** 이전 완료 (2026-10-04). 준비 기록 — `app.config.js`(WEB_BASE_URL 로 루트 빌드, 루트 번들에 옛 경로 0건 확인), `tools/deploy-cloudflare.sh`, `site-legacy/` + `tools/retire-github-pages.sh`

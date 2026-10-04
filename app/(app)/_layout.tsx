@@ -1,6 +1,8 @@
 // 로그인 후 화면 묶음. 현재 장부가 정해지기 전에는 아무 화면도 열지 않는다
 import { Stack } from 'expo-router';
+import { useEffect } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
+import { recordActivityOncePerDay } from '../../src/lib/activity.ts';
 import { contentFrame, outerFrame } from '../../src/ui/webLayout.ts';
 import { useLedger } from '../../src/ledger/LedgerProvider';
 import { NoLedger } from '../../src/ledger/NoLedger';
@@ -11,6 +13,11 @@ import { ToastProvider } from '../../src/ui/ToastProvider';
 export default function AppLayout() {
   const { status, error } = useLedger();
   const { colors, space, font } = useTokens();
+
+  // 하루 한 번 "오늘 열었다"를 남긴다(관리자 통계, 0011). 실패해도 조용하다.
+  useEffect(() => {
+    if (status === 'ready') void recordActivityOncePerDay();
+  }, [status]);
 
   if (status === 'loading') {
     return (
@@ -75,6 +82,7 @@ export default function AppLayout() {
         <Stack.Screen name="invitation/[eventId]" options={{ title: '' }} />
         <Stack.Screen name="invitation/preview" options={{ title: '미리보기' }} />
         <Stack.Screen name="account" options={{ title: '계정' }} />
+        <Stack.Screen name="admin" options={{ title: '관리자' }} />
         <Stack.Screen
           name="record"
           options={{ title: '기록 남기기', presentation: 'modal' }}

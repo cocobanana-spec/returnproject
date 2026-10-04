@@ -2,6 +2,7 @@
 //
 // 하단 탭이 홈·통계·더보기 셋으로 줄면서 사람(S03)과 행사(S06)가 이 안으로 들어왔다.
 // 잡동사니가 되지 않게 "기록 관리 / 장부 / 계정" 세 묶음으로 나눈다.
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable, Share, Text, View } from 'react-native';
@@ -13,6 +14,7 @@ import { canDownload, downloadText } from '../../../src/lib/downloadFile.ts';
 import { isWeb } from '../../../src/lib/platform.ts';
 import { APP_STORE_URL, WEB_APP_URL, shortUrl } from '../../../src/lib/urls.ts';
 import { listAllEntries } from '../../../src/repositories/entries';
+import { db } from '../../../src/lib/supabaseClient.ts';
 import { useTokens } from '../../../src/theme/tokens';
 import { Screen } from '../../../src/ui/Screen';
 import { useToast } from '../../../src/ui/ToastProvider';
@@ -73,6 +75,12 @@ export default function MoreScreen() {
   const { colors, space, font } = useTokens();
   const toast = useToast();
   const [exporting, setExporting] = useState(false);
+  // 관리자인지는 서버가 안다. 여기서는 줄을 보여 줄지만 정한다 — 통계 함수가 다시 거부한다.
+  const isAdmin = useQuery({
+    queryKey: ['admin', 'me'],
+    queryFn: async () => (await db().rpc('is_app_admin')).data === true,
+    staleTime: 10 * 60_000,
+  });
 
   // 내보내기는 브라우저 내려받기를 쓰므로 웹에만 있다(docs/04 "아직 아닌 것").
   async function onExport() {
@@ -167,6 +175,12 @@ export default function MoreScreen() {
           />
         )}
       </Section>
+
+      {isAdmin.data && (
+        <Section title="운영">
+          <Row icon="stats-chart-outline" label="관리자" hint="회원·활성 사용자·설치·접속 추이" onPress={() => router.push('/admin')} />
+        </Section>
+      )}
 
       <Section title="계정">
         <Row
