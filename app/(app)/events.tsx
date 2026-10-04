@@ -56,6 +56,8 @@ export default function EventsScreen() {
     <Screen padded={false} edges={{ top: false }}>
       <View style={{ gap: space.md, paddingHorizontal: space.xl, paddingTop: space.md }}>
         <View style={{ alignItems: 'center', flexDirection: 'row', justifyContent: 'flex-end' }}>
+          {/* 비어 있으면 가운데 버튼이 대신한다 — 머리의 만들기와 겹치지 않게(2026-10-04) */}
+          {rows.length > 0 && (
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push('/event/edit')}
@@ -75,6 +77,7 @@ export default function EventsScreen() {
               내 행사
             </Text>
           </Pressable>
+          )}
         </View>
 
         <View style={{ flexDirection: 'row', gap: space.sm }}>
@@ -106,7 +109,7 @@ export default function EventsScreen() {
                   ? '결혼식·돌잔치처럼 내가 치른 행사를 만들면 받은 돈을 정리할 수 있습니다.'
                   : '준돈을 기록하면 남의 행사가 자동으로 만들어집니다.'
               }
-              actionLabel={filter.isMine === false ? undefined : '내 행사 만들기'}
+              actionLabel={filter.isMine === false ? undefined : '+ 내 행사 만들기'}
               onAction={filter.isMine === false ? undefined : () => router.push('/event/edit')}
             />
           }

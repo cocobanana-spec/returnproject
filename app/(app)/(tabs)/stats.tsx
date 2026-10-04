@@ -163,7 +163,7 @@ export default function StatsScreen() {
         <EmptyState
           title="아직 집계할 기록이 없습니다"
           hint={'경조사를 기록하면 연도별로\n준 돈과 받은 돈이 쌓입니다.'}
-          actionLabel="기록 남기기"
+          actionLabel="+ 첫 기록 남기기"
           onAction={() => router.push('/record')}
         />
       ) : (

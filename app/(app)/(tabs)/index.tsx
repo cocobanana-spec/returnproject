@@ -208,14 +208,14 @@ export default function RecordsScreen() {
             <EmptyState
               title={t('home.emptyGivenTitle')}
               hint={t('home.emptyGivenHint')}
-              actionLabel={recordLabel}
+              actionLabel={t('home.firstRecord')}
               onAction={() => router.push(recordHref)}
             />
           ) : (
             <EmptyState
               title={t('home.emptyReceivedTitle')}
               hint={t('home.emptyReceivedHint')}
-              actionLabel={recordLabel}
+              actionLabel={t('home.firstGuest')}
               onAction={() => router.push(recordHref)}
             />
           )
@@ -232,9 +232,11 @@ export default function RecordsScreen() {
         renderItem={({ item }) => <EntryRow item={item} />}
       />
 
+      {/* 빈 화면이면 가운데 '첫 기록' 버튼만, 목록이 있으면 FAB 만 — 둘이 겹치지 않는다(2026-10-04 사용자 요청) */}
       {/* 기록 FAB — 사용자가 좋다고 한 부분이라 위치를 그대로 둔다.
           바로 위에 ScrollFade 를 둔다. 이 바는 불투명한데 목록이 그 아래로 지나가므로, 그냥 두면
           스크롤 도중 한 줄이 글자 한가운데서 잘린다. 선을 긋는 것으로는 모자랐다(2026-09-26). */}
+      {rows.length > 0 && (
       <View
         pointerEvents="box-none"
         style={{
@@ -265,9 +267,10 @@ export default function RecordsScreen() {
           })}
         >
           <Ionicons name="add" size={20} color={colors.textOnAccent} />
-          <Text style={{ color: colors.textOnAccent, fontSize: font.body, fontWeight: '700' }}>{t('home.record')}</Text>
+          <Text style={{ color: colors.textOnAccent, fontSize: font.body, fontWeight: '700' }}>{t('home.recordMore')}</Text>
         </Pressable>
       </View>
+      )}
     </View>
   );
 }

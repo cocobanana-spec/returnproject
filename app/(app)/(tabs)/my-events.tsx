@@ -57,6 +57,7 @@ export default function MyEventsScreen() {
           <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{t('myEvents.subtitle')}</Text>
           <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '700' }}>{t('myEvents.title')}</Text>
         </View>
+        {rows.length > 0 && (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('myEvents.createLong')}
@@ -75,6 +76,7 @@ export default function MyEventsScreen() {
           <Ionicons name="add" size={18} color={colors.textOnAccent} />
           <Text style={{ color: colors.textOnAccent, fontSize: font.caption, fontWeight: '700' }}>{t('myEvents.create')}</Text>
         </Pressable>
+        )}
       </View>
 
       <FlatList

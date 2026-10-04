@@ -131,7 +131,7 @@ export default function PeopleScreen() {
               <EmptyState
                 title="아직 등록된 사람이 없습니다"
                 hint={'경조사를 기록하면 사람이 자동으로 만들어집니다.\n먼저 기록을 남겨 보세요.'}
-                actionLabel="기록 남기기"
+                actionLabel="+ 첫 기록 남기기"
                 onAction={() => router.push('/record')}
               />
             )
