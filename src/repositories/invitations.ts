@@ -99,7 +99,9 @@ export async function uploadPhoto(
   contentType: 'image/jpeg' | 'image/png' | 'image/webp',
 ): Promise<string> {
   const path = photoPath(ledgerId, invitationId, name);
-  const { error } = await db().storage.from('invitations').upload(path, bytes, { contentType, upsert: true });
+  // upsert 를 쓰지 않는다. 파일 이름에 시각이 들어가 겹칠 일이 없고, 스토리지의 upsert 는 기존 객체를
+  // 먼저 조회하므로 읽기 정책이 없으면 RLS 로 막힌다(0012 에서 정책을 더했지만 이중으로 피한다).
+  const { error } = await db().storage.from('invitations').upload(path, bytes, { contentType, upsert: false });
   if (error) throw new Error(`사진을 올리지 못했습니다. ${error.message}`);
   return path;
 }
