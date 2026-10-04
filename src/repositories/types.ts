@@ -38,6 +38,13 @@ const MESSAGES: Record<string, string> = {
   merge_would_self_reference: '공동 부조로 묶인 두 사람은 합칠 수 없습니다.',
   different_ledger: '다른 장부의 사람과는 합칠 수 없습니다.',
   person_not_found: '이미 삭제된 사람입니다.',
+  // 청첩장(0009)
+  event_not_mine: '내 행사에만 청첩장을 만들 수 있습니다.',
+  kind_mismatch: '행사 종류와 맞지 않는 초대장입니다.',
+  rpc_only_column: '발행 상태는 발행 버튼으로만 바꿀 수 있습니다.',
+  empty_content: '내용을 먼저 채워 주세요.',
+  months_out_of_range: '무료 플랜은 3개월까지 공개할 수 있습니다.',
+  free_plan_limit: '무료 플랜은 한 번에 하나만 공개할 수 있습니다. 먼저 다른 초대장을 내려 주세요.',
   event_has_entries_is_mine_locked: '기록이 있는 행사는 내 행사 여부를 바꿀 수 없습니다.',
   host_person_required: '남의 행사에는 당사자가 필요합니다.',
   host_person_in_other_ledger: '다른 장부의 사람은 당사자로 지정할 수 없습니다.',

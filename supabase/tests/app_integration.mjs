@@ -22,6 +22,8 @@ import * as peopleRepo from '../../src/repositories/people.ts';
 import * as eventsRepo from '../../src/repositories/events.ts';
 import * as entriesRepo from '../../src/repositories/entries.ts';
 import * as statsRepo from '../../src/repositories/stats.ts';
+import * as invitationsRepo from '../../src/repositories/invitations.ts';
+import { emptyContent, validateInvitation, shareUrl } from '../../src/domain/invitation.ts';
 import fs from 'node:fs';
 import path from 'node:path';
 import { detectEncoding, readTable } from '../../src/domain/importFile.ts';
@@ -993,6 +995,68 @@ async function main() {
   await ledgersRepo.prepareAccountDeletion();
   const carolAfter = await ledgersRepo.listMyLedgers(carol.id);
   eq('계정 삭제 준비 후 장부 0권', carolAfter.length, 0);
+
+  // ------------------------------------------------------------- 청첩장(0009·0010)
+  // 전용 계정에서 한다. 발행은 '무료 동시 1건' 규칙이 있어 공용 장부의 상태에 영향을 받으면 안 된다.
+  {
+    const host = await makeUser('inv', '청첩장');
+    await actAs(host);
+    const LH = (await ledgersRepo.listMyLedgers(host.id))[0].ledgerId;
+    const myWedding = await eventsRepo.createEvent(LH, { type: 'wedding', is_mine: true, title: '우리 결혼식', date: '2027-05-01' });
+    const myFuneral = await eventsRepo.createEvent(LH, { type: 'funeral', is_mine: true, title: '아버지 장례', date: '2026-11-01' });
+    const guest = await peopleRepo.createPerson(LH, { name: '김하객', relation_group: 'friend' });
+    const theirWedding = await eventsRepo.createEvent(LH, { type: 'wedding', is_mine: false, host_person_id: guest.id, title: '김하객 결혼식', date: '2027-03-01' });
+
+    const draft = emptyContent('wedding');
+    check('빈 청첩장은 발행 조건을 못 채운다', validateInvitation('wedding', draft).ok === false);
+    // 서버는 글자 그대로 빈 객체({})만 막는다. 칸이 비어 있는 초안은 앱의 validateInvitation 이 막는다
+    // (서버는 크기·모양만 본다 — docs/08 §3.2). 그래서 서버 검사는 {} 로 확인한다.
+    const inv = await invitationsRepo.createInvitation(LH, { eventId: myWedding.id, kind: 'wedding', content: {} });
+    check('내 결혼식에 청첩장 초안이 생기고 slug 가 10자다', /^[A-Za-z0-9]{10}$/.test(inv.slug), inv.slug);
+    eq('초안 상태', inv.status, 'draft');
+    const again = await invitationsRepo.getInvitationByEvent(LH, myWedding.id);
+    eq('행사로 다시 찾는다', again?.id, inv.id);
+
+    await expectError('남의 결혼식에는 못 만든다', () =>
+      invitationsRepo.createInvitation(LH, { eventId: theirWedding.id, kind: 'wedding', content: draft }), '내 행사에만');
+    await expectError('장례식에 청첩장은 못 만든다', () =>
+      invitationsRepo.createInvitation(LH, { eventId: myFuneral.id, kind: 'wedding', content: draft }), '행사 종류와 맞지');
+
+    await expectError('빈 객체는 서버가 발행을 막는다', () => invitationsRepo.publishInvitation(inv.id, 3), '내용을 먼저');
+
+    const filled = { ...draft, groom: { name: '김철수' }, bride: { name: '이영희' }, date: '2027-05-01', time: '12:30', venue: { name: '서울 웨딩홀' } };
+    check('채우면 발행 조건을 만족한다', validateInvitation('wedding', filled).ok === true);
+    await invitationsRepo.updateInvitation(LH, inv.id, { content: filled });
+    await expectError('무료는 4개월 발행이 안 된다', () => invitationsRepo.publishInvitation(inv.id, 4), '3개월까지');
+    const pub = await invitationsRepo.publishInvitation(inv.id, 3);
+    eq('발행 결과의 slug 가 같다', pub.slug, inv.slug);
+    check('만료가 발행 뒤다', new Date(pub.expires_at) > new Date(pub.published_at));
+    eq('공유 주소', shareUrl(pub.slug), `https://ppurin.com/i/${pub.slug}`);
+
+    // 공개 함수는 anon 으로 — 발행된 것만 돌려준다
+    const anonDb = createDb(URL, ANON);
+    const pubRow = await anonDb.rpc('public_invitation', { p_slug: inv.slug });
+    eq('anon 이 발행된 청첩장을 읽는다', pubRow.data?.[0]?.content?.bride?.name, '이영희');
+    const anonTable = await anonDb.from('invitations').select('id').limit(1);
+    check('anon 은 테이블을 못 읽는다', anonTable.error !== null, anonTable.error?.code ?? 'no error');
+
+    // 무료 동시 1건
+    const inv2 = await invitationsRepo.createInvitation(LH, { eventId: myFuneral.id, kind: 'funeral', content: { ...emptyContent('funeral'), deceased: { name: '김영수' }, chiefMourners: [{ relation: '아들', name: '김철수' }], mortuary: { name: '서울병원' }, funeralAt: '2026-11-03 08:00' } });
+    await expectError('무료는 한 번에 하나만 공개한다', () => invitationsRepo.publishInvitation(inv2.id, 1), '한 번에 하나만');
+
+    await invitationsRepo.unpublishInvitation(inv.id);
+    const after = await anonDb.rpc('public_invitation', { p_slug: inv.slug });
+    eq('내리면 anon 에게 사라진다', after.data?.length ?? -1, 0);
+    const pub2 = await invitationsRepo.publishInvitation(inv2.id, 1);
+    check('내린 뒤에는 부고장을 발행할 수 있다', typeof pub2.slug === 'string');
+
+    // 발행 열은 직접 못 바꾼다 — 서버 가드
+    const direct = await db().from('invitations').update({ plan: 'premium' }).eq('id', inv.id).select('plan');
+    check('요금제를 직접 바꾸면 거부된다', direct.error !== null, direct.error?.message ?? 'no error');
+
+    await invitationsRepo.deleteInvitation(LH, inv.id);
+    eq('지우면 행사로 못 찾는다', await invitationsRepo.getInvitationByEvent(LH, myWedding.id), null);
+  }
 
   // ------------------------------------------------ 메일·비밀번호 인증 한살이
   //
