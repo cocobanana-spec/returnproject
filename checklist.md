@@ -366,7 +366,11 @@
 - [x] **안드로이드 — 서명 키** — `~/.ppurin/upload-keystore.jks` + `keystore.properties`(저장소 밖). `plugins/withAndroidUploadSigning.js` 가 prebuild 때 release 서명을 이 키로 바꾼다. SHA-1 은 docs/10
 - [x] **안드로이드 — 릴리즈 APK·AAB(현재 코드, versionCode 2)** — 업로드 키로 서명 확인(SHA-1 일치). 에뮬레이터에서 로그인·홈·내 행사·통계(고정 머리) 확인. AAB 는 `~/Desktop/ppurin-1.0.1-vc2.aab`
 - [ ] **안드로이드 — Play Console(사장님)** — 개인 계정으로 등록됨(2026-10-04). 앱 설정·데이터 보안 입력 진행 중. 내부 테스트에 AAB 올리면 두 분 폰에서 설치 가능. 절차는 docs/10-android-release.md, 문안은 ~/Desktop/play-assets/listing.md
-- [ ] **D-U-N-S 번호** — 2026-10-04 Apple 무료 경로(developer.apple.com/enroll/duns-lookup)로 신청함. 5~14 영업일 예상, 최대 30일. 오면 **조직 계정**을 새로 만들어(25달러) 거기서 프로덕션 출시 → 테스터 12명·14일 요건 면제. 유료 대행(D&B 코리아 50만원)은 쓰지 않는다
+- [ ] **스토어 계정을 어머니 개인사업자 명의로** (2026-10-05 결정 — 사장님 회사 겸업 금지)
+  - iOS: 어머니 Apple 개발자(개인) 계정 등록(99달러) → 1.0.1 승인 뒤 **앱 양도** → 새 팀에서 인증서·API 키·Services ID 재설정 → Supabase Apple provider 갱신 → **Apple 로그인 사용자 sub 이전(transfer_sub, 양도 전에 뽑아 둠)**
+  - Android: 어머니 사업자 D-U-N-S → 조직 계정 신설 → 뿌린 등록 + 서비스 계정 연결 + 사장님 기존 앱 3개 이관
+  - 처리방침·랜딩의 사업자 표기를 어머니 사업자로. 유료 기능 전 통신판매업 신고 여부 확인
+- [ ] **D-U-N-S 번호(어머니 사업자로 신청, 2026-10-05)** — 2026-10-04 Apple 무료 경로(developer.apple.com/enroll/duns-lookup)로 신청함. 5~14 영업일 예상, 최대 30일. 오면 **조직 계정**을 새로 만들어(25달러) 거기서 프로덕션 출시 → 테스터 12명·14일 요건 면제. 유료 대행(D&B 코리아 50만원)은 쓰지 않는다
 - [ ] **D-U-N-S 늦어지면 대안** — 개인 계정에서 비공개 테스트(테스터 12명·14일) → 프로덕션 액세스 신청
 
 ### 5-1-4. 3차 요청(2026-10-04 저녁) — 디자인·내 행사 카드·통계 구조·홈 제목 + 빌드 23
