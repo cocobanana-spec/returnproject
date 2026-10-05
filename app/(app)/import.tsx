@@ -157,11 +157,23 @@ export default function ImportScreen() {
   // 사진에서 읽기(OCR) — 손으로 쓴 명부·방명록·축의금 봉투 묶음. 기기 안에서만 인식한다(ML Kit).
   // 웹에는 없다. 모듈은 네이티브에서만 require 한다 — 라우트 모듈은 시작 때 전부 평가되므로 위에서
   // import 하면 웹 번들이 죽는다(미리보기 화면의 웹뷰와 같은 이유).
-  async function pickPhoto() {
+  // source — 'camera' 는 식장에서 명부를 바로 찍는 길(2026-10-05 사장님 요청), 'library' 는 저장된 사진.
+  // 카메라는 권한이 필요하다(앨범은 PHPicker 라 권한 창이 없다). 거부하면 안내만 하고 끝낸다.
+  async function pickPhoto(source: 'camera' | 'library') {
     setError(null);
     setBusy(true);
     try {
-      const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, allowsMultipleSelection: false });
+      if (source === 'camera') {
+        const perm = await ImagePicker.requestCameraPermissionsAsync();
+        if (!perm.granted) {
+          setError('카메라 권한이 없어 찍을 수 없습니다. 설정에서 카메라를 허용하거나 앨범에서 고르세요.');
+          return;
+        }
+      }
+      const picked =
+        source === 'camera'
+          ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1 })
+          : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, allowsMultipleSelection: false });
       if (picked.canceled || !picked.assets[0]) return;
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const mlkit = require('@react-native-ml-kit/text-recognition') as typeof import('@react-native-ml-kit/text-recognition');
@@ -418,9 +430,12 @@ export default function ImportScreen() {
           <Button label="파일 고르기" onPress={() => void pickFile()} loading={busy} disabled={busy} />
           {!isWeb && (
             <>
-              <Button label="사진에서 읽기" variant="secondary" onPress={() => void pickPhoto()} loading={busy} disabled={busy} />
+              <View style={{ flexDirection: 'row', gap: space.sm }}>
+                <Button label="명부 찍기" variant="secondary" onPress={() => void pickPhoto('camera')} loading={busy} disabled={busy} style={{ flex: 1 }} />
+                <Button label="앨범에서 읽기" variant="secondary" onPress={() => void pickPhoto('library')} loading={busy} disabled={busy} style={{ flex: 1 }} />
+              </View>
               <Text style={{ color: colors.textMuted, fontSize: font.caption, lineHeight: 18 }}>
-                손으로 쓴 명부나 방명록 사진에서 이름과 금액을 읽어 옵니다. 기기 안에서만 인식하며 사진은 서버로 보내지 않습니다. 손글씨는 틀릴 수 있으니 미리보기에서 꼭 확인하세요.
+                손으로 쓴 명부나 방명록을 찍거나 사진에서 골라 이름과 금액을 읽어 옵니다. 기기 안에서만 인식하며 사진은 서버로 보내지 않습니다. 손글씨는 틀릴 수 있으니 미리보기에서 꼭 확인하세요.
               </Text>
             </>
           )}

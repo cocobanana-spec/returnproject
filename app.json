@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.cocobanana.ppurin",
-      "buildNumber": "26",
+      "buildNumber": "27",
       "config": {
         "usesNonExemptEncryption": false
       },
@@ -28,7 +28,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 2
+      "versionCode": 3
     },
     "plugins": [
       "expo-router",
@@ -40,7 +40,7 @@
         "expo-image-picker",
         {
           "photosPermission": "청첩장과 부고장에 넣을 사진을 고르기 위해 사진 보관함을 사용합니다.",
-          "cameraPermission": false,
+          "cameraPermission": "손으로 쓴 명부를 찍어 이름과 금액을 읽기 위해 카메라를 사용합니다.",
           "microphonePermission": false
         }
       ]
