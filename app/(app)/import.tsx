@@ -67,7 +67,7 @@ import { LoadFailed } from '../../src/ui/LoadFailed';
 import { Screen } from '../../src/ui/Screen';
 import { SampleTable } from '../../src/ui/SampleTable';
 import * as ImagePicker from 'expo-image-picker';
-import { linesToTable } from '../../src/domain/ocrLines.ts';
+import { groupOcrLines, linesToTable } from '../../src/domain/ocrLines.ts';
 import { isWeb } from '../../src/lib/platform.ts';
 
 type Step = 'target' | 'file' | 'mapping' | 'preview' | 'saving' | 'done';
@@ -178,8 +178,9 @@ export default function ImportScreen() {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const mlkit = require('@react-native-ml-kit/text-recognition') as typeof import('@react-native-ml-kit/text-recognition');
       const result = await mlkit.default.recognize(picked.assets[0].uri, mlkit.TextRecognitionScript.KOREAN);
-      const lines = result.blocks.flatMap((b) => b.lines.map((l) => l.text));
-      const tbl = linesToTable(lines);
+      // 이름 열과 금액 열이 다른 블록으로 오므로 글자 상자 위치로 같은 줄을 다시 묶는다(2026-10-05 실기기)
+      const lines = result.blocks.flatMap((b) => b.lines.map((l) => ({ text: l.text, frame: l.frame })));
+      const tbl = linesToTable(groupOcrLines(lines));
       if (tbl.length === 0) {
         setError('사진에서 이름과 금액을 찾지 못했습니다. 글자가 또렷하게 나온 사진으로 다시 해 보세요.');
         return;
