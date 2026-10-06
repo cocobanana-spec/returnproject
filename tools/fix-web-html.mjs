@@ -19,7 +19,7 @@ const CSS = `<style id="${MARK}">
 /* 옛 브라우저는 100%, 그 밖에는 실제로 보이는 높이 */
 html, body, #root { height: 100%; height: 100dvh; }
 /* 번들이 뜨기 전에도 같은 바닥색 — Green Deck 라이트 */
-body { background: #F6F7F5; }
+body { background: #F2F4F6; }
 </style>`;
 
 const html = readFileSync(FILE, 'utf8');
