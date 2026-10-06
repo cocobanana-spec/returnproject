@@ -14,7 +14,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import {
   DEFAULT_DIRECTION,
-  DIRECTIONS,
   DIRECTION_LABEL,
   entryRowSubtitle,
   isMineOf,
@@ -84,7 +83,7 @@ export default function RecordsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      {/* 머리 — 장부 이름과 검색 */}
+      {/* 머리 — 로고·앱 이름(브랜드가 보이게 크게)과 검색 */}
       <View
         style={{
           alignItems: 'center',
@@ -94,11 +93,10 @@ export default function RecordsScreen() {
           paddingTop: insets.top + space.md,
         }}
       >
-        {/* 장부라는 개념은 화면에서 뺐다(2026-10-04 사용자 결정). 공유는 행사 단위로 한다.
-            왼쪽 로고 + 앱 이름 전체(2026-10-04 저녁, 사장님 요청). */}
-        <Image source={LOGO} style={{ borderRadius: radius.sm, height: 32, width: 32 }} accessibilityIgnoresInvertColors />
+        {/* 장부라는 개념은 화면에서 뺐다(2026-10-04 사용자 결정). 공유는 행사 단위로 한다. */}
+        <Image source={LOGO} style={{ borderRadius: radius.sm, height: 40, width: 40 }} accessibilityIgnoresInvertColors />
         <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }} numberOfLines={1}>
+          <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '800', letterSpacing: -0.3 }} numberOfLines={1}>
             {t('home.title')}
           </Text>
         </View>
@@ -120,12 +118,23 @@ export default function RecordsScreen() {
         </Pressable>
       </View>
 
-      {/* 총액 두 칸 — 칸이 곧 방향 탭이다(docs/09 A1). 넓게 차지하지 않게 한 줄에 둘 */}
-      <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.md, paddingHorizontal: space.xl }}>
-        {DIRECTIONS.map((d) => {
+      {/* 요약 카드 — 홈의 주인공. 진한 브랜드 그린 하나에 받은 돈·준 돈을 흰 글씨로(docs/DESIGN.md 2단계).
+          반쪽이 곧 방향 탭이다(docs/09 A1). 선택된 쪽만 글씨가 온전히 희고 밑줄이 있다. */}
+      <View
+        style={{
+          backgroundColor: colors.accent,
+          borderRadius: radius.lg,
+          boxShadow: '0 6px 18px rgba(79, 121, 66, 0.28)',
+          flexDirection: 'row',
+          marginHorizontal: space.xl,
+          marginTop: space.lg,
+          paddingHorizontal: space.sm,
+          paddingVertical: space.md,
+        }}
+      >
+        {(['received', 'given'] as const).map((d) => {
           const selected = direction === d;
           const amount = d === 'given' ? (stats.data?.givenTotal ?? 0) : (stats.data?.receivedTotal ?? 0);
-          const color = d === 'given' ? colors.given : colors.received;
           return (
             <Pressable
               key={d}
@@ -133,19 +142,26 @@ export default function RecordsScreen() {
               accessibilityState={{ selected }}
               onPress={() => setDirection(d)}
               style={({ pressed }) => ({
-                ...cardShadow,
-                backgroundColor: selected ? colors.accentSoft : colors.card,
                 borderRadius: radius.md,
                 flex: 1,
+                gap: 2,
                 paddingHorizontal: space.md,
                 paddingVertical: space.sm,
                 opacity: pressed ? 0.7 : 1,
               })}
             >
-              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{t(d === 'given' ? 'home.given' : 'home.received')}</Text>
-              <Text style={{ ...amountTextLarge, color: selected ? color : colors.text, fontSize: font.title, fontWeight: '700' }} numberOfLines={1}>
+              <Text style={{ color: selected ? colors.textOnAccent : 'rgba(255,255,255,0.72)', fontSize: font.caption, fontWeight: '600' }}>
+                {t(d === 'given' ? 'home.given' : 'home.received')}
+              </Text>
+              <Text
+                style={{ ...amountTextLarge, color: selected ? colors.textOnAccent : 'rgba(255,255,255,0.72)', fontSize: font.heading, fontWeight: '800' }}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+              >
                 {stats.isSuccess ? formatWon(amount) : '—'}
               </Text>
+              <View style={{ backgroundColor: selected ? colors.textOnAccent : 'transparent', borderRadius: 2, height: 3, marginTop: space.xs, width: 28 }} />
             </Pressable>
           );
         })}
@@ -256,9 +272,11 @@ export default function RecordsScreen() {
           accessibilityLabel={recordLabel}
           onPress={() => router.push(recordHref)}
           style={({ pressed }) => ({
+            ...cardShadow,
             alignItems: 'center',
-            backgroundColor: colors.accent,
+            borderColor: colors.accent,
             borderRadius: radius.pill,
+            borderWidth: 1.5,
             flexDirection: 'row',
             gap: space.sm,
             justifyContent: 'center',
@@ -266,8 +284,8 @@ export default function RecordsScreen() {
             opacity: pressed ? 0.7 : 1,
           })}
         >
-          <Ionicons name="add" size={20} color={colors.textOnAccent} />
-          <Text style={{ color: colors.textOnAccent, fontSize: font.body, fontWeight: '700' }}>{t('home.recordMore')}</Text>
+          <Ionicons name="add" size={20} color={colors.accent} />
+          <Text style={{ color: colors.accent, fontSize: font.body, fontWeight: '700' }}>{t('home.recordMore')}</Text>
         </Pressable>
       </View>
       )}
@@ -280,7 +298,6 @@ export default function RecordsScreen() {
 function EntryRow({ item }: { item: EntryWithContext }) {
   const router = useRouter();
   const { colors, space, font } = useTokens();
-  const isMine = item.event?.is_mine ?? false;
 
   return (
     <View
@@ -299,7 +316,7 @@ function EntryRow({ item }: { item: EntryWithContext }) {
           onPress={() => router.push(`/entry/${item.id}`)}
           style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
         >
-          <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: 2 }} numberOfLines={1}>
+          <Text style={{ color: colors.textFaint, fontSize: font.caption, marginTop: 2 }} numberOfLines={1}>
             {entryRowSubtitle(item.event)}
           </Text>
         </Pressable>
@@ -311,7 +328,8 @@ function EntryRow({ item }: { item: EntryWithContext }) {
         <Text
           style={{
             ...amountText,
-            color: item.amount === null ? colors.textMuted : isMine ? colors.received : colors.given,
+            // 목록 금액은 회색 — 색은 요약 카드에서만(docs/DESIGN.md)
+            color: item.amount === null ? colors.textFaint : colors.text,
             fontSize: font.body,
             fontWeight: '700',
           }}
