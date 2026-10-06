@@ -1,5 +1,9 @@
-// 버튼 한 종류로 primary·secondary·danger 세 모양을 낸다 — Green Deck 라이트: 모서리 12, primary 는 진한 초록 면
-import { ActivityIndicator, Pressable, Text, type ViewStyle } from 'react-native';
+// 버튼 — primary 는 떠 있는 캡슐(iOS 26 리퀴드 글라스, 그 밖에는 브랜드 면), secondary 는 연회색 면, danger 는 연한 빨강 면
+//
+// docs/DESIGN.md 1단계. 글라스는 iOS 26 에서만 OS 가 그린다(expo-glass-effect). 안드로이드·웹·옛 iOS 는
+// 같은 모양의 불투명 캡슐이다 — 직접 블러·반투명을 만들지 않는다(레이어 규칙).
+// `interactive` 는 화면의 primary 떠 있는 버튼(기록하기) 하나에만 준다.
+import { ActivityIndicator, Platform, Pressable, Text, View, type ViewStyle } from 'react-native';
 import { useTokens } from '../theme/tokens';
 
 type Props = {
@@ -9,11 +13,22 @@ type Props = {
   disabled?: boolean;
   loading?: boolean;
   size?: 'md' | 'sm';
+  // primary 떠 있는 버튼에만. 누를 때 글라스가 반응한다
+  interactive?: boolean;
   style?: ViewStyle;
 };
 
-// secondary 는 문서대로 1px #727272 선만 두고 면은 비운다
-const SECONDARY_BORDER = '#CFD4CC';
+// 글라스 모듈은 네이티브 전용이라 웹 번들에서 require 하지 않는다
+type GlassModule = typeof import('expo-glass-effect');
+let glass: GlassModule | null = null;
+function loadGlass(): GlassModule | null {
+  if (Platform.OS !== 'ios') return null;
+  if (!glass) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    glass = require('expo-glass-effect') as GlassModule;
+  }
+  return glass;
+}
 
 export function Button({
   label,
@@ -22,14 +37,40 @@ export function Button({
   disabled = false,
   loading = false,
   size = 'md',
+  interactive = false,
   style,
 }: Props) {
   const { colors, space, radius, font } = useTokens();
   const off = disabled || loading;
+  const g = variant === 'primary' ? loadGlass() : null;
+  const useGlass = !!g && g.isLiquidGlassAvailable();
 
-  const bg =
-    variant === 'primary' ? colors.accent : variant === 'danger' ? colors.danger : 'transparent';
-  const fg = variant === 'secondary' ? colors.text : colors.textOnAccent;
+  const bg = variant === 'primary' ? colors.accent : variant === 'danger' ? colors.dangerSoft : colors.surface2;
+  const fg = variant === 'primary' ? colors.textOnAccent : variant === 'danger' ? colors.danger : colors.text;
+  const height = size === 'sm' ? 40 : 56;
+
+  const inner = loading ? (
+    <ActivityIndicator color={fg} />
+  ) : (
+    <Text style={{ color: fg, fontSize: size === 'sm' ? font.body : 17, fontWeight: '700' }}>{label}</Text>
+  );
+
+  // 글라스 캡슐 — 면은 OS 가 그리고(tint = 브랜드), 우리는 글자만 올린다
+  if (useGlass && g) {
+    const { GlassView } = g;
+    return (
+      <Pressable accessibilityRole="button" disabled={off} onPress={onPress} style={({ pressed }) => [{ opacity: off ? 0.55 : pressed ? 0.85 : 1 }, style]}>
+        <GlassView
+          glassEffectStyle="regular"
+          tintColor={colors.accent}
+          isInteractive={interactive}
+          style={{ alignItems: 'center', borderRadius: radius.pill, height, justifyContent: 'center', paddingHorizontal: space.xl }}
+        >
+          {inner}
+        </GlassView>
+      </Pressable>
+    );
+  }
 
   return (
     <Pressable
@@ -41,23 +82,15 @@ export function Button({
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: bg,
-          borderColor: variant === 'secondary' ? SECONDARY_BORDER : bg,
-          borderWidth: variant === 'secondary' ? 1 : 0,
-          borderRadius: radius.md,
-          paddingVertical: size === 'sm' ? space.sm : space.lg,
+          borderRadius: variant === 'primary' ? radius.pill : radius.md,
+          height,
           paddingHorizontal: space.xl,
           opacity: off || pressed ? 0.55 : 1,
         },
         style,
       ]}
     >
-      {loading ? (
-        <ActivityIndicator color={fg} />
-      ) : (
-        <Text style={{ color: fg, fontSize: size === 'sm' ? font.caption : font.body, fontWeight: '700' }}>
-          {label}
-        </Text>
-      )}
+      <View>{inner}</View>
     </Pressable>
   );
 }

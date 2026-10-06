@@ -1,58 +1,65 @@
-// 색·간격·글꼴 크기 디자인 토큰 — docs/DESIGN.md 기준(올리브그린·아이보리). 화면은 useTokens()로 꺼내 쓴다
+// 색·간격·글꼴 크기 디자인 토큰 — docs/DESIGN.md 기준(토스 스타일 콘텐츠 + 리퀴드 글라스 내비). 화면은 useTokens()로 꺼내 쓴다
 //
-// 2026-10-04 처음엔 docs/green-deck-DESIGN.md 의 다크 버전을 입혔다가 사장님이 "원하는 건 라이트 그림"이라 해서
-// 라이트 한 벌로 바꿨다. 밝은 회백색 바닥, 흰 카드에 옅은 그림자, 진한 초록 강조, 연두 배지가 핵심이다.
-// 카드는 테두리 대신 흰 면 + 그림자(cardShadow)로 띄운다. 구분선은 옅은 회색만.
+// 2026-10-06 리뉴얼 1단계. 연회색 바닥 위에 순백 카드, 그림자 없음(바닥 대비로만 띄운다). 글자는 크고 굵고
+// 숫자는 더 크고 굵다. 브랜드 색은 BRAND 하나로 관리한다 — 그린(#22C55E)과 블루(#3182F6) 중 고르면 그 줄만 바꾼다.
+// 네비게이션 레이어(탭바·툴바·떠 있는 버튼)는 OS 글라스가 그리고, 여기 토큰은 콘텐츠 레이어 것이다.
 import type { TextStyle, ViewStyle } from 'react-native';
 
-// 기준은 docs/DESIGN.md (2026-10-06). 브랜드 올리브그린, 따뜻한 아이보리 바닥, 순백 카드.
-// 준 돈은 테라코타, 받은 돈은 브랜드 그린 — 둘 다 채도를 그린과 맞춘다. 쨍한 빨강은 없다.
+// 빌드 때 EXPO_PUBLIC_BRAND=blue 를 주면 블루. 기본은 그린. 결정되면 이 줄을 상수로 바꾼다
+const BRAND = process.env.EXPO_PUBLIC_BRAND === 'blue' ? '#3182F6' : '#22C55E';
+// 브랜드 10% 틴트 — 아이콘 배경·선택 칩. 흰 바탕에 섞은 값
+const BRAND_LIGHT = process.env.EXPO_PUBLIC_BRAND === 'blue' ? '#EAF2FE' : '#E9F9EF';
+
 const palette = {
-  bg: '#F6F3EA',
-  // 비활성 칩·입력칸·보조 면. 바닥보다 확실히 한 단계 어둡다(대비 부족 금지)
-  bgSubtle: '#E9E5DA',
+  bg: '#F2F4F6',
+  // 카드 안의 하위 영역·비활성 칩·입력칸
+  bgSubtle: '#F9FAFB',
   card: '#FFFFFF',
-  surface2: '#E9E5DA',
-  border: '#DDD8CC',
-  text: '#1E211C',
-  textMuted: '#6E7268',
-  // 부가 정보(날짜·행사명). 보조 글자보다 한 단계 더 연하다
-  textFaint: '#9A9E94',
+  surface2: '#F9FAFB',
+  // 구분선 — 꼭 필요할 때만, 카드 안에서만
+  border: '#E5E8EB',
+  text: '#191F28',
+  textMuted: '#6B7684',
+  textFaint: '#8B95A1',
   textOnAccent: '#FFFFFF',
-  accent: '#4F7942',
-  // 연한 그린 면. 배지·선택된 칸
-  accentSoft: '#E6EDDF',
-  given: '#B5553F',
-  givenSoft: '#F3E4DF',
-  received: '#4F7942',
-  receivedSoft: '#E6EDDF',
-  danger: '#A8463A',
-  // 하단 탭 바
+  accent: BRAND,
+  accentSoft: BRAND_LIGHT,
+  // 준 돈 — 요약에서만 쓴다. 목록 금액은 text
+  given: '#F04452',
+  givenSoft: '#FDECEE',
+  received: BRAND,
+  receivedSoft: BRAND_LIGHT,
+  danger: '#F04452',
+  dangerSoft: '#FDECEE',
+  // 하단 탭 바(웹 JS 탭 전용. 네이티브는 OS 가 그린다)
   nav: '#FFFFFF',
 };
 
-export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
+// 화면 좌우 여백 20(xl), 카드 사이 12(md), 섹션 사이 32(xxl), 카드 안쪽 20(xl)
+export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 32 } as const;
 
-// 8 입력칸·작은 배지, 12 카드·버튼, 16 큰 카드, 알약은 칩
-export const radius = { sm: 8, md: 12, lg: 16, pill: 9999 } as const;
+// 입력칸 12, 버튼 16, 카드 20, 칩·캡슐은 완전 둥글게
+export const radius = { sm: 12, md: 16, lg: 20, pill: 9999 } as const;
 
+// display 32 주인공 숫자 / heading 24 화면 제목 / title 18 카드·목록 제목 / body 15 / caption 13
+// (이름은 그대로 두고 값만 맞췄다 — 화면 파일에서 heading 은 화면 제목, title 은 카드 제목으로 써 왔다)
 export const font = {
-  caption: 12,
+  caption: 13,
   body: 15,
   title: 18,
-  heading: 22,
-  display: 28,
+  heading: 24,
+  display: 32,
 } as const;
 
-// 흰 카드를 바닥에서 띄우는 그림자. boxShadow 는 RN 0.76+ 에서 네이티브·웹 모두 먹는다
+// 카드 — 흰 면, 모서리 20, 그림자 없음. 이름은 예전 그대로 두어 화면 파일을 건드리지 않는다
 export const cardShadow: ViewStyle = {
   backgroundColor: palette.card,
-  boxShadow: '0 2px 10px rgba(30, 33, 28, 0.06)',
+  borderRadius: radius.lg,
 };
 
 // 금액 숫자는 전부 고정폭. 자릿수가 세로로 맞아야 훑을 수 있다
-export const amountText: TextStyle = { fontVariant: ['tabular-nums'] };
-// 요약 카드의 큰 금액은 자간을 살짝 좁힌다
+export const amountText: TextStyle = { fontVariant: ['tabular-nums'], letterSpacing: -0.5 };
+// 주인공 숫자(display)
 export const amountTextLarge: TextStyle = { fontVariant: ['tabular-nums'], letterSpacing: -0.5 };
 
 export type Colors = typeof palette;
