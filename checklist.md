@@ -390,6 +390,12 @@
 - [x] **디자인 폴리싱 1~3단계**(2026-10-06, docs/DESIGN.md) — 아이보리·올리브그린·테라코타 토큰, 홈 그린 요약 카드, 목록 금액 회색, 통계 요약 세로 정렬, 더보기 세그먼트, 금액 칩 한 줄, 내 행사 안내. Liquid Glass 헤더는 유지
 - [x] **1.0.2 승인·출시**(2026-10-06 확인, READY_FOR_SALE)
 - [x] **1.0.3 빌드 31 TestFlight 업로드 + 안드로이드 1.0.3 vc4 AAB**(2026-10-06 18:3x) — 디자인 폴리싱 반영. 1.0.2 승인 뒤라 30 은 거부됨(90062). AAB `~/Desktop/ppurin-1.0.3-vc4.aab`. 심사 제출은 사장님 폰 확인 뒤
+
+### 5-1-5. 디자인 전면 리뉴얼 — 토스 콘텐츠 + 리퀴드 글라스 내비 (2026-10-06 지시, 단계마다 사장님 확인)
+- 결정: 타깃 iOS 16.4 유지(글라스는 iOS 26 에서만) / 안드로이드·웹은 같은 인상을 다른 방식으로 / 시스템 폰트 / 라이트만 / 심사는 리뉴얼 끝나고
+- [x] **0단계** — 네이티브 탭(`expo-router/unstable-native-tabs`, minimizeBehavior onScrollDown) iOS·안드로이드, 웹은 JS 탭. iOS 26 시뮬레이터에서 글라스 탭바 밑으로 콘텐츠 스크롤 확인(`~/Desktop/design-stage0-ios26-*.png`). 시뮬레이터는 ML Kit 이 arm64 를 안 줘서 `PPURIN_SKIP_MLKIT=1 pod install` 토글(react-native.config.js)
+- [ ] 1단계 — 토큰·공통 컴포넌트(ListRow·Card·PrimaryButton 글라스 캡슐·SecondaryButton·Chip·SectionHeader), brand 그린/블루 Preview
+- [ ] 2단계 — 홈 / [ ] 3단계 — 통계·내 행사·더보기·명부 입력 / [ ] 문구
 - [x] App Privacy 6개 유형 확인(2026-10-05 사장님이 ASC 에서 복구)
 - [ ] 관리자 iOS 접속자 0 — 접속 기록은 빌드 22 뒤에 넣었다(15:46 커밋, 빌드 22는 14:49). 빌드 24부터 잡힌다. 웹은 오늘 3명 기록됨
 
