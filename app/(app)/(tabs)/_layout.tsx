@@ -1,4 +1,4 @@
-// 하단 탭 4개 — 홈·내 행사·통계·더보기. iOS·안드로이드는 네이티브 탭(iOS 26 리퀴드 글라스), 웹은 JS 탭
+// 하단 탭 4개 — 홈((home) 중첩 스택)·내 행사·통계·더보기. iOS·안드로이드는 네이티브 탭(iOS 26 리퀴드 글라스), 웹은 JS 탭
 //
 // 2026-10-06 리뉴얼 0단계(docs/DESIGN.md 레이어 규칙). 네비게이션 레이어는 OS 가 그린다 — 직접 블러·반투명을
 // 만들지 않는다. 네이티브 탭은 UITabBarController 라 iOS 26 에서 글라스·스크롤 시 축소가 자동이고,
@@ -62,7 +62,7 @@ function NativeTabsLayout() {
   const { colors } = useTokens();
   return (
     <NativeTabs minimizeBehavior="onScrollDown" tintColor={colors.accent} labelStyle={{ fontWeight: '600' }}>
-      <NativeTabs.Trigger name="index">
+      <NativeTabs.Trigger name="(home)">
         <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} md={{ default: 'home', selected: 'home' }} />
         <NativeTabs.Trigger.Label>{t('tab.home')}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
@@ -103,7 +103,7 @@ function WebTabs() {
         sceneStyle: { backgroundColor: colors.bg },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: t('tab.home'), tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? 'home' : 'home-outline'} color={color} size={size} /> }} />
+      <Tabs.Screen name="(home)" options={{ title: t('tab.home'), tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? 'home' : 'home-outline'} color={color} size={size} /> }} />
       <Tabs.Screen name="my-events" options={{ title: t('tab.myEvents'), tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? 'calendar' : 'calendar-outline'} color={color} size={size} /> }} />
       <Tabs.Screen name="stats" options={{ title: t('tab.stats'), tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? 'stats-chart' : 'stats-chart-outline'} color={color} size={size} /> }} />
       <Tabs.Screen name="more" options={{ title: t('tab.more'), tabBarIcon: ({ color, size }) => <MaterialIcons name="more-horiz" color={color} size={size} /> }} />

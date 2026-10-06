@@ -14,7 +14,7 @@ export default function DesignPreview() {
   const { colors, space, font } = useTokens();
   const insets = useSafeAreaInsets();
   const [chip, setChip] = useState('결혼식');
-  const brand = process.env.EXPO_PUBLIC_BRAND === 'blue' ? 'blue #3182F6' : 'green #22C55E';
+  const brand = 'blue #3182F6';
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ gap: space.xxl, paddingBottom: insets.bottom + 120, paddingHorizontal: space.xl, paddingTop: insets.top + space.xl }}>
@@ -60,7 +60,7 @@ export default function DesignPreview() {
 
       <View style={{ gap: space.md }}>
         <SectionHeader title="버튼" />
-        <Button label="기록하기" onPress={() => {}} interactive />
+        <Button label="기록하기" onPress={() => {}} />
         <Button label="코드로 참여" variant="secondary" onPress={() => {}} />
         <Button label="이 기록 지우기" variant="danger" onPress={() => {}} />
         <View style={{ flexDirection: 'row', gap: space.sm }}>

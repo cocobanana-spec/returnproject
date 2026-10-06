@@ -1,14 +1,14 @@
 // 색·간격·글꼴 크기 디자인 토큰 — docs/DESIGN.md 기준(토스 스타일 콘텐츠 + 리퀴드 글라스 내비). 화면은 useTokens()로 꺼내 쓴다
 //
 // 2026-10-06 리뉴얼 1단계. 연회색 바닥 위에 순백 카드, 그림자 없음(바닥 대비로만 띄운다). 글자는 크고 굵고
-// 숫자는 더 크고 굵다. 브랜드 색은 BRAND 하나로 관리한다 — 그린(#22C55E)과 블루(#3182F6) 중 고르면 그 줄만 바꾼다.
+// 숫자는 더 크고 굵다. 브랜드 색은 BRAND 하나로 관리한다(블루 #3182F6).
 // 네비게이션 레이어(탭바·툴바·떠 있는 버튼)는 OS 글라스가 그리고, 여기 토큰은 콘텐츠 레이어 것이다.
 import type { TextStyle, ViewStyle } from 'react-native';
 
-// 빌드 때 EXPO_PUBLIC_BRAND=blue 를 주면 블루. 기본은 그린. 결정되면 이 줄을 상수로 바꾼다
-const BRAND = process.env.EXPO_PUBLIC_BRAND === 'blue' ? '#3182F6' : '#22C55E';
-// 브랜드 10% 틴트 — 아이콘 배경·선택 칩. 흰 바탕에 섞은 값
-const BRAND_LIGHT = process.env.EXPO_PUBLIC_BRAND === 'blue' ? '#EAF2FE' : '#E9F9EF';
+// 2026-10-06 사장님이 블루로 결정(그린 #22C55E 와 나란히 보고). 바꾸려면 이 두 줄만
+const BRAND = '#3182F6';
+// 브랜드 10% 틴트 — 아이콘 배경·상태 배지. 흰 바탕에 섞은 값
+const BRAND_LIGHT = '#EAF2FE';
 
 const palette = {
   bg: '#F2F4F6',

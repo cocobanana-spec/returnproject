@@ -2,7 +2,7 @@
 //
 // docs/DESIGN.md 1단계. 글라스는 iOS 26 에서만 OS 가 그린다(expo-glass-effect). 안드로이드·웹·옛 iOS 는
 // 같은 모양의 불투명 캡슐이다 — 직접 블러·반투명을 만들지 않는다(레이어 규칙).
-// `interactive` 는 화면의 primary 떠 있는 버튼(기록하기) 하나에만 준다.
+// `floating` 은 화면의 떠 있는 primary(기록하기) 하나에만 준다 — 그것만 글라스다.
 import { ActivityIndicator, Platform, Pressable, Text, View, type ViewStyle } from 'react-native';
 import { useTokens } from '../theme/tokens';
 
@@ -13,8 +13,8 @@ type Props = {
   disabled?: boolean;
   loading?: boolean;
   size?: 'md' | 'sm';
-  // primary 떠 있는 버튼에만. 누를 때 글라스가 반응한다
-  interactive?: boolean;
+  // 떠 있는 primary(기록하기)에만. iOS 26 에서 글라스 + interactive 가 된다. 콘텐츠 안의 primary 는 불투명 면이다(레이어 규칙)
+  floating?: boolean;
   style?: ViewStyle;
 };
 
@@ -37,12 +37,12 @@ export function Button({
   disabled = false,
   loading = false,
   size = 'md',
-  interactive = false,
+  floating = false,
   style,
 }: Props) {
   const { colors, space, radius, font } = useTokens();
   const off = disabled || loading;
-  const g = variant === 'primary' ? loadGlass() : null;
+  const g = variant === 'primary' && floating ? loadGlass() : null;
   const useGlass = !!g && g.isLiquidGlassAvailable();
 
   const bg = variant === 'primary' ? colors.accent : variant === 'danger' ? colors.dangerSoft : colors.surface2;
@@ -63,7 +63,7 @@ export function Button({
         <GlassView
           glassEffectStyle="regular"
           tintColor={colors.accent}
-          isInteractive={interactive}
+          isInteractive
           style={{ alignItems: 'center', borderRadius: radius.pill, height, justifyContent: 'center', paddingHorizontal: space.xl }}
         >
           {inner}
