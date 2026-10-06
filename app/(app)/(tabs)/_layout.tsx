@@ -1,13 +1,17 @@
-// 하단 탭 4개 — 홈·내 행사·통계·더보기 (2026-10-04 1차 피드백: 기록 탭은 홈에 합쳤고 내 행사 탭이 생겼다)
+// 하단 탭 4개 — 홈·내 행사·통계·더보기. iOS·안드로이드는 네이티브 탭(iOS 26 리퀴드 글라스), 웹은 JS 탭
 //
-// 2026-09-26 개편(사용자 요청). 홈은 준돈·받은돈 총액만 보여 주는 대시보드가 되고,
-// 목록(준돈/받은돈 상단 탭)은 기록 탭으로 그대로 옮겼다. 기록 버튼과 검색도 함께 간다.
-// 사람·행사는 2026-09-24에 탭에서 빠져 더보기로 들어갔다. 화면 자체는 지우지 않았다.
+// 2026-10-06 리뉴얼 0단계(docs/DESIGN.md 레이어 규칙). 네비게이션 레이어는 OS 가 그린다 — 직접 블러·반투명을
+// 만들지 않는다. 네이티브 탭은 UITabBarController 라 iOS 26 에서 글라스·스크롤 시 축소가 자동이고,
+// 안드로이드는 머티리얼 탭이다. 웹은 네이티브 탭의 웹 구현이 글자뿐이라(아이콘 없음) 기존 JS 탭을 두고
+// 반투명 흰 면으로 "비슷한 인상"만 낸다(사장님 결정 2).
+//
+// 2026-10-04 1차 피드백: 기록 탭은 홈에 합쳤고 내 행사 탭이 생겼다. 사람·행사는 더보기 안에 있다.
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useT } from '../../../src/i18n';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Tabs, useRouter, usePathname } from 'expo-router';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useEffect, useRef } from 'react';
+import { useT } from '../../../src/i18n';
 import { restoredTabRoute, tabRouteFromPath } from '../../../src/domain/tabs.ts';
 import { LAST_TAB_KEY } from '../../../src/ledger/storage.ts';
 import { isWeb } from '../../../src/lib/platform.ts';
@@ -17,14 +21,12 @@ import { useTokens } from '../../../src/theme/tokens';
 // 사용자가 방금 누른 탭을 덮어쓴다.
 let restoredOnce = false;
 
-export default function TabsLayout() {
-  const t = useT();
-  const { colors, font } = useTokens();
+// 마지막으로 보던 탭으로 열고, 탭을 옮길 때마다 기억한다. 두 구현이 같이 쓴다.
+function useLastTab() {
   const router = useRouter();
   const pathname = usePathname();
   const restoring = useRef(false);
 
-  // 마지막으로 보던 탭으로 연다. 저장된 값이 더 이상 없는 탭이면 홈이다.
   useEffect(() => {
     if (restoredOnce) return;
     restoredOnce = true;
@@ -40,70 +42,71 @@ export default function TabsLayout() {
       });
   }, [router]);
 
-  // 탭을 옮길 때마다 기억한다. 탭 안에서 더 들어간 화면은 탭이 아니므로 건드리지 않는다.
   // **되살리는 동안에는 저장하지 않는다.** 첫 마운트의 경로는 언제나 홈이라, 이 가드가 없으면
-  // 저장된 탭을 읽기도 전에 홈으로 덮어쓴다. 지금까지 통과한 것은 저장소 큐 순서 덕이었지
-  // 계약이 아니었다(2026-09-26 QA).
+  // 저장된 탭을 읽기도 전에 홈으로 덮어쓴다(2026-09-26 QA).
   useEffect(() => {
     if (restoring.current) return;
     const route = tabRouteFromPath(pathname);
     if (route) AsyncStorage.setItem(LAST_TAB_KEY, route).catch(() => {});
   }, [pathname]);
+}
 
+export default function TabsLayout() {
+  useLastTab();
+  return isWeb ? <WebTabs /> : <NativeTabsLayout />;
+}
+
+// iOS·안드로이드 — OS 의 탭 바. 아이콘은 iOS SF Symbol, 안드로이드 머티리얼 심볼
+function NativeTabsLayout() {
+  const t = useT();
+  const { colors } = useTokens();
+  return (
+    <NativeTabs minimizeBehavior="onScrollDown" tintColor={colors.accent} labelStyle={{ fontWeight: '600' }}>
+      <NativeTabs.Trigger name="index">
+        <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} md={{ default: 'home', selected: 'home' }} />
+        <NativeTabs.Trigger.Label>{t('tab.home')}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="my-events">
+        <NativeTabs.Trigger.Icon sf={{ default: 'calendar', selected: 'calendar' }} md={{ default: 'calendar_month', selected: 'calendar_month' }} />
+        <NativeTabs.Trigger.Label>{t('tab.myEvents')}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="stats">
+        <NativeTabs.Trigger.Icon sf={{ default: 'chart.bar', selected: 'chart.bar.fill' }} md={{ default: 'bar_chart', selected: 'bar_chart' }} />
+        <NativeTabs.Trigger.Label>{t('tab.stats')}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="more">
+        <NativeTabs.Trigger.Icon sf={{ default: 'ellipsis', selected: 'ellipsis' }} md={{ default: 'more_horiz', selected: 'more_horiz' }} />
+        <NativeTabs.Trigger.Label>{t('tab.more')}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+    </NativeTabs>
+  );
+}
+
+// 웹 — JS 탭. 반투명 흰 면 + 블러(브라우저 backdrop-filter)로 네이티브와 비슷한 인상만 낸다
+function WebTabs() {
+  const t = useT();
+  const { colors, font } = useTokens();
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: colors.bg },
-        headerTintColor: colors.text,
-        headerShadowVisible: false,
+        headerShown: false,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
-        // 웹에서는 안전 영역 값이 0이라 탭 바가 화면 맨 밑에 딱 붙고, 라벨 아래 여백이 5px 뿐이다.
-        // 모바일 브라우저의 주소창·홈 인디케이터와 겹쳐 라벨이 잘린 것처럼 보인다(2026-09-26 실측).
-        // 네이티브는 안전 영역이 알아서 잡아 주므로 건드리지 않는다.
+        // 웹에서는 안전 영역 값이 0이라 라벨 아래 여백이 없다. 높이를 직접 준다(2026-09-26 실측).
         tabBarStyle: {
-          backgroundColor: colors.nav,
+          backgroundColor: 'rgba(255,255,255,0.82)',
+          backdropFilter: 'blur(18px)',
           borderTopColor: colors.border,
-          ...(isWeb ? { height: 64 } : {}),
-        },
+          height: 64,
+        } as never,
         tabBarLabelStyle: { fontSize: font.caption - 1, fontWeight: '600' },
         sceneStyle: { backgroundColor: colors.bg },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: t('tab.home'),
-          headerShown: false,
-          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? 'home' : 'home-outline'} color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="my-events"
-        options={{
-          title: t('tab.myEvents'),
-          headerShown: false,
-          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? 'calendar' : 'calendar-outline'} color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="stats"
-        options={{
-          title: t('tab.stats'),
-          headerShown: false,
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'stats-chart' : 'stats-chart-outline'} color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="more"
-        options={{
-          title: t('tab.more'),
-          headerShown: false,
-          tabBarIcon: ({ color, size }) => <Ionicons name="menu" color={color} size={size} />,
-        }}
-      />
+      <Tabs.Screen name="index" options={{ title: t('tab.home'), tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? 'home' : 'home-outline'} color={color} size={size} /> }} />
+      <Tabs.Screen name="my-events" options={{ title: t('tab.myEvents'), tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? 'calendar' : 'calendar-outline'} color={color} size={size} /> }} />
+      <Tabs.Screen name="stats" options={{ title: t('tab.stats'), tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? 'stats-chart' : 'stats-chart-outline'} color={color} size={size} /> }} />
+      <Tabs.Screen name="more" options={{ title: t('tab.more'), tabBarIcon: ({ color, size }) => <MaterialIcons name="more-horiz" color={color} size={size} /> }} />
     </Tabs>
   );
 }
