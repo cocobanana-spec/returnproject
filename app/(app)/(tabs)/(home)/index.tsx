@@ -200,8 +200,8 @@ export default function HomeScreen() {
 
       {/* 떠 있는 기록하기 — 네비게이션 레이어. 탭바 위 16pt. 글라스는 Button 이 iOS 26 에서만 켠다 */}
       {rows.length > 0 && (
-        <View pointerEvents="box-none" style={{ alignItems: 'center', bottom: insets.bottom + FAB_GAP, left: space.xl, position: 'absolute', right: space.xl }}>
-          <Button label={recordLabel} onPress={() => router.push(recordHref)} floating style={{ minWidth: 200, paddingHorizontal: space.xxl }} />
+        <View pointerEvents="box-none" style={{ bottom: insets.bottom + FAB_GAP, left: space.xl, position: 'absolute', right: space.xl }}>
+          <Button label={recordLabel} onPress={() => router.push(recordHref)} floating />
         </View>
       )}
     </View>

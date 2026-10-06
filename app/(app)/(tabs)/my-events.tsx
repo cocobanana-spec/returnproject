@@ -138,8 +138,8 @@ export default function MyEventsScreen() {
       />
 
       {/* 떠 있는 만들기 — primary 글라스 캡슐(iOS 26). 탭바 위 16pt */}
-      <View pointerEvents="box-none" style={{ alignItems: 'center', bottom: insets.bottom + FAB_GAP, left: space.xl, position: 'absolute', right: space.xl }}>
-        <Button label={t('myEvents.createLong')} onPress={() => router.push('/event/edit')} floating style={{ minWidth: 200, paddingHorizontal: space.xxl }} />
+      <View pointerEvents="box-none" style={{ bottom: insets.bottom + FAB_GAP, left: space.xl, position: 'absolute', right: space.xl }}>
+        <Button label={t('myEvents.createLong')} onPress={() => router.push('/event/edit')} floating />
       </View>
     </View>
   );
