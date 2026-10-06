@@ -169,7 +169,7 @@ export default function StatsScreen() {
             style={{
               ...cardShadow,
               borderRadius: radius.lg,
-              gap: space.sm,
+              gap: space.md,
               padding: space.lg,
             }}
           >
@@ -377,7 +377,8 @@ export default function StatsScreen() {
               </Text>
               <Text
                 style={{
-                  color: e.is_mine ? colors.received : colors.given,
+                  // 목록 금액은 회색 — 색은 요약 카드에서만(docs/DESIGN.md)
+                  color: colors.text,
                   fontSize: font.body,
                   fontVariant: ['tabular-nums'],
                   fontWeight: '600',
@@ -430,12 +431,7 @@ export default function StatsScreen() {
                     </Text>
                     <Text
                       style={{
-                        color:
-                          balance.direction === 'given'
-                            ? colors.given
-                            : balance.direction === 'received'
-                              ? colors.received
-                              : colors.textMuted,
+                        color: balance.direction === 'even' ? colors.textMuted : colors.text,
                         fontSize: font.caption,
                         fontVariant: ['tabular-nums'],
                         fontWeight: '600',
@@ -498,6 +494,27 @@ function NumberRow({
   strong?: boolean;
 }) {
   const { colors, space, font } = useTokens();
+  // 요약 카드(strong)는 금액을 크게, 건수는 그 아래 작게 — 금액 둘이 세로로 같은 열에 선다(docs/DESIGN.md 3단계)
+  if (strong) {
+    return (
+      <View style={{ alignItems: 'flex-end', flexDirection: 'row', justifyContent: 'space-between' }}>
+        <Text style={{ color: colors.textMuted, fontSize: font.body, paddingBottom: 2 }} numberOfLines={1}>
+          {label}
+        </Text>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text
+            style={{ color, fontSize: font.heading, fontVariant: ['tabular-nums'], fontWeight: '800', letterSpacing: -0.5 }}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+            numberOfLines={1}
+          >
+            {formatWon(amount)}
+          </Text>
+          <Text style={{ color: colors.textFaint, fontSize: font.caption, fontVariant: ['tabular-nums'] }}>{count}건</Text>
+        </View>
+      </View>
+    );
+  }
   return (
     <View style={{ alignItems: 'center', flexDirection: 'row' }}>
       <Text

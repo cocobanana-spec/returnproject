@@ -5,7 +5,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { setLocaleSetting, useLocaleSetting, useT } from '../../../src/i18n';
 import { LOCALES, LOCALE_LABEL } from '../../../src/i18n/dict.ts';
-import { Chip } from '../../../src/ui/Chip';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable, Share, Text, View } from 'react-native';
@@ -22,11 +21,45 @@ import { useTokens } from '../../../src/theme/tokens';
 import { Screen } from '../../../src/ui/Screen';
 import { useToast } from '../../../src/ui/ToastProvider';
 
+// 세그먼트 컨트롤 — 바닥보다 한 단계 어두운 홈통 안에 칸이 나란히, 선택 칸만 흰 카드로 뜬다
+function Segmented({ options, value, onChange }: { options: { key: string; label: string }[]; value: string; onChange: (key: string) => void }) {
+  const { colors, space, font, radius, cardShadow } = useTokens();
+  return (
+    <View style={{ backgroundColor: colors.bgSubtle, borderRadius: radius.md, flexDirection: 'row', padding: 3 }}>
+      {options.map((o) => {
+        const selected = o.key === value;
+        return (
+          <Pressable
+            key={o.key}
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
+            onPress={() => onChange(o.key)}
+            style={({ pressed }) => ({
+              ...(selected ? cardShadow : {}),
+              alignItems: 'center',
+              borderRadius: radius.sm,
+              flex: 1,
+              justifyContent: 'center',
+              minHeight: 40,
+              paddingHorizontal: space.xs,
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <Text style={{ color: selected ? colors.accent : colors.textMuted, fontSize: font.caption, fontWeight: selected ? '700' : '500' }} numberOfLines={1}>
+              {o.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   const { colors, space, font } = useTokens();
   return (
-    <View style={{ marginTop: space.xl }}>
-      <Text style={{ color: colors.textMuted, fontSize: font.caption, marginBottom: space.xs }}>
+    <View style={{ marginTop: space.xxl }}>
+      <Text style={{ color: colors.textMuted, fontSize: font.caption, marginBottom: space.sm }}>
         {title}
       </Text>
       {children}
@@ -163,12 +196,12 @@ export default function MoreScreen() {
 
       {/* 언어 — 기기 설정을 따르거나 셋 중 하나로 고정한다(2026-10-04 사용자 요청: 한·영·일) */}
       <Section title={t('more.language')}>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
-          <Chip label={t('more.languageSystem')} selected={localeSetting === 'system'} onPress={() => void setLocaleSetting('system')} />
-          {LOCALES.map((l) => (
-            <Chip key={l} label={LOCALE_LABEL[l]} selected={localeSetting === l} onPress={() => void setLocaleSetting(l)} />
-          ))}
-        </View>
+        {/* 칩 대신 세그먼트 — 한 줄에 네 칸, 선택 칸만 흰 면으로 뜬다(docs/DESIGN.md 3단계) */}
+        <Segmented
+          options={[{ key: 'system', label: t('more.languageSystem') }, ...LOCALES.map((l) => ({ key: l, label: LOCALE_LABEL[l] }))]}
+          value={localeSetting}
+          onChange={(k) => void setLocaleSetting(k as typeof localeSetting)}
+        />
       </Section>
 
       {isAdmin.data && (

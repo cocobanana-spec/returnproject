@@ -415,23 +415,27 @@ export default function ReceiveScreen() {
           <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
             금액 (비워 두면 미확정으로 저장됩니다)
           </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
-            {AMOUNT_PRESETS_WON.map((won) => (
-              <Chip
-                key={won}
-                label={formatWonShort(won)}
-                selected={draft.amountUnit === 'won' && draft.amountText === String(won)}
-                onPress={() => patch({ amountText: String(won), amountUnit: 'won' })}
-              />
-            ))}
-          </View>
-          <View style={{ alignItems: 'center', flexDirection: 'row', gap: space.sm }}>
+          {/* 프리셋은 가로 한 줄 — 줄바꿈으로 칩이 두 줄 쌓이지 않게(docs/DESIGN.md 3단계) */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -space.xl }} contentContainerStyle={{ paddingHorizontal: space.xl }}>
+            <View style={{ flexDirection: 'row', gap: space.sm }}>
+              {AMOUNT_PRESETS_WON.map((won) => (
+                <Chip
+                  key={won}
+                  label={formatWonShort(won)}
+                  selected={draft.amountUnit === 'won' && draft.amountText === String(won)}
+                  onPress={() => patch({ amountText: String(won), amountUnit: 'won' })}
+                />
+              ))}
+            </View>
+          </ScrollView>
+          {/* 직접 입력은 칩 묶음 아래 따로 선 입력칸이다 */}
+          <View style={{ alignItems: 'center', flexDirection: 'row', gap: space.sm, marginTop: space.xs }}>
             <Field
               value={draft.amountText}
               onChangeText={(next) => patch({ amountText: next })}
               placeholder="직접 입력"
               keyboardType="number-pad"
-              style={{ flex: 1, textAlign: 'right' }}
+              style={{ flex: 1, fontSize: font.title, textAlign: 'right' }}
             />
             <Chip
               label={draft.amountUnit === 'manwon' ? '만원' : '원'}

@@ -19,6 +19,7 @@ import { listEvents, listSharedEvents, type EventRow } from '../../../src/reposi
 import { listInvitations } from '../../../src/repositories/invitations.ts';
 import { useTokens } from '../../../src/theme/tokens';
 import { EmptyState } from '../../../src/ui/EmptyState';
+import { Button } from '../../../src/ui/Button';
 import { LoadFailed } from '../../../src/ui/LoadFailed';
 
 export default function MyEventsScreen() {
@@ -61,9 +62,7 @@ export default function MyEventsScreen() {
           <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{t('myEvents.subtitle')}</Text>
           <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '700' }}>{t('myEvents.title')}</Text>
         </View>
-        <Pressable accessibilityRole="button" onPress={() => router.push('/event/join')} style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, paddingVertical: space.sm })}>
-          <Text style={{ color: colors.textMuted, fontSize: font.caption, fontWeight: '600' }}>{t('share.joinByCode')}</Text>
-        </Pressable>
+        <Button label={t('share.joinByCode')} variant="secondary" size="sm" onPress={() => router.push('/event/join')} />
         {rows.length > 0 && (
         <Pressable
           accessibilityRole="button"
@@ -134,6 +133,12 @@ export default function MyEventsScreen() {
         ListFooterComponent={
           <View>
             {list.isFetchingNextPage && <ActivityIndicator color={colors.textMuted} style={{ marginVertical: space.lg }} />}
+            {/* 행사가 한두 개면 아래가 휑하다 — 짧은 안내로 빈 공간을 받친다(docs/DESIGN.md 3단계) */}
+            {!list.isLoading && rows.length > 0 && rows.length < 3 && (
+              <Text style={{ color: colors.textFaint, fontSize: font.caption, lineHeight: 20, marginTop: space.lg, textAlign: 'center' }}>
+                {t('myEvents.fewHint')}
+              </Text>
+            )}
             {sharedRows.length > 0 && (
               <View style={{ marginTop: space.xl, gap: space.md }}>
                 <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{t('share.sectionTitle')}</Text>
