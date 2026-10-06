@@ -18,6 +18,7 @@ import { eventTypeIcon } from '../../../../src/domain/eventIcon.ts';
 import { formatWon, formatWonShort } from '../../../../src/domain/money.ts';
 import { todayISO } from '../../../../src/domain/title.ts';
 import { useLedgerId } from '../../../../src/ledger/LedgerProvider';
+import { isWeb } from '../../../../src/lib/platform.ts';
 import { queryKeys } from '../../../../src/lib/queryKeys';
 import { listEntriesByDirection, type EntryWithContext } from '../../../../src/repositories/entries';
 import { listUpcomingEvents } from '../../../../src/repositories/events';
@@ -80,6 +81,19 @@ export default function HomeScreen() {
 
   const header = (
     <View style={{ gap: space.xxl, paddingBottom: space.md }}>
+      {/* 웹은 네이티브 헤더가 없어 검색 버튼을 여기 오른쪽 위에 둔다 */}
+      {isWeb && (
+        <View style={{ alignItems: 'flex-end', marginBottom: -space.lg }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('home.search')}
+            onPress={() => router.push('/search')}
+            style={({ pressed }) => ({ alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.pill, height: 40, justifyContent: 'center', width: 40, opacity: pressed ? 0.6 : 1 })}
+          >
+            <Ionicons name="search" size={20} color={colors.text} />
+          </Pressable>
+        </View>
+      )}
       {/* 주인공 — 순 잔액 */}
       <View style={{ gap: space.xs, paddingTop: space.md }}>
         <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{t('home.hero')}</Text>
