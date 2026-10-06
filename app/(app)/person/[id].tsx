@@ -13,7 +13,7 @@ import { useLedgerId } from '../../../src/ledger/LedgerProvider';
 import { queryKeys } from '../../../src/lib/queryKeys';
 import { listEntriesByPerson } from '../../../src/repositories/entries';
 import { deletePerson, getPersonBalance, mergePeople } from '../../../src/repositories/people';
-import { useTokens } from '../../../src/theme/tokens';
+import { amountText, amountTextLarge, useTokens } from '../../../src/theme/tokens';
 import { displayName } from '../../../src/domain/person.ts';
 import { EmptyState } from '../../../src/ui/EmptyState';
 import { LoadFailed } from '../../../src/ui/LoadFailed';
@@ -164,21 +164,21 @@ export default function PersonDetailScreen() {
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: colors.textMuted, fontSize: font.caption }}>내가 준 돈</Text>
-                  <Text style={{ color: colors.given, fontSize: font.title, fontWeight: '700', marginTop: 2 }}>
+                  <Text style={{ ...amountText, color: colors.given, fontSize: font.title, fontWeight: '700', marginTop: 2 }}>
                     {formatWon(given)}
                   </Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: colors.textMuted, fontSize: font.caption }}>받은 돈</Text>
                   <Text
-                    style={{ color: colors.received, fontSize: font.title, fontWeight: '700', marginTop: 2 }}
+                    style={{ ...amountText, color: colors.received, fontSize: font.title, fontWeight: '700', marginTop: 2 }}
                   >
                     {formatWon(received)}
                   </Text>
                 </View>
               </View>
               <View style={{ borderTopColor: colors.border, borderTopWidth: 1, paddingTop: space.md }}>
-                <Text style={{ color: colors.text, fontSize: font.body, fontWeight: '600' }}>
+                <Text style={{ ...amountText, color: colors.text, fontSize: font.body, fontWeight: '600' }}>
                   {diff === 0
                     ? '주고받은 금액이 같습니다'
                     : diff > 0
@@ -261,6 +261,7 @@ export default function PersonDetailScreen() {
               </View>
               <Text
                 style={{
+                  ...amountText,
                   color: isMine ? colors.received : colors.given,
                   fontSize: font.body,
                   fontWeight: '700',

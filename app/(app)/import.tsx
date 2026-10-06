@@ -59,7 +59,7 @@ import { useLedgerId } from '../../src/ledger/LedgerProvider';
 import { queryKeys } from '../../src/lib/queryKeys';
 import { listEvents, type EventRow } from '../../src/repositories/events';
 import { listPeopleByNormalizedNames, type PersonBalance } from '../../src/repositories/people';
-import { useTokens } from '../../src/theme/tokens';
+import { amountText, amountTextLarge, useTokens } from '../../src/theme/tokens';
 import { Button } from '../../src/ui/Button';
 import { Chip } from '../../src/ui/Chip';
 import { Field } from '../../src/ui/Field';
@@ -550,7 +550,7 @@ export default function ImportScreen() {
               <Text style={{ color: colors.text, fontSize: font.body, fontWeight: '700' }}>
                 {summary.save}건 저장 · {summary.skip}건 건너뜀 · {summary.fix}건 수정 필요
               </Text>
-              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
+              <Text style={{ ...amountText, color: colors.textMuted, fontSize: font.caption }}>
                 저장될 합계 {formatWon(summary.totalAmount)}
                 {summary.fix > 0 ? ' · 수정 필요가 0이 되어야 저장할 수 있습니다' : ''}
               </Text>
@@ -572,7 +572,7 @@ export default function ImportScreen() {
                       <Text style={{ color: colors.text, fontSize: font.caption, fontWeight: '600' }}>
                         {groupSummaryLine(g)}
                       </Text>
-                      <Text style={{ color: colors.textMuted, fontSize: font.caption - 1 }}>
+                      <Text style={{ ...amountText, color: colors.textMuted, fontSize: font.caption - 1 }}>
                         {g.count}건 · {formatWon(g.total)}
                         {g.attachTo === null ? ` · ${formatEventDate(g.newDate, 'day')}에 만듭니다` : ''}
                       </Text>
@@ -738,7 +738,7 @@ function PreviewRow({
           {row.name || '(이름 없음)'}
           {row.label.trim() ? ` · ${row.label.trim()}` : ''}
         </Text>
-        <Text style={{ color: row.amount === null ? colors.danger : colors.text, fontSize: font.body, fontWeight: '700' }}>
+        <Text style={{ ...amountText, color: row.amount === null ? colors.danger : colors.text, fontSize: font.body, fontWeight: '700' }}>
           {row.amount === null ? row.amountText || '—' : formatWonShort(row.amount)}
         </Text>
         <View style={{ backgroundColor: colors.bgSubtle, borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 2 }}>

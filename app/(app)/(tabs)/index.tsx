@@ -28,7 +28,7 @@ import { queryKeys } from '../../../src/lib/queryKeys';
 import { listEntriesByDirection, type EntryWithContext } from '../../../src/repositories/entries';
 import { listUpcomingEvents } from '../../../src/repositories/events';
 import { getYearStats } from '../../../src/repositories/stats';
-import { useTokens } from '../../../src/theme/tokens';
+import { amountText, amountTextLarge, useTokens } from '../../../src/theme/tokens';
 import { EmptyState } from '../../../src/ui/EmptyState';
 import { EntryNames } from '../../../src/ui/EntryNames';
 import { LoadFailed } from '../../../src/ui/LoadFailed';
@@ -143,7 +143,7 @@ export default function RecordsScreen() {
               })}
             >
               <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{t(d === 'given' ? 'home.given' : 'home.received')}</Text>
-              <Text style={{ color: selected ? color : colors.text, fontSize: font.title, fontWeight: '700' }} numberOfLines={1}>
+              <Text style={{ ...amountTextLarge, color: selected ? color : colors.text, fontSize: font.title, fontWeight: '700' }} numberOfLines={1}>
                 {stats.isSuccess ? formatWon(amount) : '—'}
               </Text>
             </Pressable>
@@ -310,6 +310,7 @@ function EntryRow({ item }: { item: EntryWithContext }) {
       >
         <Text
           style={{
+            ...amountText,
             color: item.amount === null ? colors.textMuted : isMine ? colors.received : colors.given,
             fontSize: font.body,
             fontWeight: '700',

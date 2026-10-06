@@ -2,7 +2,7 @@
 import { Pressable, Text, View } from 'react-native';
 import { displayName, distinguishLine, type PersonSummary } from '../domain/person.ts';
 import { formatBalance } from '../domain/money.ts';
-import { useTokens } from '../theme/tokens';
+import { amountText, amountTextLarge, useTokens } from '../theme/tokens';
 
 type Props = {
   person: PersonSummary & { id?: string | null; balance?: number | null };
@@ -67,6 +67,7 @@ export function PersonRow({ person, onPress, showBalance = false, right, flag }:
                 : formatted.direction === 'received'
                   ? colors.received
                   : colors.textMuted,
+            ...amountText,
             fontSize: font.caption,
             fontWeight: '600',
           }}

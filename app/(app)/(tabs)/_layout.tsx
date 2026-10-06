@@ -66,7 +66,7 @@ export default function TabsLayout() {
           borderTopColor: colors.border,
           ...(isWeb ? { height: 64 } : {}),
         },
-        tabBarLabelStyle: { fontSize: font.caption - 1 },
+        tabBarLabelStyle: { fontSize: font.caption - 1, fontWeight: '600' },
         sceneStyle: { backgroundColor: colors.bg },
       }}
     >
@@ -75,7 +75,7 @@ export default function TabsLayout() {
         options={{
           title: t('tab.home'),
           headerShown: false,
-          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} />,
+          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? 'home' : 'home-outline'} color={color} size={size} />,
         }}
       />
       <Tabs.Screen
@@ -83,7 +83,7 @@ export default function TabsLayout() {
         options={{
           title: t('tab.myEvents'),
           headerShown: false,
-          tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" color={color} size={size} />,
+          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? 'calendar' : 'calendar-outline'} color={color} size={size} />,
         }}
       />
       <Tabs.Screen
@@ -91,8 +91,8 @@ export default function TabsLayout() {
         options={{
           title: t('tab.stats'),
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="stats-chart-outline" color={color} size={size} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'stats-chart' : 'stats-chart-outline'} color={color} size={size} />
           ),
         }}
       />
@@ -101,7 +101,7 @@ export default function TabsLayout() {
         options={{
           title: t('tab.more'),
           headerShown: false,
-          tabBarIcon: ({ color, size }) => <Ionicons name="menu-outline" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="menu" color={color} size={size} />,
         }}
       />
     </Tabs>

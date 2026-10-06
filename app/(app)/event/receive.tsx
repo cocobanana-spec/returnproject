@@ -40,7 +40,7 @@ import { pickDefaultEvent } from '../../../src/domain/event.ts';
 import { formatEventDate, todayISO } from '../../../src/domain/title.ts';
 import { getEvent, getEventSummary, listEvents } from '../../../src/repositories/events';
 import { createPerson, findByNormalizedName, type PersonBalance } from '../../../src/repositories/people';
-import { useTokens } from '../../../src/theme/tokens';
+import { amountText, amountTextLarge, useTokens } from '../../../src/theme/tokens';
 import { Button } from '../../../src/ui/Button';
 import { Chip } from '../../../src/ui/Chip';
 import { Field } from '../../../src/ui/Field';
@@ -339,7 +339,7 @@ export default function ReceiveScreen() {
           }}
         >
           <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{e.title}</Text>
-          <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700', marginTop: 2 }}>
+          <Text style={{ ...amountText, color: colors.text, fontSize: font.title, fontWeight: '700', marginTop: 2 }}>
             {/* 집계 실패를 "0명 · 0원"으로 찍으면 200명 넣은 사용자가 다시 넣기 시작한다 */}
             {summary.isSuccess ? `${s?.cnt ?? 0}명 · ${formatWon(s?.total ?? 0)}` : '누적을 세는 중'}
           </Text>
@@ -494,6 +494,7 @@ export default function ReceiveScreen() {
                 </View>
                 <Text
                   style={{
+                    ...amountText,
                     color: item.amount === null ? colors.textMuted : colors.received,
                     fontSize: font.body,
                     fontWeight: '600',

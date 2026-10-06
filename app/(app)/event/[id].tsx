@@ -19,7 +19,7 @@ import { queryKeys } from '../../../src/lib/queryKeys';
 import { listEntriesByEvent } from '../../../src/repositories/entries';
 import { deleteEvent, getEvent, getEventSummary } from '../../../src/repositories/events';
 import { createEventInvite, leaveEvent, listEventMembers, removeEventMember, type EventMember } from '../../../src/repositories/events';
-import { useTokens } from '../../../src/theme/tokens';
+import { amountText, amountTextLarge, useTokens } from '../../../src/theme/tokens';
 import { Button } from '../../../src/ui/Button';
 import { Chip } from '../../../src/ui/Chip';
 import { EmptyState } from '../../../src/ui/EmptyState';
@@ -169,6 +169,7 @@ export default function EventDetailScreen() {
                         ? colors.received
                         : colors.given
                       : colors.textMuted,
+                    ...amountTextLarge,
                     fontSize: font.display,
                     fontWeight: '700',
                     marginTop: 2,
@@ -194,7 +195,7 @@ export default function EventDetailScreen() {
                       <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
                         {sideLabel(b.side)} · {b.cnt}건
                       </Text>
-                      <Text style={{ color: colors.text, fontSize: font.caption, fontWeight: '600' }}>
+                      <Text style={{ ...amountText, color: colors.text, fontSize: font.caption, fontWeight: '600' }}>
                         {formatWon(b.total)}
                       </Text>
                     </View>
@@ -210,7 +211,7 @@ export default function EventDetailScreen() {
                       <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
                         {m.label} · {m.cnt}건
                       </Text>
-                      <Text style={{ color: colors.text, fontSize: font.caption }}>{formatWon(m.total)}</Text>
+                      <Text style={{ ...amountText, color: colors.text, fontSize: font.caption }}>{formatWon(m.total)}</Text>
                     </View>
                   ))}
                 </View>
@@ -339,6 +340,7 @@ export default function EventDetailScreen() {
             </View>
             <Text
               style={{
+                ...amountText,
                 color: item.amount === null ? colors.textMuted : e.is_mine ? colors.received : colors.given,
                 fontSize: font.body,
                 fontWeight: '700',
