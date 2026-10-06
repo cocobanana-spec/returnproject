@@ -14,7 +14,6 @@ import { invitationKindForEvent } from '../../../src/domain/invitation.ts';
 import { formatEventDate } from '../../../src/domain/title.ts';
 import type { DatePrecision } from '../../../src/domain/constants.ts';
 import { useLedgerId, withLedger } from '../../../src/ledger/LedgerProvider';
-import { isWeb } from '../../../src/lib/platform.ts';
 import { queryKeys } from '../../../src/lib/queryKeys';
 import { listEvents, listSharedEvents, type EventRow } from '../../../src/repositories/events';
 import { listInvitations } from '../../../src/repositories/invitations.ts';
@@ -28,7 +27,6 @@ import { SectionHeader } from '../../../src/ui/SectionHeader';
 
 const FAB_HEIGHT = 56;
 const FAB_GAP = 16;
-const WEB_TAB_BAR = 64;
 
 export default function MyEventsScreen() {
   const t = useT();
@@ -54,7 +52,7 @@ export default function MyEventsScreen() {
   const shared = useQuery({ queryKey: ['events', 'shared'], queryFn: listSharedEvents });
   const sharedRows = shared.data ?? [];
 
-  const bottomPad = insets.bottom + (isWeb ? WEB_TAB_BAR : 0) + FAB_GAP + FAB_HEIGHT + space.xl;
+  const bottomPad = insets.bottom + FAB_GAP + FAB_HEIGHT + space.xl;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -140,8 +138,8 @@ export default function MyEventsScreen() {
       />
 
       {/* 떠 있는 만들기 — primary 글라스 캡슐(iOS 26). 탭바 위 16pt */}
-      <View pointerEvents="box-none" style={{ bottom: insets.bottom + (isWeb ? WEB_TAB_BAR : 0) + FAB_GAP, left: space.xl, position: 'absolute', right: space.xl }}>
-        <Button label={t('myEvents.createLong')} onPress={() => router.push('/event/edit')} floating />
+      <View pointerEvents="box-none" style={{ alignItems: 'center', bottom: insets.bottom + FAB_GAP, left: space.xl, position: 'absolute', right: space.xl }}>
+        <Button label={t('myEvents.createLong')} onPress={() => router.push('/event/edit')} floating style={{ minWidth: 200, paddingHorizontal: space.xxl }} />
       </View>
     </View>
   );

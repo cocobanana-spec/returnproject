@@ -59,12 +59,12 @@ export function Button({
   if (useGlass && g) {
     const { GlassView } = g;
     return (
-      <Pressable accessibilityRole="button" disabled={off} onPress={onPress} style={({ pressed }) => [{ opacity: off ? 0.55 : pressed ? 0.85 : 1 }, style]}>
+      <Pressable accessibilityRole="button" disabled={off} onPress={onPress} style={({ pressed }) => ({ opacity: off ? 0.55 : pressed ? 0.85 : 1 })}>
         <GlassView
           glassEffectStyle="regular"
           tintColor={colors.accent}
           isInteractive
-          style={{ alignItems: 'center', borderRadius: radius.pill, height, justifyContent: 'center', paddingHorizontal: space.xl }}
+          style={[{ alignItems: 'center', borderRadius: radius.pill, height, justifyContent: 'center', paddingHorizontal: space.xl }, style]}
         >
           {inner}
         </GlassView>

@@ -27,7 +27,6 @@ import {
 } from '../../../src/domain/stats.ts';
 import { formatEventDate } from '../../../src/domain/title.ts';
 import { useLedgerId } from '../../../src/ledger/LedgerProvider';
-import { isWeb } from '../../../src/lib/platform.ts';
 import { queryKeys } from '../../../src/lib/queryKeys';
 import { listPeopleByIds } from '../../../src/repositories/people';
 import { listEventTotals, listStatsRows, listTopPeopleByYear } from '../../../src/repositories/stats';
@@ -41,7 +40,6 @@ import { SectionHeader } from '../../../src/ui/SectionHeader';
 
 const DIRECTIONS: StatsDirection[] = ['all', 'given', 'received'];
 const SEGMENT_HEIGHT = 44;
-const WEB_TAB_BAR = 64;
 
 // 글라스 모듈은 네이티브 전용이라 웹 번들에서 require 하지 않는다
 type GlassModule = typeof import('expo-glass-effect');
@@ -120,7 +118,7 @@ export default function StatsScreen() {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ gap: space.xxl, paddingBottom: insets.bottom + (isWeb ? WEB_TAB_BAR : 0) + space.xxl, paddingHorizontal: space.xl, paddingTop: topPad }}
+        contentContainerStyle={{ gap: space.xxl, paddingBottom: insets.bottom + space.xxl, paddingHorizontal: space.xl, paddingTop: topPad }}
       >
         <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '700' }}>통계</Text>
 

@@ -17,7 +17,6 @@ import { eventTypeIcon } from '../../../../src/domain/eventIcon.ts';
 import { formatWon, formatWonShort } from '../../../../src/domain/money.ts';
 import { todayISO } from '../../../../src/domain/title.ts';
 import { useLedgerId } from '../../../../src/ledger/LedgerProvider';
-import { isWeb } from '../../../../src/lib/platform.ts';
 import { queryKeys } from '../../../../src/lib/queryKeys';
 import { listEntriesByDirection, type EntryWithContext } from '../../../../src/repositories/entries';
 import { listUpcomingEvents } from '../../../../src/repositories/events';
@@ -30,10 +29,10 @@ import { ListRow } from '../../../../src/ui/ListRow';
 import { LoadFailed } from '../../../../src/ui/LoadFailed';
 import { SectionHeader } from '../../../../src/ui/SectionHeader';
 
-// 떠 있는 버튼 높이 + 탭바 위 간격. 웹은 JS 탭바(64)가 안전 영역에 안 들어가 따로 더한다
+// 떠 있는 버튼 높이 + 탭바 위 간격. iOS 네이티브 탭은 안전 영역(insets.bottom)에 탭바 높이가 들어 있고,
+// 웹 JS 탭은 화면을 나눠 쓰므로(겹치지 않음) 간격만 준다(2026-10-06 웹에서 버튼이 너무 위에 떠 보인 문제)
 const FAB_HEIGHT = 56;
 const FAB_GAP = 16;
-const WEB_TAB_BAR = 64;
 
 export default function HomeScreen() {
   const t = useT();
@@ -76,7 +75,7 @@ export default function HomeScreen() {
   const net = received - given;
   const netLine = net > 0 ? t('home.netMore') : net < 0 ? t('home.netLess') : t('home.netEven');
 
-  const bottomPad = insets.bottom + (isWeb ? WEB_TAB_BAR : 0) + FAB_GAP + FAB_HEIGHT + space.xl;
+  const bottomPad = insets.bottom + FAB_GAP + FAB_HEIGHT + space.xl;
 
   const header = (
     <View style={{ gap: space.xxl, paddingBottom: space.md }}>
@@ -99,6 +98,7 @@ export default function HomeScreen() {
             <ListRow
               key={d}
               title={t(d === 'given' ? 'home.sentLabel' : 'home.receivedLabel')}
+              titleLines={2}
               right={
                 <Text style={{ ...amountText, color: d === 'given' ? colors.given : colors.received, fontSize: font.title, fontWeight: '700' }} numberOfLines={1}>
                   {stats.isSuccess ? formatWon(amount) : '—'}
@@ -178,8 +178,8 @@ export default function HomeScreen() {
 
       {/* 떠 있는 기록하기 — 네비게이션 레이어. 탭바 위 16pt. 글라스는 Button 이 iOS 26 에서만 켠다 */}
       {rows.length > 0 && (
-        <View pointerEvents="box-none" style={{ bottom: insets.bottom + (isWeb ? WEB_TAB_BAR : 0) + FAB_GAP, left: space.xl, position: 'absolute', right: space.xl }}>
-          <Button label={recordLabel} onPress={() => router.push(recordHref)} floating />
+        <View pointerEvents="box-none" style={{ alignItems: 'center', bottom: insets.bottom + FAB_GAP, left: space.xl, position: 'absolute', right: space.xl }}>
+          <Button label={recordLabel} onPress={() => router.push(recordHref)} floating style={{ minWidth: 200, paddingHorizontal: space.xxl }} />
         </View>
       )}
     </View>

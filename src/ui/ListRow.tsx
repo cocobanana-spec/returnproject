@@ -20,9 +20,11 @@ type Props = {
   chevron?: boolean;
   onPress?: () => void;
   onTitlePress?: () => void;
+  // 제목이 길 때 두 줄까지 허용(요약 카드의 '보낸 축의금·조의금' 같은 라벨)
+  titleLines?: number;
 };
 
-export function ListRow({ icon, iconTone = 'brand', title, caption, value, valueTone = 'default', right, chevron = false, onPress, onTitlePress }: Props) {
+export function ListRow({ icon, iconTone = 'brand', title, caption, value, valueTone = 'default', right, chevron = false, onPress, onTitlePress, titleLines = 1 }: Props) {
   const { colors, space, font, radius } = useTokens();
   const circleBg = iconTone === 'danger' ? colors.dangerSoft : iconTone === 'muted' ? colors.surface2 : colors.accentSoft;
   const circleFg = iconTone === 'danger' ? colors.danger : iconTone === 'muted' ? colors.textMuted : colors.accent;
@@ -50,10 +52,10 @@ export function ListRow({ icon, iconTone = 'brand', title, caption, value, value
       <View style={{ flex: 1, gap: 2 }}>
         {onTitlePress ? (
           <Pressable onPress={onTitlePress} hitSlop={6} style={({ pressed }) => ({ alignSelf: 'flex-start', opacity: pressed ? 0.5 : 1 })}>
-            <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }} numberOfLines={1}>{title}</Text>
+            <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }} numberOfLines={titleLines}>{title}</Text>
           </Pressable>
         ) : (
-          <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }} numberOfLines={1}>{title}</Text>
+          <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }} numberOfLines={titleLines}>{title}</Text>
         )}
         {caption ? <Text style={{ color: colors.textMuted, fontSize: font.caption }} numberOfLines={1}>{caption}</Text> : null}
       </View>
