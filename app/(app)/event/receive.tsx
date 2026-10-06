@@ -466,62 +466,39 @@ export default function ReceiveScreen() {
         {/* 방금 넣은 것들 — 행을 탭하면 기록 편집(S10), X는 바로 삭제 */}
         {rows.length > 0 && (
           <View style={{ gap: space.sm }}>
-            <Text style={{ color: colors.textMuted, fontSize: font.caption }}>방금 넣은 기록</Text>
-            {rows.map((item) => (
-              <Pressable
-                key={item.id}
-                onPress={() => router.push(withLedger(`/entry/${item.id}`, ledgerId, myLedgerId))}
-                style={({ pressed }) => ({
-                  alignItems: 'center',
-                  borderBottomColor: colors.border,
-                  borderBottomWidth: 1,
-                  flexDirection: 'row',
-                  gap: space.sm,
-                  paddingVertical: space.sm,
-                  opacity: pressed ? 0.6 : 1,
-                })}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.text, fontSize: font.body }} numberOfLines={1}>
-                    {entryRowName(item.person, item.co_person)}
-                  </Text>
-                  {item.memo && (
-                    <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: 2 }} numberOfLines={1}>
-                      {item.memo}
-                    </Text>
-                  )}
-                </View>
-                <Text
-                  style={{
-                    ...amountText,
-                    // 목록 금액은 회색(docs/DESIGN.md)
-                    color: item.amount === null ? colors.textFaint : colors.text,
-                    fontSize: font.body,
-                    fontWeight: '600',
-                  }}
-                >
-                  {formatWonShort(item.amount)}
-                </Text>
-                <Pressable
-                  onPress={() => {
-                    void confirmAction({
-                      title: '이 기록을 지울까요',
-                      message: `${entryRowName(item.person, item.co_person)} · ${formatWonShort(item.amount)}\n되돌릴 수 없습니다.`,
-                      confirmLabel: '지우기',
-                      destructive: true,
-                    }).then((ok) => {
-                      if (ok) removeEntry.mutate(item.id);
-                    });
-                  }}
-                  hitSlop={8}
-                >
-                  <Ionicons name="close-circle-outline" size={20} color={colors.textMuted} />
-                </Pressable>
-              </Pressable>
-            ))}
-            <Pressable onPress={() => router.push(withLedger(`/event/${eventId}`, ledgerId, myLedgerId))}>
-              <Text style={{ color: colors.textMuted, fontSize: font.caption }}>전체 보기 →</Text>
-            </Pressable>
+            {/* 방금 넣은 기록 — 카드 안 ListRow. 우측 X 로 바로 지운다(docs/DESIGN.md: 목록은 카드 안에) */}
+            <SectionHeader title="방금 넣은 기록" actionLabel="전체 보기" onAction={() => router.push(withLedger(`/event/${eventId}`, ledgerId, myLedgerId))} />
+            <Card padded={false}>
+              {rows.map((item) => (
+                <ListRow
+                  key={item.id}
+                  title={entryRowName(item.person, item.co_person)}
+                  caption={item.memo ?? undefined}
+                  value={formatWonShort(item.amount)}
+                  valueTone={item.amount === null ? 'muted' : 'default'}
+                  onPress={() => router.push(withLedger(`/entry/${item.id}`, ledgerId, myLedgerId))}
+                  right={
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="지우기"
+                      onPress={() => {
+                        void confirmAction({
+                          title: '이 기록을 지울까요',
+                          message: `${entryRowName(item.person, item.co_person)} · ${formatWonShort(item.amount)}\n되돌릴 수 없어요.`,
+                          confirmLabel: '지우기',
+                          destructive: true,
+                        }).then((ok) => {
+                          if (ok) removeEntry.mutate(item.id);
+                        });
+                      }}
+                      hitSlop={8}
+                    >
+                      <Ionicons name="close-circle" size={22} color={colors.textFaint} />
+                    </Pressable>
+                  }
+                />
+              ))}
+            </Card>
           </View>
         )}
       </View>
