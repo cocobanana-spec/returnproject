@@ -3,14 +3,14 @@
     "name": "뿌린대로거두리라",
     "slug": "ppurin",
     "scheme": "ppurin",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.cocobanana.ppurin",
-      "buildNumber": "30",
+      "buildNumber": "31",
       "config": {
         "usesNonExemptEncryption": false
       },
