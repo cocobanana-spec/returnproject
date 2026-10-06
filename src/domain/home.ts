@@ -12,7 +12,7 @@ export type Direction = 'given' | 'received';
 export const DIRECTIONS: Direction[] = ['given', 'received'];
 
 export const DIRECTION_LABEL: Record<Direction, string> = {
-  given: '준 돈',
+  given: '보낸 돈',
   received: '받은 돈',
 };
 

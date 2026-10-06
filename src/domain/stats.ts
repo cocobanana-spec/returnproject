@@ -222,7 +222,7 @@ export type StatsDirection = 'all' | 'given' | 'received';
 
 export const STATS_DIRECTION_LABEL: Record<StatsDirection, string> = {
   all: '전체',
-  given: '준 돈',
+  given: '보낸 돈',
   received: '받은 돈',
 };
 

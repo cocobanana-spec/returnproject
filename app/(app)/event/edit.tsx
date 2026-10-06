@@ -217,7 +217,7 @@ export default function EventEditScreen() {
               }}
             />
             <Chip
-              label="남의 행사 (준돈)"
+              label="남의 행사 (보낸 돈)"
               selected={!draft.isMine}
               onPress={() => {
                 if (locked) return;

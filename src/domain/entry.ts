@@ -11,7 +11,7 @@ export type EntryLineInput = {
 };
 
 export function directionLabel(isMine: boolean): string {
-  return isMine ? '받은돈' : '준돈';
+  return isMine ? '받은 돈' : '보낸 돈';
 }
 
 // 원장에서 이 기록이 "공동 부조"로 잡힌 것인지. 대표자가 아니라 공동 부조자 자리에 있으면 참이다.
@@ -34,7 +34,7 @@ export type AmountCheck = { ok: true; amount: number | null } | { ok: false; err
 export function validateEntryAmount(amountText: string, isMine: boolean): AmountCheck {
   const amount = parseAmountInput(amountText);
   if (amount === undefined) return { ok: false, error: '금액은 숫자로만 넣어 주세요.' };
-  if (amount === null && !isMine) return { ok: false, error: '준 돈은 금액이 필요합니다.' };
+  if (amount === null && !isMine) return { ok: false, error: '보낸 돈은 금액이 필요해요.' };
   return { ok: true, amount };
 }
 

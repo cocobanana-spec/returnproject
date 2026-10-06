@@ -163,7 +163,7 @@ export default function PersonDetailScreen() {
             >
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.textMuted, fontSize: font.caption }}>내가 준 돈</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: font.caption }}>보낸 돈</Text>
                   <Text style={{ ...amountText, color: colors.given, fontSize: font.title, fontWeight: '700', marginTop: 2 }}>
                     {formatWon(given)}
                   </Text>

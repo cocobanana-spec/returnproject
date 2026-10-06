@@ -107,7 +107,7 @@ export default function EventsScreen() {
               hint={
                 filter.isMine === true
                   ? '결혼식·돌잔치처럼 내가 치른 행사를 만들면 받은 돈을 정리할 수 있습니다.'
-                  : '준돈을 기록하면 남의 행사가 자동으로 만들어집니다.'
+                  : '보낸 돈을 기록하면 남의 행사가 자동으로 만들어져요.'
               }
               actionLabel={filter.isMine === false ? undefined : '+ 내 행사 만들기'}
               onAction={filter.isMine === false ? undefined : () => router.push('/event/edit')}
@@ -171,7 +171,7 @@ export default function EventsScreen() {
                       fontWeight: '600',
                     }}
                   >
-                    {e.is_mine ? '내 행사' : '준돈'}
+                    {e.is_mine ? '내 행사' : '보낸 돈'}
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />

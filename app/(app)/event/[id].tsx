@@ -309,7 +309,7 @@ export default function EventDetailScreen() {
           ) : (
             <EmptyState
               title={unconfirmedOnly ? '미확정 기록이 없습니다' : '아직 기록이 없습니다'}
-              hint={e.is_mine ? '위 버튼으로 명부를 입력해 보세요.' : '홈에서 준돈을 기록하면 여기에 쌓입니다.'}
+              hint={e.is_mine ? '위 버튼으로 명부를 입력해 보세요.' : '홈에서 보낸 돈을 기록하면 여기에 쌓여요.'}
             />
           )
         }

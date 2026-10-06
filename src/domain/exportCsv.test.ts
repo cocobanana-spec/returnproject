@@ -24,7 +24,7 @@ test('한 줄은 가져오기와 같은 열 순서로 나온다', () => {
     person: { name: '김철수', label: '회사' },
     event: { type: 'wedding', is_mine: false, date: '2025-11-20', date_precision: 'day' },
   });
-  assert.deepEqual(row, ['김철수', '회사', '2025-11-20', '결혼식', '준 돈', '100000', '축하']);
+  assert.deepEqual(row, ['김철수', '회사', '2025-11-20', '결혼식', '보낸 돈', '100000', '축하']);
 });
 
 test('내 행사의 기록은 받은 돈이다', () => {

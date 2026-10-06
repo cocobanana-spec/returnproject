@@ -1,4 +1,4 @@
-// 라벨이 붙은 입력칸. 폼에서 반복되는 모양을 한 곳에 모은다 — Green Deck 라이트: 회색 면, 테두리 없음, 포커스에만 초록 선
+// 라벨이 붙은 입력칸 — 연회색 면, 모서리 12, 포커스하면 브랜드 테두리 1.5(docs/DESIGN.md)
 import { forwardRef, useState } from 'react';
 import { Text, TextInput, View, type TextInputProps } from 'react-native';
 import { useTokens } from '../theme/tokens';
@@ -13,7 +13,7 @@ export const Field = forwardRef<TextInput, Props>(function Field({ label, hint, 
       {label && <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{label}</Text>}
       <TextInput
         ref={ref}
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={colors.textFaint}
         onFocus={(e) => {
           setFocused(true);
           onFocus?.(e);
@@ -24,13 +24,15 @@ export const Field = forwardRef<TextInput, Props>(function Field({ label, hint, 
         }}
         style={[
           {
-            borderWidth: 1,
+            borderWidth: 1.5,
             borderColor: focused ? colors.accent : colors.surface2,
             borderRadius: radius.sm,
             backgroundColor: colors.surface2,
             color: colors.text,
             fontSize: font.body,
-            paddingHorizontal: space.md,
+            fontWeight: '500',
+            minHeight: 52,
+            paddingHorizontal: space.lg,
             paddingVertical: space.md,
           },
           style,

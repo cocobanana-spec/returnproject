@@ -1,14 +1,15 @@
-// 더보기(S13) — 기록 관리·장부·계정을 묶음으로 나눠 놓은 입구
+// 더보기(S13) — 섹션마다 카드 하나, 카드 안에 ListRow(docs/DESIGN.md 3단계). 기록 관리 / 다른 기기 / 언어 / 계정
 //
 // 하단 탭이 홈·통계·더보기 셋으로 줄면서 사람(S03)과 행사(S06)가 이 안으로 들어왔다.
-// 잡동사니가 되지 않게 "기록 관리 / 장부 / 계정" 세 묶음으로 나눈다.
+// 언어는 ListRow 를 누르면 시트에서 고른다(칩·세그먼트 대신).
 import { useQuery } from '@tanstack/react-query';
 import { setLocaleSetting, useLocaleSetting, useT } from '../../../src/i18n';
 import { LOCALES, LOCALE_LABEL } from '../../../src/i18n/dict.ts';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, Share, Text, View } from 'react-native';
+import { Linking, Modal, Pressable, Share, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { buildCsv, exportFileName } from '../../../src/domain/exportCsv.ts';
 import { todayISO } from '../../../src/domain/title.ts';
 import { useLedger } from '../../../src/ledger/LedgerProvider';
@@ -18,101 +19,22 @@ import { APP_STORE_URL, WEB_APP_URL, shortUrl } from '../../../src/lib/urls.ts';
 import { listAllEntries } from '../../../src/repositories/entries';
 import { db } from '../../../src/lib/supabaseClient.ts';
 import { useTokens } from '../../../src/theme/tokens';
+import { Card } from '../../../src/ui/Card';
+import { ListRow } from '../../../src/ui/ListRow';
 import { Screen } from '../../../src/ui/Screen';
+import { SectionHeader } from '../../../src/ui/SectionHeader';
 import { useToast } from '../../../src/ui/ToastProvider';
-
-// 세그먼트 컨트롤 — 바닥보다 한 단계 어두운 홈통 안에 칸이 나란히, 선택 칸만 흰 카드로 뜬다
-function Segmented({ options, value, onChange }: { options: { key: string; label: string }[]; value: string; onChange: (key: string) => void }) {
-  const { colors, space, font, radius, cardShadow } = useTokens();
-  return (
-    <View style={{ backgroundColor: colors.bgSubtle, borderRadius: radius.md, flexDirection: 'row', padding: 3 }}>
-      {options.map((o) => {
-        const selected = o.key === value;
-        return (
-          <Pressable
-            key={o.key}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
-            onPress={() => onChange(o.key)}
-            style={({ pressed }) => ({
-              ...(selected ? cardShadow : {}),
-              alignItems: 'center',
-              borderRadius: radius.sm,
-              flex: 1,
-              justifyContent: 'center',
-              minHeight: 40,
-              paddingHorizontal: space.xs,
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <Text style={{ color: selected ? colors.accent : colors.textMuted, fontSize: font.caption, fontWeight: selected ? '700' : '500' }} numberOfLines={1}>
-              {o.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  const { colors, space, font } = useTokens();
-  return (
-    <View style={{ marginTop: space.xxl }}>
-      <Text style={{ color: colors.textMuted, fontSize: font.caption, marginBottom: space.sm }}>
-        {title}
-      </Text>
-      {children}
-    </View>
-  );
-}
-
-function Row({
-  icon,
-  label,
-  hint,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  hint?: string;
-  onPress: () => void;
-}) {
-  const { colors, space, font } = useTokens();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => ({
-        alignItems: 'center',
-        borderBottomColor: colors.border,
-        borderBottomWidth: 1,
-        flexDirection: 'row',
-        gap: space.md,
-        paddingVertical: space.lg,
-        opacity: pressed ? 0.6 : 1,
-      })}
-    >
-      <Ionicons name={icon} size={20} color={colors.textMuted} />
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: colors.text, fontSize: font.body }}>{label}</Text>
-        {hint && (
-          <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: 2 }}>{hint}</Text>
-        )}
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-    </Pressable>
-  );
-}
 
 export default function MoreScreen() {
   const t = useT();
   const localeSetting = useLocaleSetting();
   const router = useRouter();
-  const { current, ledgers } = useLedger();
-  const { colors, space, font } = useTokens();
+  const { current } = useLedger();
+  const { colors, space, font, radius } = useTokens();
+  const insets = useSafeAreaInsets();
   const toast = useToast();
   const [exporting, setExporting] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
   // 관리자인지는 서버가 안다. 여기서는 줄을 보여 줄지만 정한다 — 통계 함수가 다시 거부한다.
   const isAdmin = useQuery({
     queryKey: ['admin', 'me'],
@@ -139,98 +61,103 @@ export default function MoreScreen() {
     }
   }
 
+  const languageOptions: { key: string; label: string }[] = [
+    { key: 'system', label: t('more.languageSystem') },
+    ...LOCALES.map((l) => ({ key: l, label: LOCALE_LABEL[l] })),
+  ];
+  const languageLabel = languageOptions.find((o) => o.key === localeSetting)?.label ?? '';
+
   return (
-    <Screen scroll>
+    <Screen scroll style={{ gap: space.xxl, paddingBottom: insets.bottom + 120 }}>
       <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '700' }}>{t('more.title')}</Text>
 
-      <Section title={t('more.records')}>
-        {/* '사람' 줄은 뺐다(2026-10-04 사장님 결정). 사람 원장은 홈 목록·검색·통계에서 가고, 합치기는 사람 원장 ⋯ 안에 있다 */}
-        <Row
-          icon="calendar-outline"
-          label={t('more.events')}
-          hint={t('more.eventsHint')}
-          onPress={() => router.push('/events')}
-        />
-        <Row
-          icon="cloud-upload-outline"
-          label={t('more.import')}
-          hint={t('more.importHint')}
-          onPress={() => router.push('/import')}
-        />
-        {canDownload() ? (
-          <Row
-            icon="download-outline"
-            label={exporting ? t('more.exporting') : t('more.export')}
-            hint={t('more.exportHint')}
-            onPress={() => void onExport()}
-          />
-        ) : null}
-      </Section>
+      <View>
+        <SectionHeader title={t('more.records')} />
+        <Card padded={false}>
+          {/* '사람' 줄은 뺐다(2026-10-04 사장님 결정). 사람 원장은 홈 목록·검색·통계에서 가고, 합치기는 사람 원장 ⋯ 안에 있다 */}
+          <ListRow icon="calendar" title={t('more.events')} caption={t('more.eventsHint')} chevron onPress={() => router.push('/events')} />
+          <ListRow icon="cloud-upload" title={t('more.import')} caption={t('more.importHint')} chevron onPress={() => router.push('/import')} />
+          {canDownload() ? (
+            <ListRow icon="download" title={exporting ? t('more.exporting') : t('more.export')} caption={t('more.exportHint')} chevron onPress={() => void onExport()} />
+          ) : null}
+        </Card>
+      </View>
 
       {/* 앱에서는 웹이 있는 줄 모르고, 웹에서는 앱이 있는 줄 모른다(2026-10-03 사용자 지적).
           서로를 가리키는 줄을 하나씩 둔다. 앱 쪽은 공유 시트로 띄운다 — 폰 브라우저에서 여는 것보다
           AirDrop·메시지로 PC 에 보내는 쪽이 "PC 에서 쓰려는" 목적에 맞다. */}
-      <Section title={t('more.otherDevices')}>
-        {isWeb ? (
-          <Row
-            icon="phone-portrait-outline"
-            label={t('more.iosApp')}
-            hint={t('more.iosAppHint')}
-            onPress={() => void Linking.openURL(APP_STORE_URL)}
-          />
-        ) : (
-          <Row
-            icon="desktop-outline"
-            label={t('more.webApp')}
-            hint={t('more.webAppHint', { url: shortUrl(WEB_APP_URL) })}
-            onPress={() =>
-              void Share.share({
-                title: t('more.webShareTitle'),
-                message: t('more.webShareMessage', { url: WEB_APP_URL }),
-                url: WEB_APP_URL,
-              }).catch(() => {})
-            }
-          />
-        )}
-      </Section>
+      <View>
+        <SectionHeader title={t('more.otherDevices')} />
+        <Card padded={false}>
+          {isWeb ? (
+            <ListRow icon="phone-portrait" title={t('more.iosApp')} caption={t('more.iosAppHint')} chevron onPress={() => void Linking.openURL(APP_STORE_URL)} />
+          ) : (
+            <ListRow
+              icon="desktop"
+              title={t('more.webApp')}
+              caption={t('more.webAppHint', { url: shortUrl(WEB_APP_URL) })}
+              chevron
+              onPress={() =>
+                void Share.share({
+                  title: t('more.webShareTitle'),
+                  message: t('more.webShareMessage', { url: WEB_APP_URL }),
+                  url: WEB_APP_URL,
+                }).catch(() => {})
+              }
+            />
+          )}
+        </Card>
+      </View>
 
-      {/* 언어 — 기기 설정을 따르거나 셋 중 하나로 고정한다(2026-10-04 사용자 요청: 한·영·일) */}
-      <Section title={t('more.language')}>
-        {/* 칩 대신 세그먼트 — 한 줄에 네 칸, 선택 칸만 흰 면으로 뜬다(docs/DESIGN.md 3단계) */}
-        <Segmented
-          options={[{ key: 'system', label: t('more.languageSystem') }, ...LOCALES.map((l) => ({ key: l, label: LOCALE_LABEL[l] }))]}
-          value={localeSetting}
-          onChange={(k) => void setLocaleSetting(k as typeof localeSetting)}
-        />
-      </Section>
+      {/* 언어 — 기기 설정을 따르거나 셋 중 하나로 고정한다(2026-10-04 사용자 요청: 한·영·일). 누르면 시트 */}
+      <View>
+        <SectionHeader title={t('more.language')} />
+        <Card padded={false}>
+          <ListRow icon="globe" title={t('more.language')} value={languageLabel} valueTone="muted" chevron onPress={() => setLangOpen(true)} />
+        </Card>
+      </View>
 
       {isAdmin.data && (
-        <Section title={t('more.ops')}>
-          <Row icon="stats-chart-outline" label={t('more.admin')} hint={t('more.adminHint')} onPress={() => router.push('/admin')} />
-        </Section>
+        <View>
+          <SectionHeader title={t('more.ops')} />
+          <Card padded={false}>
+            <ListRow icon="stats-chart" title={t('more.admin')} caption={t('more.adminHint')} chevron onPress={() => router.push('/admin')} />
+          </Card>
+        </View>
       )}
 
-      <Section title={t('more.accountSection')}>
-        <Row
-          icon="trash-outline"
-          label={t('more.reset')}
-          hint={t('more.resetHint')}
-          onPress={() => router.push('/ledger-reset')}
-        />
-        <Row
-          icon="person-circle-outline"
-          label={t('more.account')}
-          hint={t('more.accountHint')}
-          onPress={() => router.push('/account')}
-        />
-      </Section>
+      <View>
+        <SectionHeader title={t('more.accountSection')} />
+        <Card padded={false}>
+          <ListRow icon="trash" iconTone="danger" title={t('more.reset')} caption={t('more.resetHint')} chevron onPress={() => router.push('/ledger-reset')} />
+          <ListRow icon="person-circle" iconTone="muted" title={t('more.account')} caption={t('more.accountHint')} chevron onPress={() => router.push('/account')} />
+        </Card>
+      </View>
 
       {/* 안내는 실제로 없는 것만 적는다. 내보내기는 웹에 들어왔으므로 앱에서만 남는 말이다. */}
-      <Text
-        style={{ color: colors.textMuted, fontSize: font.caption, marginTop: space.xl, lineHeight: 20 }}
-      >
+      <Text style={{ color: colors.textFaint, fontSize: font.caption, lineHeight: 20 }}>
         {canDownload() ? t('more.footnote') : t('more.footnoteNative')}
       </Text>
+
+      {/* 언어 시트 — 아래에서 올라오는 카드. 고르면 바로 닫힌다 */}
+      <Modal visible={langOpen} transparent animationType="slide" onRequestClose={() => setLangOpen(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(25,31,40,0.35)' }} onPress={() => setLangOpen(false)} />
+        <View style={{ backgroundColor: colors.card, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingBottom: insets.bottom + space.lg, paddingTop: space.sm }}>
+          <View style={{ alignSelf: 'center', backgroundColor: colors.border, borderRadius: 2, height: 4, marginBottom: space.md, width: 36 }} />
+          <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700', paddingHorizontal: space.xl, paddingVertical: space.sm }}>{t('more.language')}</Text>
+          {languageOptions.map((o) => (
+            <ListRow
+              key={o.key}
+              title={o.label}
+              right={o.key === localeSetting ? <Ionicons name="checkmark-circle" size={22} color={colors.accent} /> : undefined}
+              onPress={() => {
+                void setLocaleSetting(o.key as typeof localeSetting);
+                setLangOpen(false);
+              }}
+            />
+          ))}
+        </View>
+      </Modal>
     </Screen>
   );
 }

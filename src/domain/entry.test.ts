@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { directionLabel, entrySubtitle, isCoEntryFor, amountFieldLabel, validateEntryAmount } from './entry.ts';
 
 test('방향은 행사의 is_mine에서 나온다', () => {
-  assert.equal(directionLabel(true), '받은돈');
-  assert.equal(directionLabel(false), '준돈');
+  assert.equal(directionLabel(true), '받은 돈');
+  assert.equal(directionLabel(false), '보낸 돈');
 });
 
 test('공동 부조자 자리에 있으면 공동 기록이다', () => {
@@ -38,10 +38,10 @@ test('행사가 없으면 빈 문자열', () => {
   assert.equal(entrySubtitle(null), '');
 });
 
-test('준돈은 빈 금액을 거부한다', () => {
+test('보낸 돈은 빈 금액을 거부한다', () => {
   const r = validateEntryAmount('', false);
   assert.equal(r.ok, false);
-  if (!r.ok) assert.ok(r.error.includes('준 돈'));
+  if (!r.ok) assert.ok(r.error.includes('보낸 돈'));
 });
 
 test('받은돈은 빈 금액이 미확정으로 통과한다', () => {

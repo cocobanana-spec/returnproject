@@ -46,7 +46,7 @@ export function toCsvRow(row: ExportRow): string[] {
     row.person?.label?.trim() ?? '',
     exportDate(row.event?.date, row.event?.date_precision),
     typeLabel(row.event?.type),
-    row.event?.is_mine ? '받은 돈' : '준 돈',
+    row.event?.is_mine ? '받은 돈' : '보낸 돈',
     String(row.amount ?? 0),
     row.memo?.trim() ?? '',
   ];

@@ -42,7 +42,11 @@ import { getEvent, getEventSummary, listEvents } from '../../../src/repositories
 import { createPerson, findByNormalizedName, type PersonBalance } from '../../../src/repositories/people';
 import { amountText, amountTextLarge, useTokens } from '../../../src/theme/tokens';
 import { Button } from '../../../src/ui/Button';
+import { Card } from '../../../src/ui/Card';
 import { Chip } from '../../../src/ui/Chip';
+import { ListRow } from '../../../src/ui/ListRow';
+import { SectionHeader } from '../../../src/ui/SectionHeader';
+import { eventTypeIcon } from '../../../src/domain/eventIcon.ts';
 import { Field } from '../../../src/ui/Field';
 import { LoadFailed } from '../../../src/ui/LoadFailed';
 import { PersonPicker } from '../../../src/ui/PersonPicker';
@@ -304,42 +308,33 @@ export default function ReceiveScreen() {
         }}
       />
       <View style={{ gap: space.lg }}>
-        {/* 행사 선택 — 홈에서 바로 들어온 경우에만 고른다 */}
+        {/* 행사 선택 — 홈에서 바로 들어온 경우에만 고른다. 카드 안 ListRow, 고른 행은 체크(docs/DESIGN.md 3단계) */}
         {picking && (
-          <View style={{ gap: space.sm }}>
-            <Text style={{ color: colors.textMuted, fontSize: font.caption }}>어느 행사의 명부인가요</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ flexDirection: 'row', gap: space.sm }}>
-                {myRows.map((ev) => (
-                  <Chip
-                    key={ev.id}
-                    label={`${ev.title} · ${formatEventDate(ev.date, 'day')}`}
-                    selected={eventId === ev.id}
-                    onPress={() => setChosen(ev.id)}
-                  />
-                ))}
-                {/* 내 경조사는 결혼식만이 아니다. 돌잔치·장례식을 여기서 바로 만들 수 있어야
-                    종류를 못 고르는 막다른 길이 안 생긴다(2026-09-26 사용자 요청) */}
-                <Chip
-                  label="+ 새 행사 만들기"
-                  selected={false}
-                  onPress={() => router.push('/event/edit?next=receive')}
+          <View>
+            <SectionHeader title="어느 행사의 명부인가요" />
+            <Card padded={false}>
+              {myRows.map((ev) => (
+                <ListRow
+                  key={ev.id}
+                  icon={eventTypeIcon(ev.type)}
+                  iconTone={eventId === ev.id ? 'brand' : 'muted'}
+                  title={ev.title}
+                  caption={formatEventDate(ev.date, 'day')}
+                  right={eventId === ev.id ? <Ionicons name="checkmark-circle" size={22} color={colors.accent} /> : undefined}
+                  onPress={() => setChosen(ev.id)}
                 />
-              </View>
-            </ScrollView>
+              ))}
+              {/* 내 경조사는 결혼식만이 아니다. 돌잔치·장례식을 여기서 바로 만들 수 있어야
+                  종류를 못 고르는 막다른 길이 안 생긴다(2026-09-26 사용자 요청) */}
+              <ListRow icon="add" iconTone="muted" title="새 행사 만들기" chevron onPress={() => router.push('/event/edit?next=receive')} />
+            </Card>
           </View>
         )}
 
         {/* 누적 — 명부를 넣는 동안 계속 보인다 */}
-        <View
-          style={{
-            backgroundColor: colors.bgSubtle,
-            borderRadius: radius.lg,
-            padding: space.lg,
-          }}
-        >
+        <Card tone="secondary">
           <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{e.title}</Text>
-          <Text style={{ ...amountText, color: colors.text, fontSize: font.title, fontWeight: '700', marginTop: 2 }}>
+          <Text style={{ ...amountText, color: colors.text, fontSize: font.heading, fontWeight: '800', marginTop: 2 }}>
             {/* 집계 실패를 "0명 · 0원"으로 찍으면 200명 넣은 사용자가 다시 넣기 시작한다 */}
             {summary.isSuccess ? `${s?.cnt ?? 0}명 · ${formatWon(s?.total ?? 0)}` : '누적을 세는 중'}
           </Text>
@@ -348,7 +343,7 @@ export default function ReceiveScreen() {
               미확정 {s?.unconfirmed}건
             </Text>
           )}
-        </View>
+        </Card>
 
         {/* 이름 */}
         <PersonPicker

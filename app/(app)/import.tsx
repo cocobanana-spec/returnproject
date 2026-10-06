@@ -356,7 +356,7 @@ export default function ImportScreen() {
             엑셀(xlsx·xls)이나 CSV 파일을 읽어 한 번에 넣습니다. 파일은 이 기기 안에서만 읽고 서버에 올리지 않습니다.
           </Text>
           <Choice
-            title="준돈 가져오기"
+            title="보낸 돈 가져오기"
             hint="남의 경조사에 낸 돈. 행마다 이름·금액·종류(·날짜·메모)를 읽고, 사람마다 남의 행사를 만들거나 기존 행사에 붙입니다."
             selected={target === 'given'}
             onPress={() => {
@@ -695,7 +695,7 @@ function Choice({ title, hint, selected, onPress }: { title: string; hint: strin
 
 function TargetLine({ target, eventTitle }: { target: ImportTarget | null; eventTitle: string | null }) {
   const { colors, font } = useTokens();
-  const text = target === 'received' ? `명부 가져오기 · ${eventTitle ?? '내 행사'}` : '준돈 가져오기';
+  const text = target === 'received' ? `명부 가져오기 · ${eventTitle ?? '내 행사'}` : '보낸 돈 가져오기';
   return <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{text}</Text>;
 }
 
