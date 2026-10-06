@@ -1,5 +1,6 @@
 // 로그인 후 화면 묶음. 현재 장부가 정해지기 전에는 아무 화면도 열지 않는다
 import { Stack } from 'expo-router';
+import { isWeb } from '../../src/lib/platform.ts';
 import { useEffect } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { recordActivityOncePerDay } from '../../src/lib/activity.ts';
@@ -63,6 +64,10 @@ export default function AppLayout() {
           headerTitleStyle: { color: colors.text },
           // 그룹 이름 (tabs) 가 뒤로 버튼에 새는 것을 막는다
           headerBackButtonDisplayMode: 'minimal',
+          // 웹 JS 헤더는 왼쪽 버튼과 제목이 붙어 "취소 기록 남기기"로 보인다 — 제목을 가운데로, 양쪽 여백을 준다
+          ...(isWeb
+            ? { headerTitleAlign: 'center' as const, headerLeftContainerStyle: { paddingLeft: 12 }, headerRightContainerStyle: { paddingRight: 12 } }
+            : {}),
           contentStyle: { backgroundColor: colors.bg },
         }}
       >

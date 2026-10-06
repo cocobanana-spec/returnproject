@@ -10,7 +10,8 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useT } from '../../../../src/i18n';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, Platform, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Pressable, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DEFAULT_DIRECTION, entryRowName, entryRowSubtitle, isMineOf, upcomingHint, type Direction } from '../../../../src/domain/home.ts';
 import { eventTypeIcon } from '../../../../src/domain/eventIcon.ts';
@@ -38,7 +39,7 @@ export default function HomeScreen() {
   const t = useT();
   const ledgerId = useLedgerId();
   const router = useRouter();
-  const { colors, space, font } = useTokens();
+  const { colors, space, font, radius } = useTokens();
   const insets = useSafeAreaInsets();
 
   const [direction, setDirection] = useState<Direction>(DEFAULT_DIRECTION);
@@ -89,26 +90,33 @@ export default function HomeScreen() {
         {stats.isError && <Text style={{ color: colors.textFaint, fontSize: font.caption }}>{t('home.statsFailed')}</Text>}
       </View>
 
-      {/* 보낸 / 받은 — 두 행이 방향 탭이다. 금액 색은 여기서만 */}
+      {/* 보낸 / 받은 — 두 행이 방향 탭이다. 금액 색은 여기서만.
+          라벨 위·금액 아래로 쌓는다 — 한 줄에 두면 좁은 폰에서 "보낸 축의금·조의\n금"처럼 라벨이 낱말 중간에서 꺾인다(2026-10-06 웹) */}
       <Card padded={false}>
         {(['given', 'received'] as const).map((d) => {
           const selected = direction === d;
           const amount = d === 'given' ? given : received;
           return (
-            <ListRow
+            <Pressable
               key={d}
-              title={t(d === 'given' ? 'home.sentLabel' : 'home.receivedLabel')}
-              titleLines={2}
-              right={
-                <Text style={{ ...amountText, color: d === 'given' ? colors.given : colors.received, fontSize: font.title, fontWeight: '700' }} numberOfLines={1}>
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}
+              onPress={() => setDirection(d)}
+              style={({ pressed }) => ({ alignItems: 'center', flexDirection: 'row', gap: space.md, minHeight: 64, paddingHorizontal: space.xl, paddingVertical: space.md, opacity: pressed ? 0.6 : 1 })}
+            >
+              <View style={{ alignItems: 'center', backgroundColor: selected ? colors.accentSoft : colors.surface2, borderRadius: radius.pill, height: 40, justifyContent: 'center', width: 40 }}>
+                <Ionicons name={d === 'given' ? 'arrow-up' : 'arrow-down'} size={20} color={selected ? colors.accent : colors.textMuted} />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ color: colors.textMuted, fontSize: font.caption, fontWeight: '500' }} numberOfLines={1}>
+                  {t(d === 'given' ? 'home.sentLabel' : 'home.receivedLabel')}
+                </Text>
+                <Text style={{ ...amountText, color: d === 'given' ? colors.given : colors.received, fontSize: font.heading, fontWeight: '800' }} numberOfLines={1}>
                   {stats.isSuccess ? formatWon(amount) : '—'}
                 </Text>
-              }
-              onPress={() => setDirection(d)}
-              iconTone={selected ? 'brand' : 'muted'}
-              icon={d === 'given' ? 'arrow-up' : 'arrow-down'}
-              caption={selected ? `${t('home.recent')} · ${t(d === 'given' ? 'home.given' : 'home.received')}` : undefined}
-            />
+              </View>
+              {selected && <Ionicons name="checkmark-circle" size={20} color={colors.accent} />}
+            </Pressable>
           );
         })}
       </Card>
