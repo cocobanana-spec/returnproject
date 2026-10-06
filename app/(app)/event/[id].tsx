@@ -26,6 +26,7 @@ import { EmptyState } from '../../../src/ui/EmptyState';
 import { EntryNames } from '../../../src/ui/EntryNames';
 import { LoadFailed } from '../../../src/ui/LoadFailed';
 import { Screen } from '../../../src/ui/Screen';
+import { CardRow } from '../../../src/ui/CardRow';
 
 export default function EventDetailScreen() {
   const ledgerId = useLedgerId();
@@ -149,13 +150,13 @@ export default function EventDetailScreen() {
               {e.place ? ` · ${e.place}` : ''}
             </Text>
 
-            {/* 정산 카드 */}
+            {/* 정산 카드 — 흰 카드(docs/DESIGN.md) */}
             <View
               style={{
-                backgroundColor: colors.bgSubtle,
+                backgroundColor: colors.card,
                 borderRadius: radius.lg,
                 gap: space.md,
-                padding: space.lg,
+                padding: space.xl,
               }}
             >
               <View>
@@ -182,8 +183,8 @@ export default function EventDetailScreen() {
                   {summaryReady
                     ? `${s?.cnt ?? 0}건${(s?.unconfirmed ?? 0) > 0 ? ` · 미확정 ${s?.unconfirmed}건은 합계에서 빠짐` : ''}`
                     : summary.isError
-                      ? '합계를 불러오지 못했습니다'
-                      : '합계를 세는 중입니다'}
+                      ? '합계를 불러오지 못했어요'
+                      : '합계를 세는 중이에요'}
                 </Text>
               </View>
 
@@ -305,23 +306,24 @@ export default function EventDetailScreen() {
         }
         ListEmptyComponent={
           entries.isError ? (
-            <LoadFailed title="기록을 불러오지 못했습니다" onRetry={() => void entries.refetch()} />
+            <LoadFailed title="기록을 불러오지 못했어요" onRetry={() => void entries.refetch()} />
           ) : (
             <EmptyState
-              title={unconfirmedOnly ? '미확정 기록이 없습니다' : '아직 기록이 없습니다'}
+              title={unconfirmedOnly ? '미확정 기록이 없어요' : '아직 기록이 없어요'}
               hint={e.is_mine ? '위 버튼으로 명부를 입력해 보세요.' : '홈에서 보낸 돈을 기록하면 여기에 쌓여요.'}
             />
           )
         }
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
+          <CardRow first={index === 0} last={index === rows.length - 1}>
           <Pressable
             onPress={() => router.push(withLedger(`/entry/${item.id}`, ledgerId, myLedgerId))}
             style={({ pressed }) => ({
               alignItems: 'center',
-              borderBottomColor: colors.border,
-              borderBottomWidth: 1,
               flexDirection: 'row',
               gap: space.md,
+              minHeight: 64,
+              paddingHorizontal: space.xl,
               paddingVertical: space.md,
               opacity: pressed ? 0.6 : 1,
             })}
@@ -350,6 +352,7 @@ export default function EventDetailScreen() {
               {formatWonShort(item.amount)}
             </Text>
           </Pressable>
+          </CardRow>
         )}
       />
     </Screen>
@@ -393,8 +396,8 @@ function InviteSection({ eventId, title }: { eventId: string; title: string }) {
   }
   const list: EventMember[] = members.data ?? [];
   return (
-    <View style={{ backgroundColor: colors.bgSubtle, borderRadius: radius.lg, gap: space.sm, padding: space.lg }}>
-      <Text style={{ color: colors.text, fontSize: font.body, fontWeight: '700' }}>{t('share.invite')}</Text>
+    <View style={{ backgroundColor: colors.card, borderRadius: radius.lg, gap: space.sm, padding: space.xl }}>
+      <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }}>{t('share.invite')}</Text>
       <Text style={{ color: colors.textMuted, fontSize: font.caption, lineHeight: 18 }}>{t('share.inviteHint')}</Text>
       {code ? (
         <View style={{ gap: space.sm }}>

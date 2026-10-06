@@ -20,6 +20,7 @@ import { Field } from '../../src/ui/Field';
 import { LoadFailed } from '../../src/ui/LoadFailed';
 import { PersonRow } from '../../src/ui/PersonRow';
 import { Screen } from '../../src/ui/Screen';
+import { CardRow } from '../../src/ui/CardRow';
 
 const SORTS: { key: PeopleSort; label: string }[] = [
   { key: 'name', label: '이름순' },
@@ -108,7 +109,7 @@ export default function PeopleScreen() {
         <ActivityIndicator color={colors.textMuted} style={{ marginTop: space.xxl }} />
       ) : query.isError ? (
         // 조회 실패를 "찾는 사람이 없습니다"로 덮으면 안 된다.
-        <LoadFailed title="사람을 불러오지 못했습니다" onRetry={() => void query.refetch()} />
+        <LoadFailed title="사람을 불러오지 못했어요" onRetry={() => void query.refetch()} />
       ) : (
         <FlatList
           data={rows}
@@ -126,23 +127,26 @@ export default function PeopleScreen() {
           }
           ListEmptyComponent={
             filtering ? (
-              <EmptyState title="찾는 사람이 없습니다" hint="이름 일부만 넣거나 필터를 지워 보세요." />
+              <EmptyState icon="search" title="찾는 사람이 없어요" hint="이름 일부만 넣거나 필터를 지워 보세요." />
             ) : (
               <EmptyState
-                title="아직 등록된 사람이 없습니다"
-                hint={'경조사를 기록하면 사람이 자동으로 만들어집니다.\n먼저 기록을 남겨 보세요.'}
-                actionLabel="+ 첫 기록 남기기"
+                icon="people"
+                title="아직 등록된 사람이 없어요"
+                hint={'경조사를 기록하면 사람이 자동으로 만들어져요.\n먼저 기록을 남겨 보세요.'}
+                actionLabel="첫 기록 남기기"
                 onAction={() => router.push('/record')}
               />
             )
           }
-          renderItem={({ item }) => (
-            <PersonRow
-              person={item}
-              showBalance
-              flag={needsLabel(item, dupKeys) ? '구분 없음' : undefined}
-              onPress={() => router.push(`/person/${item.id}`)}
-            />
+          renderItem={({ item, index }) => (
+            <CardRow first={index === 0} last={index === rows.length - 1}>
+              <PersonRow
+                person={item}
+                showBalance
+                flag={needsLabel(item, dupKeys) ? '구분 없음' : undefined}
+                onPress={() => router.push(`/person/${item.id}`)}
+              />
+            </CardRow>
           )}
         />
       )}

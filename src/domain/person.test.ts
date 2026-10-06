@@ -35,15 +35,15 @@ test('기록이 없으면 기록 없음', () => {
   assert.equal(balanceHint({ name: '김철수', entry_count: 0 }), '기록 없음');
 });
 
-test('준 돈과 받은 돈을 함께 요약한다', () => {
+test('보낸 돈과 받은 돈을 함께 요약한다', () => {
   assert.equal(
     balanceHint({ name: '김철수', entry_count: 2, given_total: 100000, received_total: 50000 }),
-    '준 10만원 · 받은 5만원',
+    '보낸 10만원 · 받은 5만원',
   );
 });
 
 test('한쪽만 있으면 그쪽만 보인다', () => {
-  assert.equal(balanceHint({ name: '김철수', entry_count: 1, given_total: 100000 }), '준 10만원');
+  assert.equal(balanceHint({ name: '김철수', entry_count: 1, given_total: 100000 }), '보낸 10만원');
 });
 
 test('기록은 있는데 금액이 0이면 건수만 보인다', () => {

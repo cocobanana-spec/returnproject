@@ -151,7 +151,7 @@ export default function EntryDetailScreen() {
     <Screen scroll edges={{ top: false }}>
       <View style={{ gap: space.lg }}>
         {/* 맥락 — 누구와, 어떤 행사에서 */}
-        <View style={{ backgroundColor: colors.bgSubtle, borderRadius: radius.lg, padding: space.lg }}>
+        <View style={{ backgroundColor: colors.card, borderRadius: radius.lg, padding: space.xl }}>
           <View style={{ alignItems: 'center', flexDirection: 'row', gap: space.xs }}>
             <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }}>
               {displayName(row.person)}
@@ -159,7 +159,7 @@ export default function EntryDetailScreen() {
             {row.co_person && (
               <View
                 style={{
-                  backgroundColor: colors.card,
+                  backgroundColor: colors.surface2,
                   borderRadius: radius.sm,
                   paddingHorizontal: 6,
                   paddingVertical: 2,

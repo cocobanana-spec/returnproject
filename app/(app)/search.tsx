@@ -17,6 +17,7 @@ import { Field } from '../../src/ui/Field';
 import { LoadFailed } from '../../src/ui/LoadFailed';
 import { PersonRow } from '../../src/ui/PersonRow';
 import { Screen } from '../../src/ui/Screen';
+import { CardRow } from '../../src/ui/CardRow';
 
 export default function SearchScreen() {
   const ledgerId = useLedgerId();
@@ -66,7 +67,7 @@ export default function SearchScreen() {
         <ActivityIndicator color={colors.textMuted} style={{ marginTop: space.xxl }} />
       ) : query.isError ? (
         // 조회 실패를 "없는 사람"으로 읽으면 사용자가 중복으로 만들게 된다.
-        <LoadFailed title="사람을 찾지 못했습니다" onRetry={() => void query.refetch()} />
+        <LoadFailed title="사람을 찾지 못했어요" onRetry={() => void query.refetch()} />
       ) : (
         <FlatList
           data={rows}
@@ -78,15 +79,17 @@ export default function SearchScreen() {
           }}
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
-            <EmptyState title="찾는 사람이 없습니다" hint="이름 일부만 넣어 보세요." />
+            <EmptyState icon="search" title="찾는 사람이 없어요" hint="이름 일부만 넣어 보세요." />
           }
-          renderItem={({ item }) => (
-            <PersonRow
-              person={item}
-              showBalance
-              flag={needsLabel(item, dupKeys) ? '구분 없음' : undefined}
-              onPress={() => router.push(`/person/${item.id}`)}
-            />
+          renderItem={({ item, index }) => (
+            <CardRow first={index === 0} last={index === rows.length - 1}>
+              <PersonRow
+                person={item}
+                showBalance
+                flag={needsLabel(item, dupKeys) ? '구분 없음' : undefined}
+                onPress={() => router.push(`/person/${item.id}`)}
+              />
+            </CardRow>
           )}
         />
       )}

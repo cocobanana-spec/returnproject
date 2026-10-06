@@ -18,6 +18,10 @@ import { Chip } from '../../src/ui/Chip';
 import { EmptyState } from '../../src/ui/EmptyState';
 import { LoadFailed } from '../../src/ui/LoadFailed';
 import { Screen } from '../../src/ui/Screen';
+import { CardRow } from '../../src/ui/CardRow';
+import { ListRow } from '../../src/ui/ListRow';
+import { SectionHeader } from '../../src/ui/SectionHeader';
+import { eventTypeIcon } from '../../src/domain/eventIcon.ts';
 
 type Filter = { key: string; label: string; isMine: boolean | null };
 const FILTERS: Filter[] = [
@@ -91,7 +95,7 @@ export default function EventsScreen() {
         <ActivityIndicator color={colors.textMuted} style={{ marginTop: space.xxl }} />
       ) : query.isError ? (
         // 조회 실패를 "행사가 아직 없습니다"로 덮으면 300건 있는 사용자에게 데이터가 사라진 것처럼 보인다.
-        <LoadFailed title="행사를 불러오지 못했습니다" onRetry={() => void query.refetch()} />
+        <LoadFailed title="행사를 불러오지 못했어요" onRetry={() => void query.refetch()} />
       ) : (
         <FlatList
           data={rows}
@@ -103,13 +107,13 @@ export default function EventsScreen() {
           }}
           ListEmptyComponent={
             <EmptyState
-              title={filter.isMine === true ? '내 행사가 아직 없습니다' : '행사가 아직 없습니다'}
+              title={filter.isMine === true ? '아직 내 행사가 없어요' : '아직 행사가 없어요'}
               hint={
                 filter.isMine === true
-                  ? '결혼식·돌잔치처럼 내가 치른 행사를 만들면 받은 돈을 정리할 수 있습니다.'
+                  ? '결혼식·돌잔치처럼 내가 치른 행사를 만들면 받은 돈을 정리할 수 있어요.'
                   : '보낸 돈을 기록하면 남의 행사가 자동으로 만들어져요.'
               }
-              actionLabel={filter.isMine === false ? undefined : '+ 내 행사 만들기'}
+              actionLabel={filter.isMine === false ? undefined : '내 행사 만들기'}
               onAction={filter.isMine === false ? undefined : () => router.push('/event/edit')}
             />
           }
@@ -118,64 +122,38 @@ export default function EventsScreen() {
               <ActivityIndicator color={colors.textMuted} style={{ marginVertical: space.lg }} />
             ) : null
           }
-          renderItem={({ item }) => {
+          renderItem={({ item, index }) => {
             if (item.kind === 'year') {
               return (
-                <Text
-                  style={{
-                    color: colors.textMuted,
-                    fontSize: font.caption,
-                    fontWeight: '700',
-                    marginTop: space.lg,
-                    marginBottom: space.xs,
-                  }}
-                >
-                  {item.year}년
-                </Text>
+                <View style={{ marginTop: index === 0 ? space.md : 0 }}>
+                  <SectionHeader title={`${item.year}년`} />
+                </View>
               );
             }
             const e = item.event;
+            // 연도 머리 사이의 행들이 카드 하나다
+            const prev = rows[index - 1];
+            const next = rows[index + 1];
+            const first = !prev || prev.kind === 'year';
+            const last = !next || next.kind === 'year';
             return (
-              <Pressable
-                onPress={() => router.push(`/event/${e.id}`)}
-                style={({ pressed }) => ({
-                  alignItems: 'center',
-                  borderBottomColor: colors.border,
-                  borderBottomWidth: 1,
-                  flexDirection: 'row',
-                  gap: space.md,
-                  paddingVertical: space.md,
-                  opacity: pressed ? 0.6 : 1,
-                })}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.text, fontSize: font.body, fontWeight: '600' }} numberOfLines={1}>
-                    {e.title}
-                  </Text>
-                  <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: 2 }}>
-                    {formatEventDate(e.date, e.date_precision as DatePrecision)} · {eventTypeLabel(e.type)}
-                  </Text>
-                </View>
-                <View
-                  style={{
-                    backgroundColor: e.is_mine ? colors.received : colors.bgSubtle,
-                    borderRadius: radius.sm,
-                    paddingHorizontal: 8,
-                    paddingVertical: 3,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: e.is_mine ? '#FFFFFF' : colors.textMuted,
-                      fontSize: font.caption - 2,
-                      fontWeight: '600',
-                    }}
-                  >
-                    {e.is_mine ? '내 행사' : '보낸 돈'}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-              </Pressable>
+              <View style={{ marginBottom: last ? space.xl : 0 }}>
+                <CardRow first={first} last={last}>
+                  <ListRow
+                    icon={eventTypeIcon(e.type)}
+                    iconTone={e.is_mine ? 'brand' : 'muted'}
+                    title={e.title}
+                    caption={`${formatEventDate(e.date, e.date_precision as DatePrecision)} · ${eventTypeLabel(e.type)}`}
+                    right={
+                      <View style={{ backgroundColor: e.is_mine ? colors.accentSoft : colors.surface2, borderRadius: radius.pill, paddingHorizontal: space.sm + 2, paddingVertical: 3 }}>
+                        <Text style={{ color: e.is_mine ? colors.accent : colors.textMuted, fontSize: font.caption - 1, fontWeight: '700' }}>{e.is_mine ? '내 행사' : '보낸 돈'}</Text>
+                      </View>
+                    }
+                    chevron
+                    onPress={() => router.push(`/event/${e.id}`)}
+                  />
+                </CardRow>
+              </View>
             );
           }}
         />

@@ -69,6 +69,7 @@ import { SampleTable } from '../../src/ui/SampleTable';
 import * as ImagePicker from 'expo-image-picker';
 import { groupOcrLines, linesToTable } from '../../src/domain/ocrLines.ts';
 import { isWeb } from '../../src/lib/platform.ts';
+import { CardRow } from '../../src/ui/CardRow';
 
 type Step = 'target' | 'file' | 'mapping' | 'preview' | 'saving' | 'done';
 
@@ -552,7 +553,7 @@ export default function ImportScreen() {
               </Text>
               <Text style={{ ...amountText, color: colors.textMuted, fontSize: font.caption }}>
                 저장될 합계 {formatWon(summary.totalAmount)}
-                {summary.fix > 0 ? ' · 수정 필요가 0이 되어야 저장할 수 있습니다' : ''}
+                {summary.fix > 0 ? ' · 수정 필요가 0이 되어야 저장할 수 있어요' : ''}
               </Text>
               {shownGroups.length > 0 && (
                 <View style={{ gap: space.sm, marginTop: space.sm }}>
@@ -563,10 +564,10 @@ export default function ImportScreen() {
                     <View
                       key={g.type}
                       style={{
-                        backgroundColor: colors.bgSubtle,
-                        borderRadius: radius.md,
+                        backgroundColor: colors.card,
+                        borderRadius: radius.lg,
                         gap: space.xs,
-                        padding: space.md,
+                        padding: space.xl,
                       }}
                     >
                       <Text style={{ color: colors.text, fontSize: font.caption, fontWeight: '600' }}>
@@ -574,7 +575,7 @@ export default function ImportScreen() {
                       </Text>
                       <Text style={{ ...amountText, color: colors.textMuted, fontSize: font.caption - 1 }}>
                         {g.count}건 · {formatWon(g.total)}
-                        {g.attachTo === null ? ` · ${formatEventDate(g.newDate, 'day')}에 만듭니다` : ''}
+                        {g.attachTo === null ? ` · ${formatEventDate(g.newDate, 'day')}에 만들어요` : ''}
                       </Text>
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
                         {g.options.map((o) => (
@@ -597,7 +598,8 @@ export default function ImportScreen() {
               )}
             </View>
           }
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
+            <CardRow first={index === 0} last={index === rows.length - 1}>
             <PreviewRow
               row={item}
               candidates={candidates.get(item.nameKey) ?? []}
@@ -605,6 +607,7 @@ export default function ImportScreen() {
               onPatchWith={(fn) => patchRowWith(item.index, fn)}
               onChooseDup={(choice) => chooseDup(item.nameKey, choice)}
             />
+            </CardRow>
           )}
           ListFooterComponent={
             <View style={{ gap: space.sm, paddingTop: space.lg }}>
@@ -725,11 +728,10 @@ function PreviewRow({
   return (
     <View
       style={{
-        borderBottomColor: colors.border,
-        borderBottomWidth: 1,
         gap: space.xs,
         opacity: row.skip ? 0.5 : 1,
-        paddingVertical: space.md,
+        paddingHorizontal: space.xl,
+        paddingVertical: space.lg,
       }}
     >
       <View style={{ alignItems: 'center', flexDirection: 'row', gap: space.sm }}>

@@ -40,7 +40,7 @@ export function balanceHint(p: PersonSummary): string {
   const received = p.received_total ?? 0;
   if ((p.entry_count ?? 0) === 0) return '기록 없음';
   const parts: string[] = [];
-  if (given > 0) parts.push(`준 ${formatWonShort(given)}`);
+  if (given > 0) parts.push(`보낸 ${formatWonShort(given)}`);
   if (received > 0) parts.push(`받은 ${formatWonShort(received)}`);
   if (parts.length === 0) return `기록 ${p.entry_count}건`;
   return parts.join(' · ');

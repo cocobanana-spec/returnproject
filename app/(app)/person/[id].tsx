@@ -19,6 +19,7 @@ import { EmptyState } from '../../../src/ui/EmptyState';
 import { LoadFailed } from '../../../src/ui/LoadFailed';
 import { MergePicker } from '../../../src/ui/MergePicker';
 import { Screen } from '../../../src/ui/Screen';
+import { CardRow } from '../../../src/ui/CardRow';
 
 export default function PersonDetailScreen() {
   const ledgerId = useLedgerId();
@@ -155,10 +156,10 @@ export default function PersonDetailScreen() {
 
             <View
               style={{
-                backgroundColor: colors.bgSubtle,
+                backgroundColor: colors.card,
                 borderRadius: radius.lg,
                 gap: space.md,
-                padding: space.lg,
+                padding: space.xl,
               }}
             >
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -180,14 +181,14 @@ export default function PersonDetailScreen() {
               <View style={{ borderTopColor: colors.border, borderTopWidth: 1, paddingTop: space.md }}>
                 <Text style={{ ...amountText, color: colors.text, fontSize: font.body, fontWeight: '600' }}>
                   {diff === 0
-                    ? '주고받은 금액이 같습니다'
+                    ? '보낸 만큼 받았어요'
                     : diff > 0
-                      ? `내가 ${formatWonShort(diff)} 더 줬습니다`
-                      : `내가 ${formatWonShort(Math.abs(diff))} 더 받았습니다`}
+                      ? `내가 ${formatWonShort(diff)} 더 보냈어요`
+                      : `내가 ${formatWonShort(Math.abs(diff))} 더 받았어요`}
                 </Text>
                 {((person.given_unconfirmed ?? 0) + (person.received_unconfirmed ?? 0)) > 0 && (
                   <Text style={{ color: colors.textMuted, fontSize: font.caption, marginTop: 4 }}>
-                    미확정 {(person.given_unconfirmed ?? 0) + (person.received_unconfirmed ?? 0)}건은 합계에서 빠져 있습니다
+                    미확정 {(person.given_unconfirmed ?? 0) + (person.received_unconfirmed ?? 0)}건은 합계에서 빠져 있어요
                   </Text>
                 )}
               </View>
@@ -217,29 +218,31 @@ export default function PersonDetailScreen() {
           ) : (
             <EmptyState
               title="아직 주고받은 기록이 없습니다"
-              hint="홈에서 기록을 남기면 여기에 쌓입니다."
+              hint="홈에서 기록을 남기면 여기에 쌓여요."
             />
           )
         }
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const isMine = item.event?.is_mine ?? false;
           const co = isCoEntryFor(
             { personId: item.person_id, coPersonId: item.co_person_id, event: item.event },
             personId,
           );
           return (
+            <CardRow first={index === 0} last={index === rows.length - 1}>
             <View
               style={{
-                borderBottomColor: colors.border,
-                borderBottomWidth: 1,
+                alignItems: 'center',
                 flexDirection: 'row',
                 gap: space.md,
+                minHeight: 64,
+                paddingHorizontal: space.xl,
                 paddingVertical: space.md,
               }}
             >
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs }}>
-                  <Text style={{ color: colors.text, fontSize: font.body }} numberOfLines={1}>
+                  <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }} numberOfLines={1}>
                     {item.event?.title ?? '(행사 없음)'}
                   </Text>
                   {co && (
@@ -271,6 +274,7 @@ export default function PersonDetailScreen() {
                 {formatWonShort(item.amount)}
               </Text>
             </View>
+            </CardRow>
           );
         }}
       />

@@ -39,6 +39,6 @@ export function formatWonShort(amount: number | null | undefined): string {
 
 export function formatBalance(balance: number): { text: string; direction: 'given' | 'received' | 'even' } {
   if (balance === 0) return { text: '수지 0원', direction: 'even' };
-  if (balance > 0) return { text: `${balance.toLocaleString('ko-KR')}원 더 줌`, direction: 'given' };
+  if (balance > 0) return { text: `${balance.toLocaleString('ko-KR')}원 더 보냄`, direction: 'given' };
   return { text: `${Math.abs(balance).toLocaleString('ko-KR')}원 더 받음`, direction: 'received' };
 }
