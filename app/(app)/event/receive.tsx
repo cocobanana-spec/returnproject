@@ -499,7 +499,8 @@ export default function ReceiveScreen() {
                 <Text
                   style={{
                     ...amountText,
-                    color: item.amount === null ? colors.textMuted : colors.received,
+                    // 목록 금액은 회색(docs/DESIGN.md)
+                    color: item.amount === null ? colors.textFaint : colors.text,
                     fontSize: font.body,
                     fontWeight: '600',
                   }}

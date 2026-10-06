@@ -341,7 +341,8 @@ export default function EventDetailScreen() {
             <Text
               style={{
                 ...amountText,
-                color: item.amount === null ? colors.textMuted : e.is_mine ? colors.received : colors.given,
+                // 목록 금액은 회색(docs/DESIGN.md)
+                color: item.amount === null ? colors.textFaint : colors.text,
                 fontSize: font.body,
                 fontWeight: '700',
               }}

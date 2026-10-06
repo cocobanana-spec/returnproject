@@ -262,7 +262,8 @@ export default function PersonDetailScreen() {
               <Text
                 style={{
                   ...amountText,
-                  color: isMine ? colors.received : colors.given,
+                  // 목록 금액은 회색 — 방향은 글자(directionLabel)가 말한다(docs/DESIGN.md)
+                  color: colors.text,
                   fontSize: font.body,
                   fontWeight: '700',
                 }}

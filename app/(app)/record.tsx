@@ -8,7 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { isWeb } from '../../src/lib/platform.ts';
 import { useRef, useState } from 'react';
-import { Alert, Pressable, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
   EVENT_TYPES,
@@ -550,17 +550,20 @@ export default function RecordScreen() {
         {/* 4. 금액 */}
         <View style={{ gap: space.sm }}>
           <Text style={{ color: colors.textMuted, fontSize: font.caption }}>얼마를 냈나요</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
-            {AMOUNT_PRESETS_WON.map((won) => (
-              <Chip
-                key={won}
-                label={formatWonShort(won)}
-                selected={draft.amountUnit === 'won' && draft.amountText === String(won)}
-                onPress={() => patch({ amountText: String(won), amountUnit: 'won' })}
-              />
-            ))}
-          </View>
-          <View style={{ alignItems: 'center', flexDirection: 'row', gap: space.sm }}>
+          {/* 프리셋은 가로 한 줄 — 명부 입력과 같은 모양(docs/DESIGN.md 3단계) */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -space.xl }} contentContainerStyle={{ paddingHorizontal: space.xl }}>
+            <View style={{ flexDirection: 'row', gap: space.sm }}>
+              {AMOUNT_PRESETS_WON.map((won) => (
+                <Chip
+                  key={won}
+                  label={formatWonShort(won)}
+                  selected={draft.amountUnit === 'won' && draft.amountText === String(won)}
+                  onPress={() => patch({ amountText: String(won), amountUnit: 'won' })}
+                />
+              ))}
+            </View>
+          </ScrollView>
+          <View style={{ alignItems: 'center', flexDirection: 'row', gap: space.sm, marginTop: space.xs }}>
             <TextInput
               value={draft.amountText}
               onChangeText={(next) => patch({ amountText: next })}
