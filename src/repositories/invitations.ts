@@ -135,3 +135,18 @@ export async function setGuestbookHidden(id: string, hidden: boolean): Promise<v
 export async function deleteGuestbookEntry(id: string): Promise<void> {
   unwrap(await db().from('guestbook_entries').delete().eq('id', id));
 }
+
+// ---------------------------------------------------------------------------
+// 참석 여부(0017) — 하객은 공개 페이지에서 함수로 보내고, 주인은 여기서 읽고 지운다
+// ---------------------------------------------------------------------------
+export type RsvpResponse = Tables<'rsvp_responses'>;
+
+export async function listRsvp(invitationId: string): Promise<RsvpResponse[]> {
+  return unwrap(
+    await db().from('rsvp_responses').select('*').eq('invitation_id', invitationId).order('created_at', { ascending: false }),
+  ) as RsvpResponse[];
+}
+
+export async function deleteRsvp(id: string): Promise<void> {
+  unwrap(await db().from('rsvp_responses').delete().eq('id', id));
+}

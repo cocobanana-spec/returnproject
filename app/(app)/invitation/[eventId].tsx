@@ -1,6 +1,7 @@
 // 청첩장·부고장 만들기(S20) — 내 행사 하나에 붙는 초대장을 적고, 미리보고, 발행하고, 공유하고, 내린다
 //
-// 2A 범위(docs/08 §3.6). 칸은 종류별로 고정이고 템플릿은 basic 하나다.
+// 2A 범위(docs/08 §3.6). 칸은 종류별로 고정이다. 템플릿은 청첩장 '단정한 흰색'·'봄'(2026-10-07), 부고장은 하나.
+// '봄'을 고르면 봄 전용 칸(인트로 문구·혼주 전화·교통 안내·참석 여부)이 더 열린다.
 // 화면을 열면 초안 행을 바로 만든다 — 사진 경로에 초대장 id 가 필요하고, 저장을 깜빡해도 적은 것이
 // 남아야 하기 때문이다. 발행 전에는 앱의 validateInvitation 이, 발행 규칙(무료 1건·3개월)은 서버가 막는다.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,6 +18,7 @@ import {
   maxMonths,
   shareTitle,
   shareUrl,
+  templatesFor,
   validateInvitation,
   type BankAccount,
   type FuneralContent,
@@ -40,6 +42,8 @@ import {
   setGuestbookHidden,
   photoUrl,
   publishInvitation,
+  deleteRsvp,
+  listRsvp,
   removePhotos,
   unpublishInvitation,
   updateInvitation,
@@ -50,6 +54,7 @@ import { useTokens } from '../../../src/theme/tokens';
 import { Button } from '../../../src/ui/Button';
 import { Chip } from '../../../src/ui/Chip';
 import { Field } from '../../../src/ui/Field';
+import { summarizeRsvp } from '../../../src/domain/rsvp.ts';
 import { LoadFailed } from '../../../src/ui/LoadFailed';
 import { Screen } from '../../../src/ui/Screen';
 import { useToast } from '../../../src/ui/ToastProvider';
@@ -92,6 +97,7 @@ export default function InvitationScreen() {
   // 화면의 내용. 고치는 중(dirty)이 아니면 서버 값을 따라간다 — 미리보기에서 돌아오거나 다른 기기에서
   // 고친 뒤에도 화면이 오래된 값을 들고 있지 않게 한다. 고치는 중에는 화면이 주인이다.
   const [content, setContent] = useState<InvitationContent | null>(null);
+  const [templateId, setTemplateId] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const serverContent = inv?.content;
@@ -99,6 +105,7 @@ export default function InvitationScreen() {
     if (!inv || dirty) return;
     const stored = serverContent as unknown as InvitationContent;
     setContent(stored && Object.keys(stored).length > 0 ? stored : emptyContent(inv.kind as InvitationKind));
+    setTemplateId(inv.template_id);
   }, [inv, serverContent, dirty]);
 
   function patch(next: Partial<InvitationContent>) {
@@ -109,7 +116,7 @@ export default function InvitationScreen() {
   const save = useMutation({
     mutationFn: async () => {
       if (!inv || !content) throw new Error('아직 준비되지 않았습니다.');
-      return updateInvitation(ledgerId, inv.id, { content });
+      return updateInvitation(ledgerId, inv.id, { content, templateId: templateId ?? undefined });
     },
     onSuccess: (row) => {
       queryClient.setQueryData(queryKeys.invitations.byEvent(ledgerId, eventId), row);
@@ -127,7 +134,7 @@ export default function InvitationScreen() {
         throw new Error('내용을 확인해 주세요.');
       }
       setErrors([]);
-      await updateInvitation(ledgerId, inv.id, { content });
+      await updateInvitation(ledgerId, inv.id, { content, templateId: templateId ?? undefined });
       return publishInvitation(inv.id, maxMonths(inv.plan as 'free' | 'premium'));
     },
     onSuccess: async () => {
@@ -282,6 +289,31 @@ export default function InvitationScreen() {
           )}
         </View>
 
+        {/* 템플릿 — 고르면 저장할 때 함께 바뀐다. 미리보기로 바로 확인한다 */}
+        {templatesFor(kind).length > 1 && (
+          <View style={{ gap: space.sm }}>
+            <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }}>템플릿</Text>
+            <View style={{ flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' }}>
+              {templatesFor(kind).map((tp) => (
+                <Chip
+                  key={tp.id}
+                  label={tp.name}
+                  selected={(templateId ?? 'basic') === tp.id}
+                  onPress={() => {
+                    setTemplateId(tp.id);
+                    setDirty(true);
+                  }}
+                />
+              ))}
+            </View>
+            {templateId === 'spring' && (
+              <Text style={{ color: colors.textMuted, fontSize: font.caption, lineHeight: 20 }}>
+                열면 표지 사진 위에 문구가 손글씨로 써지고, 사진이 드러난 뒤 아래로 내려 볼 수 있어요. 달력·카운트다운·교통 안내·참석 여부가 들어가요.
+              </Text>
+            )}
+          </View>
+        )}
+
         {/* 공개 페이지의 안내 글자 언어(오시는 길·계좌·방명록). 적은 내용은 그대로다. 한·영·일(2026-10-04) */}
         <View style={{ gap: space.sm }}>
           <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }}>{t('inv.pageLanguage')}</Text>
@@ -292,10 +324,11 @@ export default function InvitationScreen() {
           </View>
         </View>
 
+        {kind === 'wedding' && (content as WeddingContent).rsvp && <Rsvp invitationId={inv.id} />}
         <Guestbook invitationId={inv.id} />
 
         {kind === 'wedding' ? (
-          <WeddingForm c={content as WeddingContent} patch={patch} onPick={pickAndUpload} uploading={uploading} />
+          <WeddingForm c={content as WeddingContent} patch={patch} onPick={pickAndUpload} uploading={uploading} spring={templateId === 'spring'} />
         ) : (
           <FuneralForm c={content as FuneralContent} patch={patch} />
         )}
@@ -333,11 +366,13 @@ function WeddingForm({
   patch,
   onPick,
   uploading,
+  spring,
 }: {
   c: WeddingContent;
   patch: (next: Partial<WeddingContent>) => void;
   onPick: (slot: 'cover' | 'gallery') => void;
   uploading: boolean;
+  spring: boolean;
 }) {
   const { colors, space, font, radius } = useTokens();
   return (
@@ -360,6 +395,9 @@ function WeddingForm({
         <Field label="예식장" value={c.venue.name} onChangeText={(v) => patch({ venue: { ...c.venue, name: v } })} placeholder="더채플 앳 청담" />
         <Field label="홀" value={c.venue.hall ?? ''} onChangeText={(v) => patch({ venue: { ...c.venue, hall: v } })} placeholder="3층 그랜드홀 (선택)" />
         <Field label="주소" value={c.venue.address ?? ''} onChangeText={(v) => patch({ venue: { ...c.venue, address: v } })} placeholder="길찾기 버튼에 쓰입니다 (선택)" />
+        {spring && (
+          <Field label="예식장 전화" value={c.venue.phone ?? ''} onChangeText={(v) => patch({ venue: { ...c.venue, phone: v } })} placeholder="02-000-0000 (선택)" keyboardType="phone-pad" />
+        )}
       </Section>
       <Section title="인사말">
         <Field label="" value={c.greeting ?? ''} onChangeText={(v) => patch({ greeting: v })} placeholder="저희 두 사람이…" multiline style={{ minHeight: 120, textAlignVertical: 'top' }} />
@@ -384,6 +422,32 @@ function WeddingForm({
         <Field label="신랑" value={c.contact?.groom ?? ''} onChangeText={(v) => patch({ contact: { ...c.contact, groom: v } })} placeholder="010-0000-0000 (선택)" keyboardType="phone-pad" />
         <Field label="신부" value={c.contact?.bride ?? ''} onChangeText={(v) => patch({ contact: { ...c.contact, bride: v } })} placeholder="010-0000-0000 (선택)" keyboardType="phone-pad" />
       </Section>
+      {spring && (
+        <>
+          <Section title="인트로 문구">
+            <Field value={c.intro ?? ''} onChangeText={(v) => patch({ intro: v })} placeholder="We're getting married" maxLength={60} />
+            <Text style={{ color: colors.textMuted, fontSize: font.caption }}>표지 사진 위에 손글씨로 써지는 한 줄이에요. 영문이 가장 예뻐요.</Text>
+          </Section>
+          <Section title="혼주 연락처">
+            <Field label="신랑 아버지" value={c.parentPhones?.groomFather ?? ''} onChangeText={(v) => patch({ parentPhones: { ...c.parentPhones, groomFather: v } })} placeholder="010-0000-0000 (선택)" keyboardType="phone-pad" />
+            <Field label="신랑 어머니" value={c.parentPhones?.groomMother ?? ''} onChangeText={(v) => patch({ parentPhones: { ...c.parentPhones, groomMother: v } })} placeholder="010-0000-0000 (선택)" keyboardType="phone-pad" />
+            <Field label="신부 아버지" value={c.parentPhones?.brideFather ?? ''} onChangeText={(v) => patch({ parentPhones: { ...c.parentPhones, brideFather: v } })} placeholder="010-0000-0000 (선택)" keyboardType="phone-pad" />
+            <Field label="신부 어머니" value={c.parentPhones?.brideMother ?? ''} onChangeText={(v) => patch({ parentPhones: { ...c.parentPhones, brideMother: v } })} placeholder="010-0000-0000 (선택)" keyboardType="phone-pad" />
+          </Section>
+          <Section title="교통 안내">
+            <Field label="버스" value={c.transport?.bus ?? ''} onChangeText={(v) => patch({ transport: { ...c.transport, bus: v } })} placeholder="70-3, 5620 · 영등포구청 하차 (선택)" multiline style={{ minHeight: 64, textAlignVertical: 'top' }} />
+            <Field label="지하철" value={c.transport?.subway ?? ''} onChangeText={(v) => patch({ transport: { ...c.transport, subway: v } })} placeholder="2,5호선 영등포구청역 4번출구 도보 3분 (선택)" multiline style={{ minHeight: 64, textAlignVertical: 'top' }} />
+            <Field label="자가용" value={c.transport?.car ?? ''} onChangeText={(v) => patch({ transport: { ...c.transport, car: v } })} placeholder="맞은편 공영주차장 (선택)" multiline style={{ minHeight: 64, textAlignVertical: 'top' }} />
+          </Section>
+          <Section title="참석 여부 받기">
+            <View style={{ flexDirection: 'row', gap: space.sm }}>
+              <Chip label="받기" selected={!!c.rsvp} onPress={() => patch({ rsvp: true })} />
+              <Chip label="안 받기" selected={!c.rsvp} onPress={() => patch({ rsvp: false })} />
+            </View>
+            <Text style={{ color: colors.textMuted, fontSize: font.caption, lineHeight: 20 }}>하객이 측·참석·인원·식사를 보내면 이 화면 위에 모여요.</Text>
+          </Section>
+        </>
+      )}
       <View style={{ borderRadius: radius.md, backgroundColor: colors.bgSubtle, padding: space.md }}>
         <Text style={{ color: colors.textMuted, fontSize: font.caption, lineHeight: 18 }}>
           날짜는 2027-05-01, 시간은 12:30 형식으로 적어 주세요. 달력 선택은 다음 판에 들어옵니다.
@@ -453,6 +517,60 @@ function FuneralForm({ c, patch }: { c: FuneralContent; patch: (next: Partial<Fu
 // ---------------------------------------------------------------------------
 // 방명록 — 하객이 공개 페이지에서 남긴 말. 주인은 숨기거나 지운다. 숨긴 것은 전광판에서 빠진다.
 // ---------------------------------------------------------------------------
+function Rsvp({ invitationId }: { invitationId: string }) {
+  const { colors, space, font, radius } = useTokens();
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const key = ['rsvp', invitationId] as const;
+  const list = useQuery({ queryKey: key, queryFn: () => listRsvp(invitationId) });
+  const remove = useMutation({
+    mutationFn: (id: string) => deleteRsvp(id),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: key }),
+    onError: (e: Error) => toast.show({ message: e.message, durationMs: 4000 }),
+  });
+  const rows = list.data ?? [];
+  if (list.isLoading) return null;
+  const sum = summarizeRsvp(rows);
+  const mealLabel: Record<string, string> = { yes: '식사', no: '식사 안 함', unknown: '식사 미정' };
+  return (
+    <View style={{ gap: space.sm }}>
+      <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }}>참석 여부 {rows.length ? `· ${rows.length}건` : ''}</Text>
+      {rows.length === 0 ? (
+        <Text style={{ color: colors.textMuted, fontSize: font.caption }}>하객이 공개 페이지에서 보낸 응답이 여기 모여요.</Text>
+      ) : (
+        <>
+          <View style={{ backgroundColor: colors.card, borderRadius: radius.lg, padding: space.lg, gap: space.xs }}>
+            <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '800' }}>참석 {sum.attendingPeople}명</Text>
+            <Text style={{ color: colors.textMuted, fontSize: font.body }}>
+              신랑측 {sum.bySide.groom}명 · 신부측 {sum.bySide.bride}명 · 불참 {sum.absentResponses}건
+            </Text>
+            <Text style={{ color: colors.textMuted, fontSize: font.body }}>
+              식사 {sum.meal.yes}명 · 안 함 {sum.meal.no}명 · 미정 {sum.meal.unknown}명
+            </Text>
+          </View>
+          {rows.map((r) => (
+            <View key={r.id} style={{ backgroundColor: colors.bgSubtle, borderRadius: radius.md, padding: space.md, gap: space.xs }}>
+              <Text style={{ color: colors.text, fontSize: font.body }}>
+                <Text style={{ fontWeight: '700' }}>{r.name}</Text>  {r.side === 'groom' ? '신랑측' : '신부측'} · {r.attending ? `참석 ${r.party_size}명${r.meal ? ` · ${mealLabel[r.meal] ?? ''}` : ''}` : '불참'}
+              </Text>
+              {r.message ? <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{r.message}</Text> : null}
+              <Pressable
+                onPress={() =>
+                  void confirmAction({ title: '이 응답을 지울까요', message: `${r.name} · 되돌릴 수 없어요.`, confirmLabel: '지우기', destructive: true }).then((ok) => {
+                    if (ok) remove.mutate(r.id);
+                  })
+                }
+              >
+                <Text style={{ color: colors.danger, fontSize: font.caption }}>지우기</Text>
+              </Pressable>
+            </View>
+          ))}
+        </>
+      )}
+    </View>
+  );
+}
+
 function Guestbook({ invitationId }: { invitationId: string }) {
   const { colors, space, font, radius } = useTokens();
   const queryClient = useQueryClient();

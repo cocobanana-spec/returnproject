@@ -220,6 +220,20 @@ export type Database = {
           },
         ]
       }
+      rsvp_responses: {
+        Row: { attending: boolean; created_at: string; id: string; invitation_id: string; meal: string | null; message: string | null; name: string; party_size: number; side: string }
+        Insert: { attending: boolean; created_at?: string; id?: string; invitation_id: string; meal?: string | null; message?: string | null; name: string; party_size?: number; side: string }
+        Update: { attending?: boolean; created_at?: string; id?: string; invitation_id?: string; meal?: string | null; message?: string | null; name?: string; party_size?: number; side?: string }
+        Relationships: [
+          {
+            foreignKeyName: "rsvp_responses_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: false
+            referencedRelation: "invitations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitations: {
         Row: {
           content: Json
@@ -572,6 +586,10 @@ export type Database = {
       }
       add_guestbook_message: {
         Args: { p_slug: string; p_name: string; p_message: string }
+        Returns: string
+      }
+      submit_rsvp: {
+        Args: { p_slug: string; p_side: string; p_name: string; p_attending: boolean; p_party_size: number; p_meal: string | null; p_message: string | null }
         Returns: string
       }
       public_guestbook: {

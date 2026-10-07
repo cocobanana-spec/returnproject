@@ -88,7 +88,7 @@ test('미리보기 태그 — 제목·설명·주소·커버 사진, 검색 제�
   assert.ok(html.includes('<meta property="og:url" content="https://ppurin.com/i/abc">'));
   assert.ok(html.includes('<meta property="og:image" content="https://cdn.example/L/I/cover.jpg">'));
   assert.ok(html.includes('<meta name="robots" content="noindex, nofollow">'));
-  assert.equal(shareDescription('wedding', wedding), '2027-05-01 12:30 · 서울 웨딩홀');
+  assert.equal(shareDescription('wedding', wedding), '2027년 5월 1일 토요일 오후 12시 30분 · 서울 웨딩홀' + (wedding.venue.hall ? ' ' + wedding.venue.hall : ''));
   assert.equal(shareDescription('funeral', funeral), '빈소 서울병원 장례식장 · 발인 2026-11-03 08:00');
   // 커버가 없으면 og:image 를 내지 않는다(엉뚱한 그림이 잡히는 것보다 낫다)
   const noCover = renderInvitationPage({ kind: 'wedding', templateId: 'basic', content: { ...wedding, cover: undefined }, url: 'u', assetUrl });
@@ -160,4 +160,72 @@ test('언어 — content.lang 이 en 이면 안내 글자·날짜·바닥 문구
   assert.ok(ja.includes('서울병원 장례식장'));
   const ko = renderInvitationPage({ kind: 'wedding', templateId: 'basic', content: wedding, url: 'u', assetUrl });
   assert.ok(ko.includes('<html lang="ko">') && ko.includes('오시는 길') && !ko.includes('Google Maps'));
+});
+
+// ---------------------------------------------------------------------------
+// '봄' 템플릿(2026-10-07)
+// ---------------------------------------------------------------------------
+import { calendarHtml, gbTime, koreanOrdinalDay } from './spring.ts';
+
+test('봄 — 한국어 서수 날짜: 첫·열한·스무·스물한·서른한 번째', () => {
+  assert.equal(koreanOrdinalDay(1), '첫 번째');
+  assert.equal(koreanOrdinalDay(2), '두 번째');
+  assert.equal(koreanOrdinalDay(10), '열 번째');
+  assert.equal(koreanOrdinalDay(11), '열한 번째');
+  assert.equal(koreanOrdinalDay(20), '스무 번째');
+  assert.equal(koreanOrdinalDay(21), '스물한 번째');
+  assert.equal(koreanOrdinalDay(31), '서른한 번째');
+});
+
+test('봄 — 달력: 2026년 10월은 목요일에 시작하고 11일에 동그라미와 시간', () => {
+  const html = calendarHtml('2026-10-11', '11:00', 'ko');
+  assert.ok(html.includes('시월의<br>열한 번째 날.'));
+  // 일~수 네 칸이 비고 1일이 목요일
+  assert.ok(/<span class="wk[^"]*">토<\/span>\s*<span><\/span><span><\/span><span><\/span><span><\/span><span>1<\/span>/.test(html.replace(/\n\s*/g, '')));
+  assert.ok(html.includes('<span class="on sun"><b>11</b><small>오전 11시</small></span>'));
+  assert.equal(calendarHtml('엉터리', '11:00', 'ko'), '');
+});
+
+test('봄 — 방명록 시각은 서울 시간', () => {
+  assert.equal(gbTime('2026-10-02T01:48:00Z'), '2026.10.02 10:48');
+  assert.equal(gbTime('nope'), '');
+});
+
+test('봄 — 템플릿 id 로 고르고, 인트로 문구·글꼴·참석·교통·혼주 연락이 들어간다', () => {
+  const content = {
+    groom: { name: '준건', father: '이재홍', mother: '송삼례' },
+    bride: { name: '소영', father: '박종배', mother: '최현자' },
+    date: '2026-10-11',
+    time: '11:00',
+    venue: { name: '더컨벤션 영등포', hall: '2층 다이너스티홀', address: '서울 영등포구 국회대로38길 2', phone: '02-000-0000' },
+    greeting: '기쁜날에도\n힘든날에도',
+    intro: "We're getting <married>",
+    parentPhones: { groomFather: '010-1111-2222' },
+    transport: { bus: '70-3, 5620', subway: '2,5호선 영등포구청역' },
+    rsvp: true,
+    accounts: [{ side: 'groom' as const, holder: '이준건', bank: '국민', number: '123' }],
+  };
+  const html = renderInvitationPage({
+    kind: 'wedding', templateId: 'spring', content, url: 'https://ppurin.com/i/x', assetUrl: (p) => `https://cdn/${p}`,
+    guestbook: [{ name: '김은지', message: '축하해', created_at: '2026-10-02T01:48:00Z' }],
+    guestbookEndpoint: { supabaseUrl: 'https://s', anonKey: 'k', slug: 'x' },
+  });
+  assert.ok(html.includes('fonts.googleapis.com/css2?family=Allura'));
+  assert.ok(html.includes('We&#39;re getting &lt;married&gt;'), '인트로 문구는 이스케이프');
+  assert.ok(html.includes('id="rsvp-form"'));
+  assert.ok(html.includes('submit_rsvp'));
+  assert.ok(html.includes('2,5호선 영등포구청역'));
+  assert.ok(html.includes('data-open="parents"'));
+  assert.ok(html.includes('2026.10.02 10:48'));
+  assert.ok(!html.includes('class="marquee"'), '봄은 전광판 없음');
+  // 기본 템플릿은 그대로
+  const basic = renderInvitationPage({ kind: 'wedding', templateId: 'basic', content, url: 'u', assetUrl: (p) => p });
+  assert.ok(!basic.includes('fonts.googleapis.com'));
+  assert.ok(!basic.includes('id="intro"'));
+});
+
+test('봄 — 참석 여부를 끄면 버튼·양식이 없다', () => {
+  const content = { groom: { name: 'a' }, bride: { name: 'b' }, date: '2026-10-11', time: '11:00', venue: { name: 'v' } };
+  const html = renderInvitationPage({ kind: 'wedding', templateId: 'spring', content, url: 'u', assetUrl: (p) => p, guestbookEndpoint: { supabaseUrl: 's', anonKey: 'k', slug: 'x' } });
+  assert.ok(!html.includes('id="rsvp-form"'));
 });

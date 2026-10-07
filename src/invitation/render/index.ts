@@ -10,7 +10,8 @@ import {
   type WeddingContent,
 } from '../../domain/invitation.ts';
 import { FUNERAL_BASIC_CSS, renderFuneralBody } from './funeral.ts';
-import { COPY_SCRIPT, document, guestbookForm, guestbookScript, marquee, noticePage, tFor, type GuestbookEndpoint, type GuestbookMessage } from './html.ts';
+import { COPY_SCRIPT, document, koreanDate, koreanTime, guestbookForm, guestbookScript, marquee, noticePage, tFor, type GuestbookEndpoint, type GuestbookMessage } from './html.ts';
+import { SPRING_CSS, SPRING_FONTS, renderSpringBody, springScript } from './spring.ts';
 import { WEDDING_BASIC_CSS, renderWeddingBody, type AssetUrl } from './wedding.ts';
 
 export { noticePage } from './html.ts';
@@ -32,14 +33,17 @@ export type RenderInput = {
 export function shareDescription(kind: InvitationKind, content: InvitationContent): string {
   if (kind === 'wedding') {
     const c = content as WeddingContent;
-    return `${c.date} ${c.time} · ${c.venue.name}`;
+    // 카카오톡 미리보기 둘째 줄 — '2026년 10월 11일 일요일 오전 11시 · 더컨벤션 영등포 2층 다이너스티홀'
+    const locale = c.lang ?? 'ko';
+    const venue = [c.venue.name, c.venue.hall].filter((v) => v && v.trim()).join(' ');
+    return `${koreanDate(c.date, locale)} ${koreanTime(c.time, locale)} · ${venue}`;
   }
   const c = content as FuneralContent;
   return `빈소 ${c.mortuary.name} · 발인 ${c.funeralAt}`;
 }
 
 export function renderInvitationPage(input: RenderInput): string {
-  const { kind, content, url, assetUrl, guestbook, guestbookEndpoint } = input;
+  const { kind, templateId, content, url, assetUrl, guestbook, guestbookEndpoint } = input;
   const locale = content.lang ?? 'ko';
   const t = tFor(locale);
   const title = shareTitle(kind, content);
@@ -49,6 +53,20 @@ export function renderInvitationPage(input: RenderInput): string {
   const bottom = guestbookEndpoint ? guestbookForm((guestbook ?? []).length, t) : '';
   const script = COPY_SCRIPT + (guestbookEndpoint ? guestbookScript(guestbookEndpoint) : '');
 
+  if (kind === 'wedding' && templateId === 'spring') {
+    // 봄 — 방명록은 맨 아래 카드 목록이라 전광판을 두지 않는다. 인트로와 겹친다.
+    const c = content as WeddingContent;
+    // 미리보기 제목도 레퍼런스처럼 '준건, 소영 결혼합니다 💗'
+    const springTitle = (c.lang ?? 'ko') === 'ko' ? `${c.groom.name}, ${c.bride.name} 결혼합니다 💗` : title;
+    return document(
+      { title: springTitle, description, url, image: c.cover ? assetUrl(c.cover) : undefined, head: SPRING_FONTS },
+      SPRING_CSS,
+      renderSpringBody(c, assetUrl, { guestbook, guestbookEndpoint }),
+      COPY_SCRIPT + springScript(guestbookEndpoint),
+      t('inv.invitationNoun'),
+      locale,
+    );
+  }
   if (kind === 'wedding') {
     const c = content as WeddingContent;
     return document(

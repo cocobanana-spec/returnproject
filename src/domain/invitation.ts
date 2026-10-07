@@ -26,12 +26,21 @@ export type WeddingContent = {
   bride: { name: string; father?: string; mother?: string };
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
-  venue: { name: string; hall?: string; address?: string };
+  venue: { name: string; hall?: string; address?: string; phone?: string };
   greeting?: string;
   cover?: string; // 스토리지 경로
   gallery?: string[];
   accounts?: BankAccount[];
   contact?: { groom?: string; bride?: string };
+  // 아래는 '봄' 템플릿이 쓰는 칸(2026-10-07). 다른 템플릿은 무시한다.
+  // 인트로에서 손글씨로 써지는 문구. 비우면 "We're getting married"
+  intro?: string;
+  // 혼주 전화 — "혼주에게 연락하기"
+  parentPhones?: { groomFather?: string; groomMother?: string; brideFather?: string; brideMother?: string };
+  // 오시는 길 아래 교통 안내
+  transport?: { bus?: string; subway?: string; car?: string };
+  // 참석 여부 받기(공개 페이지에 버튼이 생긴다)
+  rsvp?: boolean;
 };
 
 export type FuneralContent = {
@@ -67,6 +76,8 @@ export type Template = { id: string; kind: InvitationKind; name: string; free: b
 
 export const TEMPLATES: Template[] = [
   { id: 'basic', kind: 'wedding', name: '단정한 흰색', free: true },
+  // 인트로 손글씨 애니메이션 → 사진, 종이 질감·명조체·달력·카운트다운·교통 안내·참석 여부(2026-10-07)
+  { id: 'spring', kind: 'wedding', name: '봄', free: true },
   { id: 'basic', kind: 'funeral', name: '흰 바탕', free: true },
 ];
 
@@ -156,6 +167,11 @@ export function validateWedding(c: Partial<WeddingContent> | null | undefined): 
     ['예식장 이름', c.venue?.name, LIMITS.short],
     ['예식장 주소', c.venue?.address, LIMITS.address],
     ['인사말', c.greeting, LIMITS.greeting],
+    ['인트로 문구', c.intro, LIMITS.short],
+    ['예식장 전화', c.venue?.phone, LIMITS.name],
+    ['버스 안내', c.transport?.bus, LIMITS.note],
+    ['지하철 안내', c.transport?.subway, LIMITS.note],
+    ['자가용 안내', c.transport?.car, LIMITS.note],
   ] as const) {
     if (str(v).length > max) errors.push(`${label}은(는) ${max}자까지입니다.`);
   }

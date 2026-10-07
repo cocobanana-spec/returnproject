@@ -137,7 +137,7 @@ button.copy{border:1px solid currentColor;background:transparent;color:inherit;b
 // ---------------------------------------------------------------------------
 // 방명록 — 위에는 전광판(마키), 아래에는 입력칸. 하객은 로그인이 없으므로 anon 키로 함수를 부른다.
 // ---------------------------------------------------------------------------
-export type GuestbookMessage = { name: string; message: string };
+export type GuestbookMessage = { name: string; message: string; created_at?: string };
 export type GuestbookEndpoint = { supabaseUrl: string; anonKey: string; slug: string };
 
 // 전광판. CSS 만으로 돈다(자바스크립트 없이도 움직인다). 메시지가 없으면 안내 한 줄.
@@ -201,6 +201,8 @@ export type PageMeta = {
   image?: string;
   // 공개 페이지는 검색에 안 잡히게 둔다. 청첩장은 받은 사람만 보는 것이다.
   noindex?: boolean;
+  // <head> 에 더 넣을 것(템플릿 글꼴 링크 등)
+  head?: string;
 };
 
 // 문서 껍데기. 본문·CSS 는 템플릿이 준다.
@@ -221,6 +223,7 @@ ${meta.noindex === false ? '' : '<meta name="robots" content="noindex, nofollow"
 <meta property="og:url" content="${attr(meta.url)}">
 ${meta.image ? `<meta property="og:image" content="${attr(meta.image)}">` : ''}
 <meta name="twitter:card" content="${meta.image ? 'summary_large_image' : 'summary'}">
+${meta.head ?? ''}
 <style>${BASE_CSS}${css}</style>
 </head>
 <body>
