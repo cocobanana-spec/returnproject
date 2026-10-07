@@ -427,8 +427,11 @@ form.absent .only-attend{display:none}
 `;
 
 // 인트로·등장·카운트다운·시트·확대·공유·참석·방명록. 남기기 요청은 anon 키로 함수만 부른다.
-export function springScript(ep: GuestbookEndpoint | undefined): string {
-  const call = ep
+export function springScript(ep: GuestbookEndpoint | undefined, demo = false): string {
+  // demo(샘플 페이지)는 보낸 척만 한다
+  const call = demo
+    ? 'function rpc(){ return Promise.resolve(null); } var SLUG="";'
+    : ep
     ? `function rpc(fn,body){ return fetch(${JSON.stringify(ep.supabaseUrl)}+'/rest/v1/rpc/'+fn,{method:'POST',headers:{'apikey':${JSON.stringify(ep.anonKey)},'Authorization':'Bearer '+${JSON.stringify(ep.anonKey)},'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){ if(!r.ok) throw new Error(String(r.status)); return r.json(); }); }
   var SLUG=${JSON.stringify(ep.slug)};`
     : 'function rpc(){ return Promise.reject(new Error("preview")); } var SLUG="";';

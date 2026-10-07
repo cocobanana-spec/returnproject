@@ -8,7 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, Share, Text, View } from 'react-native';
+import { Linking, Pressable, Share, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
   KIND_LABEL,
@@ -17,6 +17,7 @@ import {
   invitationKindForEvent,
   maxMonths,
   shareTitle,
+  sampleUrl,
   shareUrl,
   templatesFor,
   validateInvitation,
@@ -42,7 +43,6 @@ import {
   setGuestbookHidden,
   photoUrl,
   publishInvitation,
-  deleteRsvp,
   listRsvp,
   removePhotos,
   unpublishInvitation,
@@ -306,6 +306,11 @@ export default function InvitationScreen() {
                 />
               ))}
             </View>
+            <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(sampleUrl(templateId ?? 'basic'))} hitSlop={6}>
+              <Text style={{ color: colors.accent, fontSize: font.body, fontWeight: '600' }}>
+                '{templatesFor(kind).find((tp) => tp.id === (templateId ?? 'basic'))?.name}' 샘플 보기 ›
+              </Text>
+            </Pressable>
             {templateId === 'spring' && (
               <Text style={{ color: colors.textMuted, fontSize: font.caption, lineHeight: 20 }}>
                 열면 표지 사진 위에 문구가 손글씨로 써지고, 사진이 드러난 뒤 아래로 내려 볼 수 있어요. 달력·카운트다운·교통 안내·참석 여부가 들어가요.
@@ -324,7 +329,7 @@ export default function InvitationScreen() {
           </View>
         </View>
 
-        {kind === 'wedding' && (content as WeddingContent).rsvp && <Rsvp invitationId={inv.id} />}
+        {kind === 'wedding' && (content as WeddingContent).rsvp && <RsvpSummaryCard invitationId={inv.id} title={event.data?.title ?? '청첩장'} />}
         <Guestbook invitationId={inv.id} />
 
         {kind === 'wedding' ? (
@@ -517,57 +522,29 @@ function FuneralForm({ c, patch }: { c: FuneralContent; patch: (next: Partial<Fu
 // ---------------------------------------------------------------------------
 // 방명록 — 하객이 공개 페이지에서 남긴 말. 주인은 숨기거나 지운다. 숨긴 것은 전광판에서 빠진다.
 // ---------------------------------------------------------------------------
-function Rsvp({ invitationId }: { invitationId: string }) {
+// 참석 여부 요약 — 누르면 전용 화면(invitation/rsvp). 목록은 거기서 본다(2026-10-07 "보기 불편하다")
+function RsvpSummaryCard({ invitationId, title }: { invitationId: string; title: string }) {
+  const router = useRouter();
   const { colors, space, font, radius } = useTokens();
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const key = ['rsvp', invitationId] as const;
-  const list = useQuery({ queryKey: key, queryFn: () => listRsvp(invitationId) });
-  const remove = useMutation({
-    mutationFn: (id: string) => deleteRsvp(id),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: key }),
-    onError: (e: Error) => toast.show({ message: e.message, durationMs: 4000 }),
-  });
-  const rows = list.data ?? [];
-  if (list.isLoading) return null;
-  const sum = summarizeRsvp(rows);
-  const mealLabel: Record<string, string> = { yes: '식사', no: '식사 안 함', unknown: '식사 미정' };
+  const list = useQuery({ queryKey: ['rsvp', invitationId] as const, queryFn: () => listRsvp(invitationId) });
+  const sum = summarizeRsvp(list.data ?? []);
   return (
-    <View style={{ gap: space.sm }}>
-      <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }}>참석 여부 {rows.length ? `· ${rows.length}건` : ''}</Text>
-      {rows.length === 0 ? (
-        <Text style={{ color: colors.textMuted, fontSize: font.caption }}>하객이 공개 페이지에서 보낸 응답이 여기 모여요.</Text>
-      ) : (
-        <>
-          <View style={{ backgroundColor: colors.card, borderRadius: radius.lg, padding: space.lg, gap: space.xs }}>
-            <Text style={{ color: colors.text, fontSize: font.heading, fontWeight: '800' }}>참석 {sum.attendingPeople}명</Text>
-            <Text style={{ color: colors.textMuted, fontSize: font.body }}>
-              신랑측 {sum.bySide.groom}명 · 신부측 {sum.bySide.bride}명 · 불참 {sum.absentResponses}건
-            </Text>
-            <Text style={{ color: colors.textMuted, fontSize: font.body }}>
-              식사 {sum.meal.yes}명 · 안 함 {sum.meal.no}명 · 미정 {sum.meal.unknown}명
-            </Text>
-          </View>
-          {rows.map((r) => (
-            <View key={r.id} style={{ backgroundColor: colors.bgSubtle, borderRadius: radius.md, padding: space.md, gap: space.xs }}>
-              <Text style={{ color: colors.text, fontSize: font.body }}>
-                <Text style={{ fontWeight: '700' }}>{r.name}</Text>  {r.side === 'groom' ? '신랑측' : '신부측'} · {r.attending ? `참석 ${r.party_size}명${r.meal ? ` · ${mealLabel[r.meal] ?? ''}` : ''}` : '불참'}
-              </Text>
-              {r.message ? <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{r.message}</Text> : null}
-              <Pressable
-                onPress={() =>
-                  void confirmAction({ title: '이 응답을 지울까요', message: `${r.name} · 되돌릴 수 없어요.`, confirmLabel: '지우기', destructive: true }).then((ok) => {
-                    if (ok) remove.mutate(r.id);
-                  })
-                }
-              >
-                <Text style={{ color: colors.danger, fontSize: font.caption }}>지우기</Text>
-              </Pressable>
-            </View>
-          ))}
-        </>
-      )}
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => router.push({ pathname: '/invitation/rsvp', params: { id: invitationId, title } })}
+      style={({ pressed }) => ({ alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.lg, flexDirection: 'row', gap: space.md, padding: space.lg, opacity: pressed ? 0.7 : 1 })}
+    >
+      <View style={{ alignItems: 'center', backgroundColor: colors.accentSoft, borderRadius: radius.pill, height: 40, justifyContent: 'center', width: 40 }}>
+        <Ionicons name="mail-open" size={20} color={colors.accent} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ color: colors.text, fontSize: font.title, fontWeight: '700' }}>참석 여부</Text>
+        <Text style={{ color: colors.textMuted, fontSize: font.caption }}>
+          {list.isLoading ? '불러오는 중' : sum.responses === 0 ? '아직 온 답장이 없어요' : `참석 ${sum.attendingPeople}명 · 신랑측 ${sum.bySide.groom} · 신부측 ${sum.bySide.bride} · 불참 ${sum.absentResponses}`}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+    </Pressable>
   );
 }
 

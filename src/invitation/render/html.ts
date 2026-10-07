@@ -166,7 +166,7 @@ export function guestbookForm(count: number, t: T = tFor('ko')): string {
 }
 
 // 전광판은 CSS 가 돌리고, 이 스크립트는 남기기만 처리한다. 성공하면 전광판 맨 앞에 바로 붙인다.
-export function guestbookScript(ep: GuestbookEndpoint): string {
+export function guestbookScript(ep: GuestbookEndpoint, demo = false): string {
   return `<script>
 (function(){
   var f=document.getElementById('gb-form'); if(!f) return;
@@ -176,9 +176,9 @@ export function guestbookScript(ep: GuestbookEndpoint): string {
     var name=f.name.value.trim(), msg=f.message.value.trim();
     if(!name||!msg){ note.textContent=f.getAttribute('data-fill'); return; }
     f.querySelector('button').disabled=true; note.textContent=f.getAttribute('data-sending');
-    fetch(${JSON.stringify(ep.supabaseUrl)}+'/rest/v1/rpc/add_guestbook_message',{method:'POST',
+    (${demo ? 'true' : 'false'} ? Promise.resolve({ok:true,json:function(){ return Promise.resolve(null); }}) : fetch(${JSON.stringify(ep.supabaseUrl)}+'/rest/v1/rpc/add_guestbook_message',{method:'POST',
       headers:{'apikey':${JSON.stringify(ep.anonKey)},'Authorization':'Bearer '+${JSON.stringify(ep.anonKey)},'Content-Type':'application/json'},
-      body:JSON.stringify({p_slug:${JSON.stringify(ep.slug)},p_name:name,p_message:msg})})
+      body:JSON.stringify({p_slug:${JSON.stringify(ep.slug)},p_name:name,p_message:msg})}))
     .then(function(r){ if(!r.ok) throw new Error(String(r.status)); return r.json(); })
     .then(function(){
       note.textContent=f.getAttribute('data-done');

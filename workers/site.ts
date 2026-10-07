@@ -9,6 +9,7 @@
 import { type InvitationContent, type InvitationKind } from '../src/domain/invitation.ts';
 import { noticePage, renderInvitationPage } from '../src/invitation/render/index.ts';
 import type { GuestbookMessage } from '../src/invitation/render/html.ts';
+import { SAMPLE_GUESTBOOK, SAMPLE_WEDDING, sampleTemplateFromSlug } from '../src/invitation/samples.ts';
 
 type Env = {
   ASSETS: { fetch(request: Request): Promise<Response> };
@@ -25,6 +26,8 @@ type PublicInvitation = {
 };
 
 const SLUG = /^\/i\/([A-Za-z0-9]{10})\/?$/;
+// 템플릿 샘플 — /i/sample-spring 처럼. DB 를 거치지 않는다
+const SAMPLE = /^\/i\/(sample-[a-z]+)\/?$/;
 
 const HTML = { 'content-type': 'text/html; charset=utf-8' };
 
@@ -78,6 +81,21 @@ function countView(env: Env, slug: string): Promise<unknown> {
 export default {
   async fetch(request: Request, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }): Promise<Response> {
     const url = new URL(request.url);
+    const sm = SAMPLE.exec(url.pathname);
+    const sampleId = sm ? sampleTemplateFromSlug(sm[1]!) : null;
+    if (sampleId) {
+      const html = renderInvitationPage({
+        kind: 'wedding',
+        templateId: sampleId,
+        content: SAMPLE_WEDDING,
+        url: `${url.origin}/i/${sm![1]}`,
+        assetUrl: (p) => `${url.origin}/sample/${p}`,
+        guestbook: SAMPLE_GUESTBOOK,
+        guestbookEndpoint: { supabaseUrl: '', anonKey: '', slug: sm![1]! },
+        demo: true,
+      });
+      return new Response(request.method === 'HEAD' ? null : html, { status: 200, headers: { ...HTML, 'cache-control': 'public, max-age=300' } });
+    }
     const m = SLUG.exec(url.pathname);
     if (!m) return env.ASSETS.fetch(request);
 

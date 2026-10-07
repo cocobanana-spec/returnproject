@@ -86,6 +86,7 @@ export default function AppLayout() {
         <Stack.Screen name="entry/[id]" options={{ title: '기록' }} />
         <Stack.Screen name="invitation/[eventId]" options={{ title: '' }} />
         <Stack.Screen name="invitation/preview" options={{ title: '미리보기' }} />
+        <Stack.Screen name="invitation/rsvp" options={{ title: '참석 여부' }} />
         <Stack.Screen name="account" options={{ title: '계정' }} />
         <Stack.Screen name="admin" options={{ title: '관리자' }} />
         <Stack.Screen

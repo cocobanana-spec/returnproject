@@ -26,3 +26,46 @@ export function summarizeRsvp(rows: RsvpRow[]): RsvpSummary {
   }
   return s;
 }
+
+export type RsvpFilter = 'all' | 'groom' | 'bride' | 'absent';
+export type RsvpFull = RsvpRow & { name: string; message: string | null; created_at: string };
+
+// 필터·이름 검색. 측 필터는 참석한 사람만(불참은 '불참' 칸에서 본다)
+export function filterRsvp<T extends RsvpFull>(rows: T[], filter: RsvpFilter, query: string): T[] {
+  const q = query.trim();
+  return rows.filter((r) => {
+    if (filter === 'absent' && r.attending) return false;
+    if ((filter === 'groom' || filter === 'bride') && (!r.attending || r.side !== filter)) return false;
+    return q === '' || r.name.includes(q);
+  });
+}
+
+const MEAL_KO: Record<string, string> = { yes: '식사', no: '식사 안 함', unknown: '식사 미정' };
+export function mealLabel(meal: string | null): string {
+  return meal ? (MEAL_KO[meal] ?? '') : '';
+}
+
+// 엑셀로 여는 명단. 맨 앞 BOM 은 엑셀이 한글을 깨뜨리지 않게 하려는 것
+export function rsvpCsv(rows: RsvpFull[]): string {
+  const cell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  const head = ['이름', '측', '참석', '인원', '식사', '한마디', '보낸 때'];
+  const body = rows.map((r) =>
+    [r.name, r.side === 'groom' ? '신랑측' : '신부측', r.attending ? '참석' : '불참', String(r.attending ? r.party_size : 0), mealLabel(r.meal), r.message ?? '', r.created_at.slice(0, 16).replace('T', ' ')].map(cell).join(','),
+  );
+  return '﻿' + [head.join(','), ...body].join('\n');
+}
+
+// 메신저로 보내는 한눈 요약
+export function rsvpShareText(title: string, rows: RsvpFull[]): string {
+  const s = summarizeRsvp(rows);
+  const lines = rows
+    .filter((r) => r.attending)
+    .map((r) => `· ${r.name} (${r.side === 'groom' ? '신랑측' : '신부측'}) ${r.party_size}명${r.meal ? ` · ${mealLabel(r.meal)}` : ''}`);
+  return [
+    `[${title}] 참석 여부`,
+    `참석 ${s.attendingPeople}명 (신랑측 ${s.bySide.groom} · 신부측 ${s.bySide.bride}) · 불참 ${s.absentResponses}건`,
+    `식사 ${s.meal.yes} · 안 함 ${s.meal.no} · 미정 ${s.meal.unknown}`,
+    '',
+    ...lines,
+  ].join('\n');
+}

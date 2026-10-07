@@ -17,6 +17,7 @@ import { isWeb } from '../../../src/lib/platform.ts';
 import { useToast } from '../../../src/ui/ToastProvider';
 import { queryKeys } from '../../../src/lib/queryKeys';
 import { listEntriesByEvent } from '../../../src/repositories/entries';
+import { getInvitationByEvent } from '../../../src/repositories/invitations.ts';
 import { deleteEvent, getEvent, getEventSummary } from '../../../src/repositories/events';
 import { createEventInvite, leaveEvent, listEventMembers, removeEventMember, type EventMember } from '../../../src/repositories/events';
 import { amountText, amountTextLarge, useTokens } from '../../../src/theme/tokens';
@@ -56,6 +57,14 @@ export default function EventDetailScreen() {
     queryKey: queryKeys.events.summary(ledgerId, eventId),
     queryFn: () => getEventSummary(ledgerId, eventId),
   });
+
+  // 청첩장에 참석 받기를 켰으면 행사 상세에서도 바로 응답을 보러 간다(2026-10-07)
+  const invitation = useQuery({
+    queryKey: queryKeys.invitations.byEvent(ledgerId, eventId),
+    queryFn: () => getInvitationByEvent(ledgerId, eventId),
+    enabled: !isShared,
+  });
+  const rsvpOn = !!(invitation.data?.content as { rsvp?: boolean } | undefined)?.rsvp;
 
   // 명부는 330명까지 간다(docs/02 §4.5). 한 페이지로 받으면 100건에서 조용히 잘린다.
   const entries = useInfiniteQuery({
@@ -235,6 +244,13 @@ export default function EventDetailScreen() {
                 label={`${KIND_LABEL[invitationKindForEvent(e.type)!]} 만들기 · 보기`}
                 variant="secondary"
                 onPress={() => router.push(`/invitation/${eventId}`)}
+              />
+            )}
+            {!isShared && rsvpOn && invitation.data && (
+              <Button
+                label="참석 여부 보기"
+                variant="secondary"
+                onPress={() => router.push({ pathname: '/invitation/rsvp', params: { id: invitation.data!.id, title: e.title } })}
               />
             )}
             {e.is_mine && (

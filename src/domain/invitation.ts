@@ -231,6 +231,11 @@ export function expiryLabel(expiresAt: string | null, now: Date = new Date()): s
 // ---------------------------------------------------------------------------
 // 공유 주소 — 랜딩 도메인 밑 /i/{slug}. 가장 짧은 자리(docs/08 §2.3)
 // ---------------------------------------------------------------------------
+// 템플릿 견본 — 워커가 DB 없이 그리는 샘플(src/invitation/samples.ts)
+export function sampleUrl(templateId: string): string {
+  return `${LANDING_URL.replace(/\/$/, '')}/i/sample-${templateId}`;
+}
+
 export function shareUrl(slug: string): string {
   return `${LANDING_URL.replace(/\/$/, '')}/i/${slug}`;
 }
