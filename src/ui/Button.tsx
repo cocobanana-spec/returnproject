@@ -45,7 +45,7 @@ export function Button({
   const g = variant === 'primary' && floating ? loadGlass() : null;
   const useGlass = !!g && g.isLiquidGlassAvailable();
 
-  const bg = variant === 'primary' ? colors.accent : variant === 'danger' ? colors.dangerSoft : colors.surface2;
+  const bg = variant === 'primary' ? colors.accentStrong : variant === 'danger' ? colors.dangerSoft : colors.surface2;
   const fg = variant === 'primary' ? colors.textOnAccent : variant === 'danger' ? colors.danger : colors.text;
   const height = size === 'sm' ? 40 : 56;
 
@@ -62,7 +62,7 @@ export function Button({
       <Pressable accessibilityRole="button" disabled={off} onPress={onPress} style={({ pressed }) => ({ opacity: off ? 0.55 : pressed ? 0.85 : 1 })}>
         <GlassView
           glassEffectStyle="regular"
-          tintColor={colors.accent}
+          tintColor={colors.accentStrong}
           isInteractive
           style={[{ alignItems: 'center', borderRadius: radius.pill, height, justifyContent: 'center', paddingHorizontal: space.xl }, style]}
         >

@@ -10,7 +10,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useT } from '../../../../src/i18n';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, Platform, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DEFAULT_DIRECTION, entryRowName, entryRowSubtitle, isMineOf, upcomingHint, type Direction } from '../../../../src/domain/home.ts';
@@ -18,7 +18,6 @@ import { eventTypeIcon } from '../../../../src/domain/eventIcon.ts';
 import { formatWon, formatWonShort } from '../../../../src/domain/money.ts';
 import { todayISO } from '../../../../src/domain/title.ts';
 import { useLedgerId } from '../../../../src/ledger/LedgerProvider';
-import { isWeb } from '../../../../src/lib/platform.ts';
 import { queryKeys } from '../../../../src/lib/queryKeys';
 import { listEntriesByDirection, type EntryWithContext } from '../../../../src/repositories/entries';
 import { listUpcomingEvents } from '../../../../src/repositories/events';
@@ -30,6 +29,8 @@ import { EmptyState } from '../../../../src/ui/EmptyState';
 import { ListRow } from '../../../../src/ui/ListRow';
 import { LoadFailed } from '../../../../src/ui/LoadFailed';
 import { SectionHeader } from '../../../../src/ui/SectionHeader';
+
+const LOGO = require('../../../../assets/icon.png');
 
 // 떠 있는 버튼 높이 + 탭바 위 간격. iOS 네이티브 탭은 안전 영역(insets.bottom)에 탭바 높이가 들어 있고,
 // 웹 JS 탭은 화면을 나눠 쓰므로(겹치지 않음) 간격만 준다(2026-10-06 웹에서 버튼이 너무 위에 떠 보인 문제)
@@ -81,19 +82,21 @@ export default function HomeScreen() {
 
   const header = (
     <View style={{ gap: space.xxl, paddingBottom: space.md }}>
-      {/* 웹은 네이티브 헤더가 없어 검색 버튼을 여기 오른쪽 위에 둔다 */}
-      {isWeb && (
-        <View style={{ alignItems: 'flex-end', marginBottom: -space.lg }}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('home.search')}
-            onPress={() => router.push('/search')}
-            style={({ pressed }) => ({ alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.pill, height: 40, justifyContent: 'center', width: 40, opacity: pressed ? 0.6 : 1 })}
-          >
-            <Ionicons name="search" size={20} color={colors.text} />
-          </Pressable>
-        </View>
-      )}
+      {/* 머리 — 앱 아이콘 + 앱 이름, 오른쪽에 검색(2026-10-08 사장님 요청) */}
+      <View style={{ alignItems: 'center', flexDirection: 'row', gap: space.sm, marginBottom: -space.md }}>
+        <Image source={LOGO} style={{ borderRadius: radius.sm, height: 32, width: 32 }} accessibilityIgnoresInvertColors />
+        <Text style={{ color: colors.text, flex: 1, fontSize: font.title, fontWeight: '800', letterSpacing: -0.3 }} numberOfLines={1}>
+          {t('home.title')}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('home.search')}
+          onPress={() => router.push('/search')}
+          style={({ pressed }) => ({ alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.pill, height: 40, justifyContent: 'center', width: 40, opacity: pressed ? 0.6 : 1 })}
+        >
+          <Ionicons name="search" size={20} color={colors.text} />
+        </Pressable>
+      </View>
       {/* 주인공 — 순 잔액 */}
       <View style={{ gap: space.xs, paddingTop: space.md }}>
         <Text style={{ color: colors.textMuted, fontSize: font.caption }}>{t('home.hero')}</Text>
@@ -106,7 +109,7 @@ export default function HomeScreen() {
 
       {/* 보낸 / 받은 — 두 행이 방향 탭이다. 금액 색은 여기서만.
           라벨 위·금액 아래로 쌓는다 — 한 줄에 두면 좁은 폰에서 "보낸 축의금·조의\n금"처럼 라벨이 낱말 중간에서 꺾인다(2026-10-06 웹) */}
-      <Card padded={false}>
+      <Card padded={false} style={{ flexDirection: 'row', padding: space.sm }}>
         {(['given', 'received'] as const).map((d) => {
           const selected = direction === d;
           const amount = d === 'given' ? given : received;
@@ -116,20 +119,27 @@ export default function HomeScreen() {
               accessibilityRole="tab"
               accessibilityState={{ selected }}
               onPress={() => setDirection(d)}
-              style={({ pressed }) => ({ alignItems: 'center', flexDirection: 'row', gap: space.md, minHeight: 64, paddingHorizontal: space.xl, paddingVertical: space.md, opacity: pressed ? 0.6 : 1 })}
+              style={({ pressed }) => ({
+                backgroundColor: selected ? colors.surface2 : 'transparent',
+                borderRadius: radius.md,
+                flex: 1,
+                gap: 4,
+                paddingHorizontal: space.md,
+                paddingVertical: space.md,
+                opacity: pressed ? 0.6 : 1,
+              })}
             >
-              <View style={{ alignItems: 'center', backgroundColor: selected ? colors.accentSoft : colors.surface2, borderRadius: radius.pill, height: 40, justifyContent: 'center', width: 40 }}>
-                <Ionicons name={d === 'given' ? 'arrow-up' : 'arrow-down'} size={20} color={selected ? colors.accent : colors.textMuted} />
-              </View>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={{ color: colors.textMuted, fontSize: font.caption, fontWeight: '500' }} numberOfLines={1}>
-                  {t(d === 'given' ? 'home.sentLabel' : 'home.receivedLabel')}
-                </Text>
-                <Text style={{ ...amountText, color: d === 'given' ? colors.given : colors.received, fontSize: font.heading, fontWeight: '800' }} numberOfLines={1}>
-                  {stats.isSuccess ? formatWon(amount) : '—'}
-                </Text>
-              </View>
-              {selected && <Ionicons name="checkmark-circle" size={20} color={colors.accent} />}
+              <Text style={{ color: selected ? colors.text : colors.textMuted, fontSize: font.caption, fontWeight: selected ? '700' : '500' }} numberOfLines={1}>
+                {t(d === 'given' ? 'home.sentLabel' : 'home.receivedLabel')}
+              </Text>
+              <Text
+                style={{ ...amountText, color: d === 'given' ? colors.given : colors.received, fontSize: font.title, fontWeight: '800' }}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.6}
+              >
+                {stats.isSuccess ? formatWon(amount) : '—'}
+              </Text>
             </Pressable>
           );
         })}
@@ -162,8 +172,7 @@ export default function HomeScreen() {
         data={rows}
         keyExtractor={(item) => item.id}
         // iOS 는 투명 헤더 밑으로 지나가므로 OS 가 위 여백을 준다. 나머지는 직접 준다
-        contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: space.xl, paddingTop: Platform.OS === 'ios' ? 0 : space.md }}
+        contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: space.xl, paddingTop: insets.top + space.md }}
         onEndReachedThreshold={0.4}
         onEndReached={() => {
           if (list.hasNextPage && !list.isFetchingNextPage) void list.fetchNextPage();

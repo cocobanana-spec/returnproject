@@ -6,7 +6,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { Platform, Pressable } from 'react-native';
-import { isWeb } from '../../../../src/lib/platform.ts';
 import { useT } from '../../../../src/i18n';
 import { useTokens } from '../../../../src/theme/tokens';
 
@@ -18,7 +17,8 @@ export default function HomeStackLayout() {
     <Stack
       screenOptions={{
         title: '',
-        headerShown: !isWeb,
+        // 로고·앱 이름·검색은 홈 화면 안에서 그린다(2026-10-08 사장님 요청). 네이티브 헤더는 쓰지 않는다
+        headerShown: false,
         headerShadowVisible: false,
         headerTintColor: colors.text,
         ...(Platform.OS === 'ios' ? { headerTransparent: true } : { headerStyle: { backgroundColor: colors.bg } }),

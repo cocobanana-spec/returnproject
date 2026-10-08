@@ -23,6 +23,8 @@ const palette = {
   textFaint: '#8B95A1',
   textOnAccent: '#FFFFFF',
   accent: BRAND,
+  // 채운 버튼 바탕 — 아이콘 초록보다 한 톤 진하게. 흰 글자가 또렷하게 읽힌다(2026-10-08)
+  accentStrong: '#00B853',
   accentSoft: BRAND_LIGHT,
   // 준 돈 — 요약에서만 쓴다. 목록 금액은 text
   given: '#F04452',
