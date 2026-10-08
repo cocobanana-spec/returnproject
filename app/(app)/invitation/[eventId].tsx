@@ -66,6 +66,7 @@ const TEMPLATE_HINT: Record<string, string> = {
   spring: '표지 사진 위에 문구가 손글씨로 써진 뒤 사진이 드러나요. 달력·카운트다운·교통 안내·참석 여부가 들어가요.',
   brown: '나무 문이 열리며 시작하는 앤티크한 청첩장이에요. 양피지 바탕에 나무 액자 사진, 금빛 장식이 들어가요.',
   cartoon: '말풍선이 톡 튀어나오는 만화 같은 청첩장이에요. 굵은 테두리와 알록달록한 색으로 발랄하게 꾸며요.',
+  game: '옛날 게임기 화면처럼 PRESS START 로 시작하는 8비트 청첩장이에요. 픽셀 하늘·벽돌·코인으로 꾸며요. 인트로 문구는 영문 대문자가 가장 잘 어울려요.',
 };
 
 export default function InvitationScreen() {

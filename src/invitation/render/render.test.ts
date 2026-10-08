@@ -241,3 +241,12 @@ test('브라운·꾸러기 — 같은 본문에 테마별 인트로·글꼴, 꾸
   assert.ok(toon.includes('우리 결혼해요!'));
   assert.ok(toon.includes('family=Bangers'));
 });
+
+test('짜잔 — 게임 시작 화면 인트로와 픽셀 글꼴', () => {
+  const content = { groom: { name: 'a' }, bride: { name: 'b' }, date: '2026-10-11', time: '11:00', venue: { name: 'v' } };
+  const html = renderInvitationPage({ kind: 'wedding', templateId: 'game', content, url: 'u', assetUrl: (p) => p });
+  assert.ok(html.includes('class="intro game-intro"'));
+  assert.ok(html.includes('PRESS START'));
+  assert.ok(html.includes('family=Press+Start+2P'));
+  assert.ok(html.includes('WE ARE GETTING MARRIED'));
+});

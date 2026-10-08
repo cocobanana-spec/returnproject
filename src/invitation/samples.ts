@@ -5,7 +5,7 @@
 import type { WeddingContent } from '../domain/invitation.ts';
 import type { GuestbookMessage } from './render/html.ts';
 
-export const SAMPLE_TEMPLATE_IDS = ['basic', 'spring', 'brown', 'cartoon'] as const;
+export const SAMPLE_TEMPLATE_IDS = ['basic', 'spring', 'brown', 'cartoon', 'game'] as const;
 export type SampleTemplateId = (typeof SAMPLE_TEMPLATE_IDS)[number];
 
 export function sampleSlug(templateId: string): string {

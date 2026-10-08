@@ -2,6 +2,7 @@
 //
 // 브라운: 나무·앤티크·고풍. 양피지 바탕, 나무 액자 사진, 금빛 장식, 송명·Cinzel·Pinyon Script.
 //         인트로는 나무 문 두 짝이 닫혀 있다가 금빛 문구가 써진 뒤 양쪽으로 열린다.
+// 짜잔: 8비트 레트로 게임. 파란 하늘·픽셀 구름·벽돌 땅·코인, 픽셀 글씨, 게임 시작 화면 인트로(PRESS START).
 // 꾸러기: 만화·웹툰. 망점 바탕, 굵은 검은 테두리와 엇갈린 그림자, 말풍선, 주아·Bangers.
 //         인트로는 노란 망점 위에 말풍선이 톡 튀어나와 글자가 찍히고 하트가 터진다.
 // 외부 자원은 구글 폰트뿐이다(봄과 같은 원칙).
@@ -14,6 +15,8 @@ export const THEME_FONTS: Record<RichTheme, string> = {
   spring: `${FONT_HEAD}\n<link href="https://fonts.googleapis.com/css2?family=Allura&family=Nanum+Myeongjo:wght@400;700&display=swap" rel="stylesheet">`,
   brown: `${FONT_HEAD}\n<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Nanum+Myeongjo:wght@400;700&family=Pinyon+Script&family=Song+Myung&display=swap" rel="stylesheet">`,
   cartoon: `${FONT_HEAD}\n<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Jua&display=swap" rel="stylesheet">`,
+  // 영문·숫자는 Press Start 2P(픽셀), 한글은 각진 도현으로 받친다(구글 폰트에 한글 픽셀체가 없다)
+  game: `${FONT_HEAD}\n<link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Press+Start+2P&display=swap" rel="stylesheet">`,
 };
 
 // 나무결 — 그림 없이 줄무늬 겹으로
@@ -106,9 +109,89 @@ button.dark{background:#ff4d8d;color:#fff;border:3px solid #111;border-radius:99
 @keyframes pop-tilt{to{transform:scale(1) rotate(-14deg)}}
 `;
 
+// 픽셀 그림 — 외부 그림 없이 SVG 사각형으로. 닌텐도 캐릭터·물음표 블록·파이프는 쓰지 않는다(저작권·상표)
+const svg = (w: number, h: number, body: string) =>
+  `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' shape-rendering='crispEdges'>${body}</svg>")`;
+// 벽돌 한 칸(32×16)
+const BRICK = svg(32, 16, "<rect width='32' height='16' fill='%23c84c0c'/><rect width='32' height='2' fill='%23fcbcb0'/><rect y='8' width='32' height='2' fill='%23000'/><rect y='14' width='32' height='2' fill='%23000'/><rect x='14' y='0' width='2' height='8' fill='%23000'/><rect x='30' y='8' width='2' height='8' fill='%23000'/><rect x='0' y='2' width='2' height='6' fill='%23fcbcb0'/>");
+// 구름 — 계단 모양
+const CLOUD = svg(96, 40, "<g fill='%23fff'><rect x='24' y='8' width='16' height='8'/><rect x='16' y='16' width='64' height='8'/><rect x='8' y='24' width='80' height='8'/><rect x='48' y='0' width='16' height='16'/><rect x='40' y='8' width='32' height='8'/></g><g fill='%2338a8f8'><rect x='8' y='32' width='80' height='4'/></g>");
+// 코인
+const COIN = svg(16, 16, "<rect x='4' y='0' width='8' height='16' fill='%23f8b800'/><rect x='2' y='2' width='12' height='12' fill='%23f8b800'/><rect x='6' y='3' width='2' height='10' fill='%23fff3b0'/><rect x='10' y='3' width='2' height='10' fill='%23c87800'/>");
+// 하트
+const HEART = svg(14, 12, "<g fill='%23e40058'><rect x='2' y='0' width='4' height='2'/><rect x='8' y='0' width='4' height='2'/><rect x='0' y='2' width='14' height='4'/><rect x='2' y='6' width='10' height='2'/><rect x='4' y='8' width='6' height='2'/><rect x='6' y='10' width='2' height='2'/></g>");
+
+// 픽셀체는 영문·숫자 자리(인트로·카운트다운·달력 숫자)에만. 한글 제목·버튼은 도현 — 픽셀체 띄어쓰기가 너무 넓다
+const PX = '"Press Start 2P", "Do Hyeon", monospace';
+
+const GAME_CSS = `
+:root{--ink:#111;--green:#111;--rose:#e40058;--line:#000}
+html{image-rendering:pixelated}
+body{background:#6888fc;background-image:${CLOUD},${CLOUD};background-size:96px 40px,72px 30px;background-position:12% 140px,82% 420px;background-repeat:no-repeat;background-attachment:scroll;font-family:"Do Hyeon",sans-serif;color:#111;font-size:18px}
+.page{background:linear-gradient(#6888fc,#6888fc)}
+section{padding:40px 18px}
+section > *{position:relative}
+.hero{width:calc(100% - 36px);height:auto;aspect-ratio:3/4;margin:24px 18px 0;border:6px solid #000;outline:4px solid #fff;outline-offset:-10px;image-rendering:auto}
+.hero + .when{margin-top:0}
+.when{background:#fff;border:4px solid #000;box-shadow:6px 6px 0 #000;margin:28px 18px 0;padding:18px 10px;font-family:"Do Hyeon",sans-serif;font-size:1.15rem}
+h2.g{display:inline-block;font-family:"Do Hyeon",sans-serif;font-size:1.25rem;line-height:1.4;color:#fff;background:#e45c10;border:4px solid #000;padding:10px 16px;box-shadow:4px 4px 0 #000;letter-spacing:.02em}
+h2.g::before{content:"";display:inline-block;width:16px;height:16px;margin-right:10px;vertical-align:-2px;background:${COIN}}
+.greet .body,.names,.way,.rsvp .body{color:#111}
+.greet .body{background:#fff;border:4px solid #000;box-shadow:6px 6px 0 #000;padding:20px 14px;font-size:1.1rem}
+.names{background:#fcd8a8;border:4px solid #000;box-shadow:6px 6px 0 #000;margin:0 18px;padding:24px 10px}
+.names .nl strong{color:#e40058}
+a.tel{color:#111}
+button{font-family:"Do Hyeon",sans-serif!important;font-size:1.05rem!important;line-height:1.4}
+button.outline{background:#fff;border:4px solid #000;border-radius:0;box-shadow:4px 4px 0 #000;color:#111;padding:14px 18px}
+button.dark{background:#00a800;border:4px solid #000;border-radius:0;box-shadow:4px 4px 0 #000;color:#fff;padding:16px 22px}
+.cal{background:#fff;border:4px solid #000;box-shadow:6px 6px 0 #000;margin:0 18px;padding:28px 10px}
+.cal-title{font-family:"Do Hyeon",sans-serif;font-size:1.7rem;line-height:1.4;color:#111;margin-left:4px}
+.cal-grid{border-top:4px solid #000;border-bottom:4px solid #000;font-family:${PX};font-size:.7rem}
+.cal-grid .wk{font-family:"Do Hyeon",sans-serif;font-size:1rem}
+.cal-grid .wk.sun{color:#e40058}
+.cal-grid .on b{background:#e40058;border-radius:0;box-shadow:3px 3px 0 #000;font-weight:400}
+.cal-grid .on small{font-family:"Do Hyeon",sans-serif;font-size:.8rem}
+.count{background:#000;color:#fff;border:4px solid #fff;outline:4px solid #000;margin:0 22px;padding:26px 12px}
+.count .who{font-family:"Do Hyeon",sans-serif;color:#fff}
+.count .heart{display:inline-block;width:14px;height:12px;background:${HEART};color:transparent;overflow:hidden;vertical-align:-1px}
+.dials b{width:62px;height:62px;border-radius:0;background:#000;color:#f8b800;border:3px solid #fff;font-family:${PX};font-size:1rem}
+.dials small{font-family:${PX};font-size:.5rem;color:#fff}
+.gal{padding:40px 0}
+.gal .grid{gap:8px;padding:0 18px}
+.gal img{border:4px solid #000;box-shadow:4px 4px 0 #000}
+.way{background:#fff;border:4px solid #000;box-shadow:6px 6px 0 #000;margin:0 18px}
+.mapbtns a{background:#fcbc3c;border:3px solid #000;box-shadow:3px 3px 0 #000;color:#111;font-family:"Do Hyeon",sans-serif;font-size:1rem}
+.tr h4{font-family:"Do Hyeon",sans-serif;font-size:1.2rem;color:#e45c10}
+.tr p{font-family:"Do Hyeon",sans-serif;font-size:1.05rem}
+.rsvp{background:#fff;border:4px solid #000;box-shadow:6px 6px 0 #000;margin:0 18px}
+.acc{border:4px solid #000;border-radius:0;background:#fff;box-shadow:4px 4px 0 #000;margin:0 0 14px}
+.acc summary{font-family:"Do Hyeon",sans-serif}
+.acc.groom summary{color:#0058f8}
+.acc.bride summary{color:#e40058}
+.gb-card{background:#fff;border:4px solid #000;border-radius:0;box-shadow:4px 4px 0 #000}
+.gb-head b{font-family:"Do Hyeon",sans-serif;color:#0058f8}
+.gb-card p{font-family:"Do Hyeon",sans-serif;font-size:1.05rem}
+.gbs::after{content:"";display:block;height:48px;margin:40px -22px -56px;background:${BRICK};background-size:32px 16px;image-rendering:pixelated}
+.footer{background:#000;color:#fff;opacity:1;font-family:"Do Hyeon",sans-serif}
+.fabs button{background:#fcbc3c;color:#111;border:3px solid #000;border-radius:0;box-shadow:3px 3px 0 #000}
+.sheet-card{border:4px solid #000;border-radius:0;font-family:"Do Hyeon",sans-serif}
+.seg span{border:3px solid #000;border-radius:0}
+.seg input:checked+span{background:#00a800;color:#fff;border-color:#000}
+.sheet-card input[name=name],.sheet-card textarea,.sheet-card input[type=number]{border:3px solid #000;border-radius:0}
+.game-intro{background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;animation:intro-out .5s steps(4) 3.2s forwards}
+.game-intro .hud{position:absolute;top:calc(28px + env(safe-area-inset-top));left:22px;margin:0;font-family:${PX};font-size:.6rem;color:#fff;letter-spacing:.05em}
+.game-intro .script{font-family:${PX};font-size:min(1.25rem,5.2vw);line-height:1.9;color:#fff;white-space:normal;max-width:86%;text-shadow:none}
+.game-intro .script span{animation:write 1.4s steps(18) .35s forwards}
+.game-intro .press{margin:0;font-family:${PX};font-size:.7rem;color:#f8b800;opacity:0;animation:blink .5s steps(1) 1.9s 3 forwards}
+.game-intro .flash{position:absolute;inset:0;background:#fff;opacity:0;animation:flash .35s steps(2) 2.9s forwards}
+@keyframes blink{0%{opacity:1}50%{opacity:0}100%{opacity:1}}
+@keyframes flash{50%{opacity:1}100%{opacity:.9}}
+`;
+
 // 봄의 CSS 위에 테마 CSS 를 덧입힌다
 export function themeCss(theme: RichTheme): string {
   if (theme === 'brown') return SPRING_CSS + BROWN_CSS;
   if (theme === 'cartoon') return SPRING_CSS + CARTOON_CSS;
+  if (theme === 'game') return SPRING_CSS + GAME_CSS;
   return SPRING_CSS;
 }

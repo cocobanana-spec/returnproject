@@ -81,11 +81,13 @@ export const TEMPLATES: Template[] = [
   // 봄과 같은 구조에 나무·앤티크 / 만화·웹툰 옷을 입힌 것(2026-10-08)
   { id: 'brown', kind: 'wedding', name: '브라운', free: true },
   { id: 'cartoon', kind: 'wedding', name: '꾸러기', free: true },
+  // 8비트 레트로 게임 — 픽셀 하늘·벽돌·코인, 게임 시작 화면 인트로(2026-10-08)
+  { id: 'game', kind: 'wedding', name: '짜잔', free: true },
   { id: 'basic', kind: 'funeral', name: '흰 바탕', free: true },
 ];
 
 // 인트로·달력·카운트다운·교통 안내·참석 여부가 있는 템플릿. 편집 화면에서 추가 칸을 연다
-export const RICH_TEMPLATE_IDS = ['spring', 'brown', 'cartoon'] as const;
+export const RICH_TEMPLATE_IDS = ['spring', 'brown', 'cartoon', 'game'] as const;
 export function isRichTemplate(id: string | null | undefined): boolean {
   return !!id && (RICH_TEMPLATE_IDS as readonly string[]).includes(id);
 }

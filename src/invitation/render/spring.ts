@@ -152,8 +152,8 @@ export type SpringOptions = {
 };
 
 // 같은 본문 구조를 쓰는 테마들 — 봄(기본), 브라운(나무·앤티크), 꾸러기(만화). 다른 것은 인트로 모양과 CSS(themes.ts) 뿐이다
-export type RichTheme = 'spring' | 'brown' | 'cartoon';
-export const RICH_THEMES: readonly RichTheme[] = ['spring', 'brown', 'cartoon'];
+export type RichTheme = 'spring' | 'brown' | 'cartoon' | 'game';
+export const RICH_THEMES: readonly RichTheme[] = ['spring', 'brown', 'cartoon', 'game'];
 export function isRichTheme(id: string): id is RichTheme {
   return (RICH_THEMES as readonly string[]).includes(id);
 }
@@ -162,6 +162,7 @@ const DEFAULT_INTRO: Record<RichTheme, string> = {
   spring: "We're getting married",
   brown: "We're getting married",
   cartoon: '우리 결혼해요!',
+  game: 'WE ARE GETTING MARRIED',
 };
 
 function introHtml(theme: RichTheme, text: string): string {
@@ -172,6 +173,10 @@ function introHtml(theme: RichTheme, text: string): string {
   if (theme === 'cartoon') {
     // 만화 말풍선 — 톡 튀어나오고 글자가 타자 치듯 찍힌 뒤 하트가 터진다
     return `<div class="intro toon-intro" id="intro" aria-hidden="true"><div class="bubble"><span>${esc(text)}</span></div><b class="pow">♥</b></div>`;
+  }
+  if (theme === 'game') {
+    // 게임 시작 화면 — 검은 화면에 픽셀 글자가 찍히고 PRESS START 가 깜박인 뒤 하얗게 번쩍
+    return `<div class="intro game-intro" id="intro" aria-hidden="true"><p class="hud">1UP ♥ 000000</p><p class="script"><span>${esc(text)}</span></p><p class="press">▶ PRESS START</p><div class="flash"></div></div>`;
   }
   return `<div class="intro" id="intro" aria-hidden="true"><div class="veil"></div><p class="script"><span>${esc(text)}</span></p></div>`;
 }
