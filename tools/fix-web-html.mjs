@@ -10,7 +10,7 @@
 // Expo Router 의 `app/+html.tsx` 로 하려 했지만 **`output: single` 에서는 그 파일이 조용히
 // 무시된다**(정적 렌더링 전용이다. 경고도 없다 — 빌드 결과를 직접 열어 보고 알았다).
 // 그래서 빌드 산출물을 고치는 쪽으로 간다.
-import { readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 
 const FILE = 'dist/web/index.html';
 const ANCHOR = '</style>';
@@ -22,9 +22,14 @@ html, body, #root { height: 100%; height: 100dvh; }
 body { background: #F2F4F6; }
 </style>`;
 
-const html = readFileSync(FILE, 'utf8');
+const html0 = readFileSync(FILE, 'utf8');
+// 홈 화면에 추가할 때 쓰는 아이콘(흰 바탕). Expo 단일 페이지 출력에는 apple-touch-icon 이 없다
+const TOUCH = '<link rel="apple-touch-icon" href="/apple-touch-icon.png">';
+const html = html0.includes('apple-touch-icon') ? html0 : html0.replace('</head>', `${TOUCH}\n</head>`);
+copyFileSync('assets/apple-touch-icon.png', 'dist/web/apple-touch-icon.png');
 
 if (html.includes(MARK)) {
+  writeFileSync(FILE, html);
   console.log('index.html — 높이 규칙이 이미 있다');
   process.exit(0);
 }
