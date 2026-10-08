@@ -23,7 +23,7 @@
     "android": {
       "package": "com.cocobanana.ppurin",
       "adaptiveIcon": {
-        "backgroundColor": "#FFF8E8",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },

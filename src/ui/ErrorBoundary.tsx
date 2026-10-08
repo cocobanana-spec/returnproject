@@ -61,7 +61,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <Pressable
           accessibilityRole="button"
           onPress={this.reset}
-          style={{ backgroundColor: '#3182F6', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
+          style={{ backgroundColor: '#00DC64', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
         >
           <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>다시 시도</Text>
         </Pressable>
