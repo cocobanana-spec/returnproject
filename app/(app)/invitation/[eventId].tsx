@@ -17,6 +17,7 @@ import {
   invitationKindForEvent,
   maxMonths,
   shareTitle,
+  isRichTemplate,
   sampleUrl,
   shareUrl,
   templatesFor,
@@ -58,6 +59,14 @@ import { summarizeRsvp } from '../../../src/domain/rsvp.ts';
 import { LoadFailed } from '../../../src/ui/LoadFailed';
 import { Screen } from '../../../src/ui/Screen';
 import { useToast } from '../../../src/ui/ToastProvider';
+
+// 템플릿 고를 때 아래에 붙는 한 줄 설명
+const TEMPLATE_HINT: Record<string, string> = {
+  basic: '흰 바탕에 꼭 필요한 것만 담은 단정한 청첩장이에요.',
+  spring: '표지 사진 위에 문구가 손글씨로 써진 뒤 사진이 드러나요. 달력·카운트다운·교통 안내·참석 여부가 들어가요.',
+  brown: '나무 문이 열리며 시작하는 앤티크한 청첩장이에요. 양피지 바탕에 나무 액자 사진, 금빛 장식이 들어가요.',
+  cartoon: '말풍선이 톡 튀어나오는 만화 같은 청첩장이에요. 굵은 테두리와 알록달록한 색으로 발랄하게 꾸며요.',
+};
 
 export default function InvitationScreen() {
   const t = useT();
@@ -311,11 +320,9 @@ export default function InvitationScreen() {
                 '{templatesFor(kind).find((tp) => tp.id === (templateId ?? 'basic'))?.name}' 샘플 보기 ›
               </Text>
             </Pressable>
-            {templateId === 'spring' && (
-              <Text style={{ color: colors.textMuted, fontSize: font.caption, lineHeight: 20 }}>
-                열면 표지 사진 위에 문구가 손글씨로 써지고, 사진이 드러난 뒤 아래로 내려 볼 수 있어요. 달력·카운트다운·교통 안내·참석 여부가 들어가요.
-              </Text>
-            )}
+            {TEMPLATE_HINT[templateId ?? 'basic'] ? (
+              <Text style={{ color: colors.textMuted, fontSize: font.caption, lineHeight: 20 }}>{TEMPLATE_HINT[templateId ?? 'basic']}</Text>
+            ) : null}
           </View>
         )}
 
@@ -333,7 +340,7 @@ export default function InvitationScreen() {
         <Guestbook invitationId={inv.id} />
 
         {kind === 'wedding' ? (
-          <WeddingForm c={content as WeddingContent} patch={patch} onPick={pickAndUpload} uploading={uploading} spring={templateId === 'spring'} />
+          <WeddingForm c={content as WeddingContent} patch={patch} onPick={pickAndUpload} uploading={uploading} spring={isRichTemplate(templateId)} />
         ) : (
           <FuneralForm c={content as FuneralContent} patch={patch} />
         )}

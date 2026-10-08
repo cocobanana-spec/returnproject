@@ -9,7 +9,7 @@
 import { type InvitationContent, type InvitationKind } from '../src/domain/invitation.ts';
 import { noticePage, renderInvitationPage } from '../src/invitation/render/index.ts';
 import type { GuestbookMessage } from '../src/invitation/render/html.ts';
-import { SAMPLE_GUESTBOOK, SAMPLE_WEDDING, sampleTemplateFromSlug } from '../src/invitation/samples.ts';
+import { SAMPLE_GUESTBOOK, sampleContent, sampleTemplateFromSlug } from '../src/invitation/samples.ts';
 
 type Env = {
   ASSETS: { fetch(request: Request): Promise<Response> };
@@ -87,7 +87,7 @@ export default {
       const html = renderInvitationPage({
         kind: 'wedding',
         templateId: sampleId,
-        content: SAMPLE_WEDDING,
+        content: sampleContent(sampleId),
         url: `${url.origin}/i/${sm![1]}`,
         assetUrl: (p) => `${url.origin}/sample/${p}`,
         guestbook: SAMPLE_GUESTBOOK,

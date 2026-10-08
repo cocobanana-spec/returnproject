@@ -229,3 +229,15 @@ test('봄 — 참석 여부를 끄면 버튼·양식이 없다', () => {
   const html = renderInvitationPage({ kind: 'wedding', templateId: 'spring', content, url: 'u', assetUrl: (p) => p, guestbookEndpoint: { supabaseUrl: 's', anonKey: 'k', slug: 'x' } });
   assert.ok(!html.includes('id="rsvp-form"'));
 });
+
+test('브라운·꾸러기 — 같은 본문에 테마별 인트로·글꼴, 꾸러기 기본 인트로는 한국어', () => {
+  const content = { groom: { name: 'a' }, bride: { name: 'b' }, date: '2026-10-11', time: '11:00', venue: { name: 'v' } };
+  const brown = renderInvitationPage({ kind: 'wedding', templateId: 'brown', content, url: 'u', assetUrl: (p) => p });
+  assert.ok(brown.includes('class="intro brown-intro"'));
+  assert.ok(brown.includes('family=Song+Myung'));
+  assert.ok(brown.includes('class="cal reveal"'), '달력 등 본문은 봄과 같다');
+  const toon = renderInvitationPage({ kind: 'wedding', templateId: 'cartoon', content, url: 'u', assetUrl: (p) => p });
+  assert.ok(toon.includes('class="intro toon-intro"'));
+  assert.ok(toon.includes('우리 결혼해요!'));
+  assert.ok(toon.includes('family=Bangers'));
+});

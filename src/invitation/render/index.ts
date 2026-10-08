@@ -11,7 +11,8 @@ import {
 } from '../../domain/invitation.ts';
 import { FUNERAL_BASIC_CSS, renderFuneralBody } from './funeral.ts';
 import { COPY_SCRIPT, document, koreanDate, koreanTime, guestbookForm, guestbookScript, marquee, noticePage, tFor, type GuestbookEndpoint, type GuestbookMessage } from './html.ts';
-import { SPRING_CSS, SPRING_FONTS, renderSpringBody, springScript } from './spring.ts';
+import { isRichTheme, renderSpringBody, springScript } from './spring.ts';
+import { THEME_FONTS, themeCss } from './themes.ts';
 import { WEDDING_BASIC_CSS, renderWeddingBody, type AssetUrl } from './wedding.ts';
 
 export { noticePage } from './html.ts';
@@ -59,15 +60,15 @@ export function renderInvitationPage(input: RenderInput): string {
   const bottom = guestbookEndpoint ? guestbookForm((guestbook ?? []).length, t) : '';
   const script = COPY_SCRIPT + (guestbookEndpoint ? guestbookScript(guestbookEndpoint, demo) : '');
 
-  if (kind === 'wedding' && templateId === 'spring') {
-    // 봄 — 방명록은 맨 아래 카드 목록이라 전광판을 두지 않는다. 인트로와 겹친다.
+  if (kind === 'wedding' && isRichTheme(templateId)) {
+    // 봄·브라운·꾸러기 — 같은 본문 구조. 방명록은 맨 아래 카드 목록이라 전광판을 두지 않는다. 인트로와 겹친다.
     const c = content as WeddingContent;
     // 미리보기 제목도 레퍼런스처럼 '준건, 소영 결혼합니다 💗'
     const springTitle = (c.lang ?? 'ko') === 'ko' ? `${c.groom.name}, ${c.bride.name} 결혼합니다 💗` : title;
     return document(
-      { title: springTitle, description, url, image: c.cover ? assetUrl(c.cover) : undefined, head: SPRING_FONTS },
-      SPRING_CSS,
-      badge + renderSpringBody(c, assetUrl, { guestbook, guestbookEndpoint }),
+      { title: springTitle, description, url, image: c.cover ? assetUrl(c.cover) : undefined, head: THEME_FONTS[templateId] },
+      themeCss(templateId),
+      badge + renderSpringBody(c, assetUrl, { guestbook, guestbookEndpoint }, templateId),
       COPY_SCRIPT + springScript(guestbookEndpoint, demo),
       t('inv.invitationNoun'),
       locale,

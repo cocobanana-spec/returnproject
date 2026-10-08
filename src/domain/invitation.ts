@@ -75,11 +75,20 @@ export const KIND_LABEL: Record<InvitationKind, string> = { wedding: '청첩장'
 export type Template = { id: string; kind: InvitationKind; name: string; free: boolean };
 
 export const TEMPLATES: Template[] = [
-  { id: 'basic', kind: 'wedding', name: '단정한 흰색', free: true },
+  { id: 'basic', kind: 'wedding', name: '단정', free: true },
   // 인트로 손글씨 애니메이션 → 사진, 종이 질감·명조체·달력·카운트다운·교통 안내·참석 여부(2026-10-07)
   { id: 'spring', kind: 'wedding', name: '봄', free: true },
+  // 봄과 같은 구조에 나무·앤티크 / 만화·웹툰 옷을 입힌 것(2026-10-08)
+  { id: 'brown', kind: 'wedding', name: '브라운', free: true },
+  { id: 'cartoon', kind: 'wedding', name: '꾸러기', free: true },
   { id: 'basic', kind: 'funeral', name: '흰 바탕', free: true },
 ];
+
+// 인트로·달력·카운트다운·교통 안내·참석 여부가 있는 템플릿. 편집 화면에서 추가 칸을 연다
+export const RICH_TEMPLATE_IDS = ['spring', 'brown', 'cartoon'] as const;
+export function isRichTemplate(id: string | null | undefined): boolean {
+  return !!id && (RICH_TEMPLATE_IDS as readonly string[]).includes(id);
+}
 
 export function templatesFor(kind: InvitationKind): Template[] {
   return TEMPLATES.filter((t) => t.kind === kind);

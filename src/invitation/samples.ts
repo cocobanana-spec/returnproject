@@ -5,7 +5,7 @@
 import type { WeddingContent } from '../domain/invitation.ts';
 import type { GuestbookMessage } from './render/html.ts';
 
-export const SAMPLE_TEMPLATE_IDS = ['basic', 'spring'] as const;
+export const SAMPLE_TEMPLATE_IDS = ['basic', 'spring', 'brown', 'cartoon'] as const;
 export type SampleTemplateId = (typeof SAMPLE_TEMPLATE_IDS)[number];
 
 export function sampleSlug(templateId: string): string {
@@ -46,3 +46,9 @@ export const SAMPLE_GUESTBOOK: GuestbookMessage[] = [
   { name: '현우', message: '행복하게 오래오래 잘 살아라~', created_at: '2027-03-28T11:40:00Z' },
   { name: '수아', message: '언니 결혼 축하해! 그날 꼭 갈게 🥰', created_at: '2027-03-25T08:05:00Z' },
 ];
+
+// 템플릿마다 견본 내용을 조금 다르게 — 꾸러기는 인트로를 한국어 기본 문구로
+export function sampleContent(id: SampleTemplateId): WeddingContent {
+  if (id === 'cartoon') return { ...SAMPLE_WEDDING, intro: undefined };
+  return SAMPLE_WEDDING;
+}

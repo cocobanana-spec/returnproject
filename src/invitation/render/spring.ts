@@ -3,7 +3,7 @@
 // 2026-10-07 사장님 레퍼런스(살롱드레터 청첩장)를 따라 만들었다. 칸은 WeddingContent 그대로이고 봄 전용 칸
 // (intro·parentPhones·transport·venue.phone·rsvp)을 더 읽는다. 다른 템플릿은 그 칸을 무시한다.
 //
-// 외부 자원: 이 템플릿만 구글 폰트 두 벌(나눔명조, Allura)을 싣는다(사장님 허용). 글꼴이 늦게 와도
+// 외부 자원: 이 템플릿만 구글 폰트 두 벌(나눔명조, Allura)을 싣는다(사장님 허용, 링크는 themes.ts THEME_FONTS). 글꼴이 늦게 와도
 // font-display=swap 이라 글자는 바로 보인다. 지도 이미지는 넣지 않는다(지도 API 키 필요 — 앱 열기 버튼만).
 //
 // 인트로(3~4초): 어두운 판 위에 문구가 왼쪽부터 써지고(clip-path), 판이 걷히면 표지 사진이 드러나며
@@ -13,9 +13,6 @@ import type { WeddingContent } from '../../domain/invitation.ts';
 import type { Locale } from '../../i18n/dict.ts';
 import { accountRow, attr, esc, koreanDate, koreanTime, tFor, type GuestbookEndpoint, type GuestbookMessage } from './html.ts';
 import type { AssetUrl } from './wedding.ts';
-
-export const SPRING_FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Allura&family=Nanum+Myeongjo:wght@400;700&display=swap" rel="stylesheet">`;
 
 // 템플릿 안에서만 쓰는 문구. 공용 사전(dict.ts)에 넣지 않는다 — 다른 화면이 쓰지 않는다.
 const S = {
@@ -154,11 +151,36 @@ export type SpringOptions = {
   guestbookEndpoint?: GuestbookEndpoint;
 };
 
-export function renderSpringBody(c: WeddingContent, assetUrl: AssetUrl, opts: SpringOptions = {}): string {
+// 같은 본문 구조를 쓰는 테마들 — 봄(기본), 브라운(나무·앤티크), 꾸러기(만화). 다른 것은 인트로 모양과 CSS(themes.ts) 뿐이다
+export type RichTheme = 'spring' | 'brown' | 'cartoon';
+export const RICH_THEMES: readonly RichTheme[] = ['spring', 'brown', 'cartoon'];
+export function isRichTheme(id: string): id is RichTheme {
+  return (RICH_THEMES as readonly string[]).includes(id);
+}
+
+const DEFAULT_INTRO: Record<RichTheme, string> = {
+  spring: "We're getting married",
+  brown: "We're getting married",
+  cartoon: '우리 결혼해요!',
+};
+
+function introHtml(theme: RichTheme, text: string): string {
+  if (theme === 'brown') {
+    // 나무 문 두 짝 — 문구가 금빛으로 써지고 문이 양쪽으로 열린다
+    return `<div class="intro brown-intro" id="intro" aria-hidden="true"><div class="door l"></div><div class="door r"></div><p class="script"><span>${esc(text)}</span></p></div>`;
+  }
+  if (theme === 'cartoon') {
+    // 만화 말풍선 — 톡 튀어나오고 글자가 타자 치듯 찍힌 뒤 하트가 터진다
+    return `<div class="intro toon-intro" id="intro" aria-hidden="true"><div class="bubble"><span>${esc(text)}</span></div><b class="pow">♥</b></div>`;
+  }
+  return `<div class="intro" id="intro" aria-hidden="true"><div class="veil"></div><p class="script"><span>${esc(text)}</span></p></div>`;
+}
+
+export function renderSpringBody(c: WeddingContent, assetUrl: AssetUrl, opts: SpringOptions = {}, theme: RichTheme = 'spring'): string {
   const locale: Locale = c.lang ?? 'ko';
   const s: Strings = S[locale] as Strings;
   const t = tFor(locale);
-  const intro = (c.intro?.trim() || "We're getting married").slice(0, 60);
+  const intro = (c.intro?.trim() || DEFAULT_INTRO[theme]).slice(0, 60);
   const cover = c.cover ? esc(assetUrl(c.cover)) : '';
   const pp = c.parentPhones ?? {};
   const hasParentPhones = !!(pp.groomFather || pp.groomMother || pp.brideFather || pp.brideMother);
@@ -187,10 +209,7 @@ export function renderSpringBody(c: WeddingContent, assetUrl: AssetUrl, opts: Sp
     .join('');
 
   return `
-<div class="intro" id="intro" aria-hidden="true">
-  <div class="veil"></div>
-  <p class="script"><span>${esc(intro)}</span></p>
-</div>
+${introHtml(theme, intro)}
 
 ${cover ? `<img class="hero" src="${cover}" alt="">` : '<div class="hero blank"></div>'}
 

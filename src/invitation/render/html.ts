@@ -241,7 +241,7 @@ export function noticePage(kind: 'not_found' | 'expired', url: string, locale: L
   const t = tFor(locale);
   const title = kind === 'expired' ? t('inv.expiredTitle') : t('inv.notFoundTitle');
   const text = kind === 'expired' ? t('inv.expiredBody') : t('inv.notFoundBody');
-  const css = `body{background:#faf9f6;color:#333}.notice{min-height:70vh;display:grid;place-items:center;text-align:center}`;
+  const css = `body{background:#fff;color:#333}.notice{min-height:70vh;display:grid;place-items:center;text-align:center}`;
   return document(
     { title, description: text, url, noindex: true },
     css,
