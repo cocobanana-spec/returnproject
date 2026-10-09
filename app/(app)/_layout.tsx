@@ -2,7 +2,7 @@
 import { Stack } from 'expo-router';
 import { isWeb } from '../../src/lib/platform.ts';
 import { useEffect } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import { recordActivityOncePerDay } from '../../src/lib/activity.ts';
 import { contentFrame, outerFrame } from '../../src/ui/webLayout.ts';
 import { useLedger } from '../../src/ledger/LedgerProvider';
@@ -68,6 +68,8 @@ export default function AppLayout() {
           ...(isWeb
             ? { headerTitleAlign: 'center' as const, headerLeftContainerStyle: { paddingLeft: 12 }, headerRightContainerStyle: { paddingRight: 12 } }
             : {}),
+          // 안드로이드 기본 헤더는 제목이 왼쪽에 붙어 '취소' 같은 왼쪽 버튼과 맞닿는다(2026-10-09 실기기). iOS 처럼 가운데로
+          ...(Platform.OS === 'android' ? { headerTitleAlign: 'center' as const } : {}),
           contentStyle: { backgroundColor: colors.bg },
         }}
       >
