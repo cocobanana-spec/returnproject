@@ -10,7 +10,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useT } from '../../../../src/i18n';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Platform, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DEFAULT_DIRECTION, entryRowName, entryRowSubtitle, isMineOf, upcomingHint, type Direction } from '../../../../src/domain/home.ts';
@@ -78,7 +78,10 @@ export default function HomeScreen() {
   const net = received - given;
   const netLine = net > 0 ? t('home.netMore') : net < 0 ? t('home.netLess') : t('home.netEven');
 
-  const bottomPad = insets.bottom + FAB_GAP + FAB_HEIGHT + space.xl;
+  // iOS 네이티브 탭은 콘텐츠 위에 떠 있어 아래 안전 영역에 탭바 높이가 들어 있다. 안드로이드·웹 탭은 화면을
+  // 나눠 쓰므로(탭바가 콘텐츠를 덮지 않는다) 안전 영역을 더하면 버튼이 탭바에서 붕 뜬다(2026-10-09 안드로이드 실기기)
+  const tabInset = Platform.OS === 'ios' ? insets.bottom : 0;
+  const bottomPad = tabInset + FAB_GAP + FAB_HEIGHT + space.xl;
 
   const header = (
     <View style={{ gap: space.xxl, paddingBottom: space.md }}>
@@ -209,7 +212,7 @@ export default function HomeScreen() {
 
       {/* 떠 있는 기록하기 — 네비게이션 레이어. 탭바 위 16pt. 글라스는 Button 이 iOS 26 에서만 켠다 */}
       {rows.length > 0 && (
-        <View pointerEvents="box-none" style={{ bottom: insets.bottom + FAB_GAP, left: space.xl, position: 'absolute', right: space.xl }}>
+        <View pointerEvents="box-none" style={{ bottom: tabInset + FAB_GAP, left: space.xl, position: 'absolute', right: space.xl }}>
           <Button label={recordLabel} onPress={() => router.push(recordHref)} floating />
         </View>
       )}

@@ -5,7 +5,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useT } from '../../../src/i18n';
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, FlatList, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { eventTypeLabel } from '../../../src/domain/event.ts';
@@ -52,7 +52,10 @@ export default function MyEventsScreen() {
   const shared = useQuery({ queryKey: ['events', 'shared'], queryFn: listSharedEvents });
   const sharedRows = shared.data ?? [];
 
-  const bottomPad = insets.bottom + FAB_GAP + FAB_HEIGHT + space.xl;
+  // iOS 네이티브 탭은 콘텐츠 위에 떠 있어 아래 안전 영역에 탭바 높이가 들어 있다. 안드로이드·웹 탭은 화면을
+  // 나눠 쓰므로(탭바가 콘텐츠를 덮지 않는다) 안전 영역을 더하면 버튼이 탭바에서 붕 뜬다(2026-10-09 안드로이드 실기기)
+  const tabInset = Platform.OS === 'ios' ? insets.bottom : 0;
+  const bottomPad = tabInset + FAB_GAP + FAB_HEIGHT + space.xl;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -138,7 +141,7 @@ export default function MyEventsScreen() {
       />
 
       {/* 떠 있는 만들기 — primary 글라스 캡슐(iOS 26). 탭바 위 16pt */}
-      <View pointerEvents="box-none" style={{ bottom: insets.bottom + FAB_GAP, left: space.xl, position: 'absolute', right: space.xl }}>
+      <View pointerEvents="box-none" style={{ bottom: tabInset + FAB_GAP, left: space.xl, position: 'absolute', right: space.xl }}>
         <Button label={t('myEvents.createLong')} onPress={() => router.push('/event/edit')} floating />
       </View>
     </View>

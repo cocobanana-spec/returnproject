@@ -61,7 +61,7 @@ function NativeTabsLayout() {
   const t = useT();
   const { colors } = useTokens();
   return (
-    <NativeTabs minimizeBehavior="onScrollDown" tintColor={colors.accent} labelStyle={{ fontWeight: '600' }}>
+    <NativeTabs minimizeBehavior="onScrollDown" tintColor={colors.accent} labelStyle={{ fontWeight: '600' }} labelVisibilityMode="labeled">
       <NativeTabs.Trigger name="(home)">
         <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} md={{ default: 'home', selected: 'home' }} />
         <NativeTabs.Trigger.Label>{t('tab.home')}</NativeTabs.Trigger.Label>

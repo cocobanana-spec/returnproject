@@ -23,6 +23,12 @@ import { CURRENT_LEDGER_KEY, LAST_TAB_KEY } from '../ledger/storage';
 export const AUTH_PROVIDERS = ['apple', 'google'] as const;
 export type AuthProviderId = (typeof AUTH_PROVIDERS)[number];
 
+// 플랫폼별로 보여 줄 로그인 — 안드로이드에는 Apple 로그인을 두지 않는다(2026-10-09 사장님: 어색하다).
+// 웹·iOS 는 둘 다. 안드로이드에서 Apple 로 가입한 사람은 웹이나 메일 로그인으로 들어온다.
+export function providersFor(os: string): readonly AuthProviderId[] {
+  return os === 'android' ? ['google'] : AUTH_PROVIDERS;
+}
+
 export const AUTH_PROVIDER_LABEL: Record<AuthProviderId, string> = {
   apple: 'Apple로 계속하기',
   google: 'Google로 계속하기',

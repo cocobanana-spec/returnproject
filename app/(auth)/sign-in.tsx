@@ -2,13 +2,13 @@
 import { useRouter } from 'expo-router';
 import { useT } from '../../src/i18n';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { signInWithEmail } from '../../src/auth/email.ts';
 import { repeatedFailureHint } from '../../src/auth/errors.ts';
 import {
-  AUTH_PROVIDERS,
+  providersFor,
   signInWith,
   type AuthProviderId,
 } from '../../src/auth/providers';
@@ -157,7 +157,7 @@ export default function SignInScreen() {
             <View style={{ backgroundColor: colors.border, flex: 1, height: 1 }} />
           </View>
 
-          {AUTH_PROVIDERS.map((provider) => (
+          {providersFor(Platform.OS).map((provider) => (
             <Button
               key={provider}
               label={t(`auth.${provider}`)}
